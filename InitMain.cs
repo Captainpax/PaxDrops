@@ -8,13 +8,13 @@ namespace PaxDrops
 {
     /// <summary>
     /// Main entry point for the PaxDrops mod.
-    /// Waits for the Main scene, initializes systems, and hooks time-based events.
+    /// Boots all systems on the "Main" scene and wires time-based triggers.
     /// </summary>
     public class InitMain : MelonMod
     {
         /// <summary>
-        /// Called by MelonLoader when the mod is first loaded.
-        /// Waits for the 'Main' scene to be ready before initializing logic.
+        /// Called once by MelonLoader when the mod is first loaded.
+        /// Waits for the scene "Main" before initializing logic.
         /// </summary>
         public override void OnInitializeMelon()
         {
@@ -23,35 +23,54 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Triggered when any scene is loaded. Boots systems only on 'Main'.
+        /// Triggered on any scene load. PaxDrops only activates when "Main" is loaded.
         /// </summary>
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != "Main") return;
+            if (scene.name != "Main")
+                return;
 
             SceneManager.sceneLoaded -= OnSceneLoaded;
             Logger.Msg(">> Scene 'Main' detected. Starting PaxDrops systems...");
 
-            // Initialize core systems
+            // Initialize all PaxDrops systems
             TierLevel.Init();
             DataBase.Init();
             MrStacks.Init();
             DeadDrop.Init();
 
-            // Hook into day progression
+            // Hook daily drop check into in-game clock
             TimeManager.OnDayPass += DeadDrop.HandleDayPass;
         }
 
         /// <summary>
-        /// Runs every frame. Used here for a developer shortcut (PageDown = add $5000).
+        /// Runs every frame. Used for developer hotkeys.
         /// </summary>
         public override void OnUpdate()
         {
+            // PageDown = Give $5,000 to the player (debug)
             if (Input.GetKeyDown(KeyCode.PageDown))
             {
-                // Add money using S1API.Money interface
                 Money.ChangeCashBalance(5000f, true, true);
                 Logger.Msg("💵 $5,000 added to Global Bank (PageDown).");
+            }
+
+            // PageUp = Force-schedule drop and trigger MrStacks message (debug)
+            if (Input.GetKeyDown(KeyCode.PageUp))
+            {
+                int today = TimeManager.ElapsedDays;
+
+                // Force Tier 1 packet (test only)
+                var packet = TierLevel.GetDropPacket(1);
+                DataBase.SaveDrop(today, packet);
+
+                Logger.Msg($"🧪 [Debug] Triggered test drop for Day {today} (Tier 1 packet).");
+
+                // Trigger the message as if it were morning
+                MrStacks.DebugTrigger();
+
+                // Force drop spawn
+                DeadDrop.HandleDayPass();
             }
         }
     }

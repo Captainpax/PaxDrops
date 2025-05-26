@@ -1,64 +1,103 @@
-﻿using S1API.GameTime;      // For day tracking
-using S1API.Messaging;     // For Response objects
-using S1API.Entities;      // For NPC logic
+﻿using S1API.GameTime;      // Provides access to in-game time (day, hour, etc.)
+using S1API.Messaging;     // Used for Response objects sent via the phone
+using S1API.Entities;      // Gives access to NPCs and their messaging systems
 
 namespace PaxDrops
 {
     /// <summary>
-    /// Handles the logic related to Mr. Stacks — your contact for ordering drops.
-    /// Sets up the phone dialogue and schedules future drop packets.
+    /// Handles the logic related to Mr. Stacks — your NPC contact for ordering drops.
+    /// Registers message options and schedules drop packets using phone interactions.
     /// </summary>
     public static class MrStacks
     {
+        // Cached reference to the NPC contact
+        private static NPC _npc;
+
+        // Tracks whether the initial drop offer message has been sent this session
+        private static bool _hasSentIntro;
+
         /// <summary>
-        /// Called from InitMain after scene load.
+        /// Entry point called during PaxDrops init. Registers message callbacks and phone logic.
         /// </summary>
         public static void Init()
         {
-            Logger.Msg("[MrStacks] Initialized and ready.");
-            RegisterPhoneDropOption();
+            Logger.Msg("[MrStacks] Initialized.");
+            SetupContact();
+
+            // Hook into daily progression to auto-send messages
+            TimeManager.OnDayPass += TrySendIntroMessage;
         }
 
         /// <summary>
-        /// Adds a message + response to Mr. Stacks' contact.
-        /// If no such NPC exists, one will be created automatically.
+        /// Looks for the NPC contact. If none exists, creates a fallback instance.
         /// </summary>
-        private static void RegisterPhoneDropOption()
+        private static void SetupContact()
         {
-            // Try to find existing contact by ID
-            var npc = NPC.All.Find(n => n.ID == "MrStacks");
+            // Try to find a contact with ID 'MrStacks' in all loaded NPCs
+            _npc = NPC.All.Find(n => n.ID == "MrStacks");
 
-            // Create fallback contact if none found
-            if (npc == null)
+            // If not found, spawn a runtime fallback contact
+            if (_npc == null)
             {
-                npc = new MrStacksContact("MrStacks", "Mr.", "Stacks");
-                Logger.Msg("[MrStacks] Created fallback NPC 'MrStacks'.");
+                _npc = new MrStacksContact("MrStacks", "Mr.", "Stacks");
+                Logger.Msg("[MrStacks] Created fallback NPC contact.");
+            }
+        }
+
+        /// <summary>
+        /// Triggers the message + drop request option during morning hours.
+        /// Only runs once per scene load.
+        /// </summary>
+        private static void TrySendIntroMessage()
+        {
+            // Only allow once
+            if (_hasSentIntro || _npc == null)
+                return;
+
+            // Current in-game time (24h)
+            int hour = TimeManager.CurrentTime;
+
+            // Limit a message to a daytime window (7AM–7PM)
+            if (hour < 700 || hour >= 1900)
+            {
+                Logger.Msg($"[MrStacks] ⏰ Skipped intro message — hour {hour} is outside 7AM–7PM window.");
+                return;
             }
 
-            // Define a player response option
+            _hasSentIntro = true;
+
+            // Define a phone response option
             var orderDrop = new Response
             {
                 Label = "ORDER_DROP",
                 Text = "Can I get a drop?",
-                OnTriggered = () =>
+                OnTriggered = delegate
                 {
-                    // Schedule drop for tomorrow (elapsed day + 1)
                     int tomorrow = TimeManager.ElapsedDays + 1;
                     var packet = TierLevel.GetDropPacket(tomorrow);
                     DataBase.SaveDrop(tomorrow, packet);
 
-                    npc.SendTextMessage("I'll send you a drop tomorrow morning.");
-                    Logger.Msg($"[MrStacks] Drop scheduled for Day {tomorrow}.");
+                    _npc.SendTextMessage("I'll send you a drop tomorrow morning.");
+                    Logger.Msg($"[MrStacks] ✅ Drop scheduled for Day {tomorrow}.");
                 }
             };
 
-            // Send intro a text and response option
-            npc.SendTextMessage("Need something?", new[] { orderDrop });
+            // Send the initial "Need something?" message + drop option
+            _npc.SendTextMessage("Need something?", new[] { orderDrop });
         }
 
         /// <summary>
-        /// Fallback contact if none is found at the scene.
-        /// This is auto-created during runtime if needed.
+        /// Debug trigger: forcibly re-sends the intro message.
+        /// Useful for testing phone behavior (called from PageUp, etc.)
+        /// </summary>
+        public static void DebugTrigger()
+        {
+            _hasSentIntro = false;
+            TrySendIntroMessage();
+        }
+
+        /// <summary>
+        /// A fallback NPC definition used if no base game contact with ID 'MrStacks' exists.
         /// </summary>
         private class MrStacksContact : NPC
         {
