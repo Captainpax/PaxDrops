@@ -38,6 +38,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Commands\PaxDropCommand.cs" />
         <Compile Include="Commands\PaxGiveMoneyCommand.cs" />
         <Compile Include="Commands\PaxSetTimeCommand.cs" />
         <Compile Include="Commands\PaxSpawnDropCommand.cs" />
@@ -136,4 +137,11 @@
     </ItemGroup>
 
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+    
+    <Target Name="OverwriteWithPublicizedAssembly" AfterTargets="Build">
+        <Copy
+                SourceFiles="A:\ScheduleI-Publicize\publicized_assemblies\Assembly-CSharp_publicized.dll"
+                DestinationFiles="$(OutputPath)\Assembly-CSharp.dll"
+                OverwriteReadOnlyFiles="true" />
+    </Target>
 </Project>

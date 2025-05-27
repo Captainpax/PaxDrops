@@ -1,69 +1,63 @@
 ﻿using MelonLoader;
+using PaxDrops.Commands;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using ScheduleOne;
 using System.Collections.Generic;
 using System.Reflection;
-using PaxDrops.Commands;
-using S1API.GameTime;
 
 namespace PaxDrops
 {
     public class InitMain : MelonMod
     {
-        public override void OnInitializeMelon()
+        private bool _commandsRegistered;
+
+        /// <summary>
+        /// Called when a scene finishes loading. We hook into the main gameplay scene here.
+        /// </summary>
+        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
-            Logger.Msg(">> PaxDrops loaded. Waiting for scene 'Main'...");
-            SceneManager.sceneLoaded += OnSceneLoaded;
+            if (sceneName == "Main") // Replace with your actual main scene name if different
+            {
+                MelonCoroutines.Start(DelayedInit());
+            }
         }
 
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        /// <summary>
+        /// Delay initialization to allow ScheduleOne systems to finish loading first.
+        /// </summary>
+        private System.Collections.IEnumerator DelayedInit()
         {
-            if (scene.name != "Main") return;
+            yield return new WaitForSeconds(1f); // Delay to ensure console is ready
 
-            SceneManager.sceneLoaded -= OnSceneLoaded;
-            Logger.Msg(">> Scene 'Main' detected. Starting PaxDrops systems...");
+            if (!_commandsRegistered)
+            {
+                RegisterConsoleCommands();
+                _commandsRegistered = true;
+            }
 
-            TierLevel.Init();
-            DataBase.Init();
-            MrStacks.Init();
-            DeadDrop.Init();
-
-            TimeManager.OnDayPass += DeadDrop.HandleDayPass;
-
-            RegisterConsoleCommands();
+            Logger.Msg("PaxDrops initialized.");
         }
 
+        /// <summary>
+        /// Uses reflection to access the internal ScheduleOne.Console.commands dictionary
+        /// and inject our custom PaxDropCommand into both the lookup table and visible UI list.
+        /// </summary>
         private void RegisterConsoleCommands()
         {
-            var paxCommands = new List<ScheduleOne.Console.ConsoleCommand>
+            var consoleType = typeof(Console);
+            var commandsField = consoleType.GetField("commands", BindingFlags.NonPublic | BindingFlags.Static);
+            var commandsDict = commandsField?.GetValue(null) as Dictionary<string, Console.ConsoleCommand>;
+
+            if (commandsDict != null && !commandsDict.ContainsKey("paxdrop"))
             {
-                new PaxGiveMoneyCommand(),
-                new PaxSpawnDropCommand(),
-                new PaxSetTimeCommand(),
-                new PaxTeleportCommand()
-            };
+                var command = new PaxDropCommand();
 
-            var console = ScheduleOne.Console.Instance;
+                commandsDict.Add(command.CommandWord, command); // Inject into dispatch system
+                Console.Commands.Add(command);                 // Show in console UI list
 
-            var dictField = typeof(ScheduleOne.Console).GetField("commands", BindingFlags.NonPublic | BindingFlags.Static);
-            var commandDict = dictField?.GetValue(null) as Dictionary<string, ScheduleOne.Console.ConsoleCommand>;
-
-            if (commandDict == null)
-            {
-                Debug.LogError("❌ PaxDrops: Could not access Console.commands dictionary.");
-                return;
+                Logger.Msg("Registered paxdrop command to ScheduleOne.Console.");
             }
-
-            foreach (var cmd in paxCommands)
-            {
-                if (!commandDict.ContainsKey(cmd.CommandWord))
-                    commandDict.Add(cmd.CommandWord, cmd);
-
-                if (!ScheduleOne.Console.Commands.Contains(cmd))
-                    ScheduleOne.Console.Commands.Add(cmd);
-            }
-
-            Debug.Log("✅ PaxDrops console commands registered.");
         }
     }
 }
