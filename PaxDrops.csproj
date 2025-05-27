@@ -38,6 +38,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Commands\PaxGiveMoneyCommand.cs" />
+        <Compile Include="Commands\PaxSetTimeCommand.cs" />
+        <Compile Include="Commands\PaxSpawnDropCommand.cs" />
+        <Compile Include="Commands\PaxTeleportCommand.cs" />
         <Compile Include="DataBase.cs" />
         <Compile Include="DeadDrop.cs" />
         <Compile Include="InitMain.cs" />
@@ -53,6 +57,9 @@
         </Reference>
         <Reference Include="Assembly-CSharp">
             <HintPath>A:\SteamLibrary\steamapps\common\Schedule I\Schedule I_Data\Managed\Assembly-CSharp.dll</HintPath>
+        </Reference>
+        <Reference Include="Assembly-CSharp-firstpass">
+          <HintPath>A:\SteamLibrary\steamapps\common\Schedule I\Schedule I_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
         </Reference>
         <Reference Include="MelonLoader">
             <HintPath>A:\SteamLibrary\steamapps\common\Schedule I\MelonLoader\net35\MelonLoader.dll</HintPath>
