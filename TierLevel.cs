@@ -1,100 +1,187 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using S1API.GameTime;
+using S1API.Leveling; 
 
 namespace PaxDrops
 {
     /// <summary>
-    /// Manages item tier levels and generates randomized drop packets based on in-game day.
+    /// Manages item tier levels and generates full DropPackets (cash + loot).
+    /// Tiers scale by player rank and in-game day progression.
     /// </summary>
     public static class TierLevel
     {
         /// <summary>
-        /// Represents item power tiers based on player progression (day count).
+        /// Defines mafia-themed drop tiers (1–9), grouped in 3 families.
         /// </summary>
         public enum Tier
         {
-            Tier1 = 1,
-            Tier2,
-            Tier3,
-            Tier4,
-            Tier5,
-            Tier6,
-            Tier7,
-            Tier8,
-            Tier9
+            // 👕 Street Earners (1–3)
+            StreetEarner1 = 1, // 1
+            StreetEarner2,     // 2
+            StreetEarner3,     // 3
+
+            // 🧥 Capos (4–6)
+            Capo1,             // 4
+            Capo2,             // 5
+            Capo3,             // 6
+
+            // 👑 Dons (7–9)
+            Don1,              // 7
+            Don2,              // 8
+            Don3               // 9
         }
 
         /// <summary>
-        /// Maps each tier to a pool of valid item IDs.
+        /// Represents a single drop packet with cash and item stacks.
         /// </summary>
-        public static Dictionary<Tier, List<string>> ItemPools = new Dictionary<Tier, List<string>>();
+        public class DropPacket
+        {
+            public int CashAmount;
+            public List<ItemStack> Loot;
 
-        /// <summary>
-        /// Initializes the tier-based item pools.
-        /// Lower tiers have fewer/cheaper items, higher tiers include rare ones.
-        /// </summary>
+            public override string ToString()
+            {
+                string items = string.Join(", ", Loot.ConvertAll(x => $"{x.ItemID} x{x.Quantity}"));
+                return $"${CashAmount} + [{items}]";
+            }
+
+            public List<string> ToFlatList()
+            {
+                var list = new List<string> { "cash" };
+                foreach (var stack in Loot)
+                    list.Add(stack.ItemID);
+                return list;
+            }
+
+            public class ItemStack
+            {
+                public string ItemID;
+                public int Quantity;
+            }
+        }
+
+        private const int MaxTier = 9;
+        private const int MinCash = 100;
+        private const int MaxCash = 1000;
+        private const int MaxSlots = 5;
+
+        private static readonly Dictionary<Tier, List<string>> LootPools = new Dictionary<Tier, List<string>>();
+        private static readonly System.Random Rng = new System.Random();
+
         public static void Init()
         {
-            Logger.Msg("[TierLevel] Initializing item tiers...");
+            Logger.Msg("[TierLevel] Loading mafia-themed loot pools...");
 
-            // Base items — safe early-game pool
-            ItemPools[Tier.Tier1] = new List<string>
+            LootPools[Tier.StreetEarner1] = new List<string>
             {
-                "acid", "baggie", "soil", "pseudo", "cokeleaf", "cash"
+                "acid", "baggie", "soil", "pseudo", "cokeleaf"
             };
 
-            // Expand tier 2 with light upgrades
-            ItemPools[Tier.Tier2] = new List<string>(ItemPools[Tier.Tier1])
+            LootPools[Tier.StreetEarner2] = new List<string>(LootPools[Tier.StreetEarner1])
             {
-                "defaultweed", "battery", "bucketHat", "flashlight"
+                "battery", "defaultweed", "flashlight"
             };
 
-            // Tier 3 adds starter drugs/tools
-            ItemPools[Tier.Tier3] = new List<string>(ItemPools[Tier.Tier2])
+            LootPools[Tier.StreetEarner3] = new List<string>(LootPools[Tier.StreetEarner2])
             {
-                "meth", "cocainebase", "glass", "jorts"
+                "meth", "cocainebase", "glass"
             };
 
-            // Tier 4 through 9 build on the previous with rare loot
-            for (int i = 4; i <= 9; i++)
+            LootPools[Tier.Capo1] = new List<string>(LootPools[Tier.StreetEarner3])
             {
-                Tier tier = (Tier)i;
-                Tier prevTier = (Tier)(i - 1);
+                "granddaddypurple", "cocaleaf", "cowboyhat"
+            };
 
-                ItemPools[tier] = new List<string>(ItemPools[prevTier])
-                {
-                    "goldchain", "granddaddypurple", "goldbar", "grandfatherclock"
-                };
-            }
+            LootPools[Tier.Capo2] = new List<string>(LootPools[Tier.Capo1])
+            {
+                "cocaine", "goldbar", "m1911", "machete"
+            };
 
-            Logger.Msg("[TierLevel] Tier pools loaded.");
+            LootPools[Tier.Capo3] = new List<string>(LootPools[Tier.Capo2])
+            {
+                "speedgrow", "growtent", "halogengrowlight"
+            };
+
+            LootPools[Tier.Don1] = new List<string>(LootPools[Tier.Capo3])
+            {
+                "laboven", "packagingstation", "sourdiesel"
+            };
+
+            LootPools[Tier.Don2] = new List<string>(LootPools[Tier.Don1])
+            {
+                "grandfatherclock", "goldchain", "revolver"
+            };
+
+            LootPools[Tier.Don3] = new List<string>(LootPools[Tier.Don2])
+            {
+                "goldentoilet", "goldenskateboard", "jukebox"
+            };
+
+            Logger.Msg("[TierLevel] Loot pools loaded.");
         }
 
         /// <summary>
-        /// Builds a randomized drop packet for a specific in-game day.
-        /// Always includes cash, and 2–3 random tier items.
+        /// Returns a full drop packet with 1 cash stack and up to 4 loot stacks.
         /// </summary>
-        /// <param name="day">In-game day (1–9 maps to Tier1–Tier9)</param>
-        /// <returns>A list of item IDs</returns>
-        public static List<string> GetDropPacket(int day)
+        public static DropPacket GetDropPacket(int day)
         {
-            Tier currentTier = (Tier)Mathf.Clamp(day, 1, 9);
-            List<string> pool = ItemPools[currentTier];
-            List<string> packet = new List<string>();
+            Tier tier = GetMaxUnlockedTier(day);
+            List<string> pool = LootPools[tier];
+            int tierNum = (int)tier;
 
-            // Always include some cash
-            packet.Add("cash");
+            // Always reserve 1 slot for cash
+            int lootSlots = MaxSlots - 1;
 
-            // Randomly select 2–3 extra items
-            int count = Random.Range(2, 4);
-            for (int i = 0; i < count; i++)
+            var loot = new List<DropPacket.ItemStack>();
+            for (int i = 0; i < lootSlots; i++)
             {
-                string item = pool[Random.Range(0, pool.Count)];
-                packet.Add(item);
+                string itemID = pool[UnityEngine.Random.Range(0, pool.Count)];
+                int qty = GetStackQuantity(tierNum);
+                loot.Add(new DropPacket.ItemStack { ItemID = itemID, Quantity = qty });
             }
 
-            Logger.Msg(string.Format("[TierLevel] Drop packet for Day {0} (Tier {1}): {2}", day, currentTier, string.Join(", ", packet)));
+            int cash = Mathf.Clamp((int)(Rng.Next(MinCash, MaxCash + 1) * (0.7f + tierNum * 0.1f)), MinCash, MaxCash);
+
+            var packet = new DropPacket
+            {
+                CashAmount = cash,
+                Loot = loot
+            };
+
+            Logger.Msg($"[TierLevel] Created drop for Day {day} ({tier}) ➤ {packet}");
             return packet;
+        }
+
+        /// <summary>
+        /// Returns quantity per item stack based on tier strength.
+        /// </summary>
+        private static int GetStackQuantity(int tierNum)
+        {
+            if (tierNum >= 7) return UnityEngine.Random.Range(3, 6); // Don: 3–5
+            if (tierNum >= 4) return UnityEngine.Random.Range(2, 4); // Capo: 2–3
+            return UnityEngine.Random.Range(1, 3);                   // Street: 1–2
+        }
+
+        public static Tier GetMaxUnlockedTier(int day)
+        {
+            Rank rank = LevelManager.Rank;
+
+            int rankLimit = 3;
+            if (rank >= Rank.ShotCaller)
+                rankLimit = 9;
+            else if (rank >= Rank.Peddler)
+                rankLimit = 6;
+
+            int maxTier = Mathf.Min(day, rankLimit);
+            return (Tier)Mathf.Clamp(maxTier, 1, MaxTier);
+        }
+
+
+
+        public static bool IsTierUnlocked(Tier tier)
+        {
+            return (int)tier <= (int)GetMaxUnlockedTier(TimeManager.ElapsedDays);
         }
     }
 }

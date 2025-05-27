@@ -2,33 +2,32 @@
 using S1API.Messaging;
 using S1API.Entities;
 using System;
+using System.Collections.Generic;
+using static PaxDrops.TierLevel;
 
 namespace PaxDrops
 {
     /// <summary>
-    /// Handles the logic related to Mr. Stacks — your NPC contact for ordering drops.
-    /// Registers message options and schedules drop packets using phone interactions.
+    /// Manages the phone interaction with Mr. Stacks, allowing the player to request custom drop tiers.
     /// </summary>
     public static class MrStacks
     {
         private static NPC _npc;
-        private static bool _hasSentIntro;
-        private static int _lastIntroDay;
+        private static bool _hasSentToday;
+        private static int _lastDay;
 
         /// <summary>
-        /// Entry point called during PaxDrops init. Registers message callbacks and phone logic.
+        /// Initializes Mr. Stacks and ensures his contact exists.
         /// </summary>
         public static void Init()
         {
-            Logger.Msg("[MrStacks] Initialized.");
+            Logger.Msg("[MrStacks] 🧠 Booting up.");
             SetupContact();
-
-            // Hook into daily progression to auto-send messages
             TimeManager.OnDayPass += TrySendIntroMessage;
         }
 
         /// <summary>
-        /// Looks for the NPC contact. If none exists, creates a fallback instance.
+        /// Ensures Mr. Stacks exists as a contact in the phone system.
         /// </summary>
         private static void SetupContact()
         {
@@ -38,80 +37,121 @@ namespace PaxDrops
             {
                 _npc = new MrStacksContact("MrStacks", "Mr.", "Stacks");
 
-                // Manually register if not already in the list
                 if (!NPC.All.Contains(_npc))
                     NPC.All.Add(_npc);
 
-                Logger.Msg("[MrStacks] 🧍 Created fallback NPC contact.");
+                Logger.Msg("[MrStacks] 📇 Created fallback contact.");
             }
         }
 
         /// <summary>
-        /// Triggers the message + drop request option during morning hours.
-        /// Only runs once per day during valid hours.
+        /// Sends the initial "Need somethin'?" message if during valid hours and not yet sent today.
         /// </summary>
         private static void TrySendIntroMessage()
         {
             if (_npc == null)
-            {
-                Logger.Warn("[MrStacks] ❌ Cannot send message — contact missing.");
                 return;
-            }
 
             int hour = TimeManager.CurrentTime;
             int today = TimeManager.ElapsedDays;
 
-            if (_hasSentIntro && _lastIntroDay == today)
+            if (_hasSentToday && _lastDay == today)
                 return;
 
             if (hour < 700 || hour >= 1900)
             {
-                Logger.Msg($"[MrStacks] ⏰ Skipped intro message — hour {hour} is outside 7AM–7PM.");
+                Logger.Msg($"[MrStacks] 💤 Skipped message — hour {hour} outside 7AM–7PM.");
                 return;
             }
 
-            _hasSentIntro = true;
-            _lastIntroDay = today;
+            _hasSentToday = true;
+            _lastDay = today;
 
-            try
+            // Tier group options (split by mafia theme)
+            var groupOptions = new List<Response>
             {
-                var orderDrop = new Response
+                new Response
                 {
-                    Label = "ORDER_DROP",
-                    Text = "Can I get a drop?",
-                    OnTriggered = delegate
+                    Label = "GROUP_STREET",
+                    Text = "Gimme a Street Earner pack",
+                    OnTriggered = () => AskForTier("Street Earner", new[]
                     {
-                        int tomorrow = TimeManager.ElapsedDays + 1;
-                        int dropHour = new Random().Next(700, 1900); // Random hour between 7am–7pm
-                        var packet = TierLevel.GetDropPacket(tomorrow);
+                        Tier.StreetEarner1, Tier.StreetEarner2, Tier.StreetEarner3
+                    })
+                },
+                new Response
+                {
+                    Label = "GROUP_CAPO",
+                    Text = "Callin' in Capo favors",
+                    OnTriggered = () => AskForTier("Capo", new[]
+                    {
+                        Tier.Capo1, Tier.Capo2, Tier.Capo3
+                    })
+                },
+                new Response
+                {
+                    Label = "GROUP_DON",
+                    Text = "Summon the Don’s respect",
+                    OnTriggered = () => AskForTier("Don", new[]
+                    {
+                        Tier.Don1, Tier.Don2, Tier.Don3
+                    })
+                }
+            };
 
-                        DataBase.SaveDrop(tomorrow, packet, dropHour, "order");
-                        _npc.SendTextMessage($"A drop is scheduled for tomorrow around {dropHour / 100}:00.");
-                        Logger.Msg($"[MrStacks] ✅ Drop scheduled for Day {tomorrow} @ {dropHour}.");
-                    }
-                };
-
-                _npc.SendTextMessage("Need something?", new[] { orderDrop });
-                Logger.Msg("[MrStacks] 📩 Intro message sent.");
-            }
-            catch (Exception ex)
-            {
-                Logger.Exception(ex);
-                Logger.Warn("[MrStacks] ⚠️ Failed to send message — phone app may be unstable.");
-            }
+            _npc.SendTextMessage("Lookin' for somethin' special?", groupOptions.ToArray());
+            Logger.Msg("[MrStacks] 📲 Intro message sent.");
         }
 
         /// <summary>
-        /// Debug trigger: forcibly re-sends the intro message.
+        /// Asks the player to choose a tier from the selected group.
+        /// </summary>
+        private static void AskForTier(string groupName, Tier[] groupTiers)
+        {
+            int today = TimeManager.ElapsedDays;
+            var options = new List<Response>();
+
+            foreach (var tier in groupTiers)
+            {
+                if (!IsTierUnlocked(tier))
+                    continue;
+
+                options.Add(new Response
+                {
+                    Label = $"TIER_{(int)tier}",
+                    Text = $"Tier {(int)tier}",
+                    OnTriggered = () =>
+                    {
+                        int dropHour = new Random().Next(700, 1900);
+                        var packet = GetDropPacket(today + 1);
+
+                        DataBase.SaveDrop(today + 1, packet.ToFlatList(), dropHour, $"order:{tier}");
+                        _npc.SendTextMessage($"You got it. Tier {(int)tier} comin' your way around {dropHour / 100}:00.");
+                        Logger.Msg($"[MrStacks] 📦 Scheduled Tier {(int)tier} drop for Day {today + 1} @ {dropHour}.");
+                    }
+                });
+            }
+
+            if (options.Count == 0)
+            {
+                _npc.SendTextMessage($"You're not ready for any {groupName} drops yet.");
+                return;
+            }
+
+            _npc.SendTextMessage($"Which {groupName} drop you want?", options.ToArray());
+        }
+
+        /// <summary>
+        /// Forces message resend for testing.
         /// </summary>
         public static void DebugTrigger()
         {
-            _hasSentIntro = false;
+            _hasSentToday = false;
             TrySendIntroMessage();
         }
 
         /// <summary>
-        /// A fallback NPC definition used if no base game contact with ID 'MrStacks' exists.
+        /// Fallback NPC contact if none exists in game.
         /// </summary>
         private class MrStacksContact : NPC
         {
