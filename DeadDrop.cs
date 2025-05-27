@@ -8,12 +8,11 @@ namespace PaxDrops
 {
     /// <summary>
     /// Handles logic for spawning dead drops from scheduled drop packets.
-    /// Triggered by the daily game time event at 7:00 AM.
     /// </summary>
     public static class DeadDrop
     {
         /// <summary>
-        /// Initializes the DeadDrop system and subscribes to day transitions.
+        /// Initializes the DeadDrop system.
         /// </summary>
         public static void Init()
         {
@@ -22,44 +21,71 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Triggered at the start of each new in-game day.
-        /// Spawns a dead drop at exactly 7:00 AM if one is scheduled.
+        /// Automatically triggered each in-game day.
+        /// Checks for scheduled drops between 7AM–7PM.
         /// </summary>
         public static void HandleDayPass()
         {
-            int currentTime = TimeManager.CurrentTime;
+            int currentHour = TimeManager.CurrentTime;
+            int currentDay = TimeManager.ElapsedDays;
 
-            // Only spawn drops at 7:00 AM
-            if (currentTime != 700)
+            // Enforce allowed a drop window
+            if (currentHour < 700 || currentHour > 1900)
             {
-                Logger.Msg($"[DeadDrop] ⏰ Skipped — current time is {currentTime}, waiting for 700.");
+                Logger.Msg($"[DeadDrop] ⏰ Skipped — current time is {currentHour}, outside 7AM–7PM.");
                 return;
             }
 
-            int currentDay = TimeManager.ElapsedDays;
-            List<string> packet = DataBase.GetDrop(currentDay);
-            if (packet == null)
+            // Load DB drop for today
+            if (!DataBase.GetDrop(currentDay, out List<string> packet, out int scheduledHour, out string type))
             {
                 Logger.Msg($"[DeadDrop] 📭 No drop scheduled for Day {currentDay}.");
                 return;
             }
 
+            // Don't spawn early or late
+            if (scheduledHour != currentHour)
+            {
+                Logger.Msg($"[DeadDrop] ⏳ Scheduled drop for Day {currentDay} is set for {scheduledHour}, not {currentHour}.");
+                return;
+            }
+
+            SpawnDrop(currentDay, packet, scheduledHour, type);
+        }
+
+        /// <summary>
+        /// Force spawns a drop regardless of time.
+        /// Used by debug/test triggers.
+        /// </summary>
+        public static void ForceSpawnDrop(int day, List<string> packet, string type = "debug", int hour = -1)
+        {
+            if (hour == -1)
+                hour = TimeManager.CurrentTime;
+
+            SpawnDrop(day, packet, hour, type);
+        }
+
+        /// <summary>
+        /// Spawns a drop into the first available dead drop location.
+        /// </summary>
+        private static void SpawnDrop(int day, List<string> packet, int hour, string type)
+        {
             DeadDropInstance drop = DeadDropManager.All.FirstOrDefault();
             if (drop == null)
             {
-                Logger.Warn("[DeadDrop] ❌ No valid dead drop location found in scene.");
+                Logger.Warn("[DeadDrop] ❌ No valid dead drop location found.");
                 return;
             }
 
             Logger.Msg($"[DeadDrop] 📦 Spawning drop at {drop.Position} into {drop.Storage.GetType().Name} (GUID: {drop.GUID})");
-            Logger.Msg($"[DeadDrop] ➤ Contents: {string.Join(", ", packet)}");
+            Logger.Msg($"[DeadDrop] 📅 Day {day} @ {hour} ({type}) ➤ Contents: {string.Join(", ", packet)}");
 
             int success = 0;
             int fail = 0;
 
             foreach (string id in packet)
             {
-                ItemDefinition def = ItemManager.GetItemDefinition(id);
+                var def = ItemManager.GetItemDefinition(id);
                 if (def == null)
                 {
                     Logger.Warn($"[DeadDrop] ⚠️ Unknown item ID: '{id}'");
@@ -80,7 +106,7 @@ namespace PaxDrops
                 success++;
             }
 
-            Logger.Msg($"[DeadDrop] ✅ Drop complete for Day {currentDay}: {success} added, {fail} failed.");
+            Logger.Msg($"[DeadDrop] ✅ Drop complete for Day {day}: {success} added, {fail} failed.");
         }
     }
 }

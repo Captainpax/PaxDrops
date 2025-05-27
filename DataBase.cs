@@ -6,22 +6,18 @@ namespace PaxDrops
 {
     /// <summary>
     /// Handles persistent storage of scheduled dead drops.
-    /// Uses SQLite to read/write drop packets based on in-game days.
     /// </summary>
     public static class DataBase
     {
-        // Absolute path to the PaxDrops SQLite database
         private static readonly string DbPath = Path.Combine("Mods", "PaxDrops", "drops.db");
 
-        // Ensure directory exists before anything happens
         static DataBase()
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(DbPath));
+            string dir = Path.GetDirectoryName(DbPath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
         }
 
-        /// <summary>
-        /// Initializes the SQLite database file if it doesn't exist.
-        /// </summary>
         public static void Init()
         {
             if (!File.Exists(DbPath))
@@ -30,12 +26,9 @@ namespace PaxDrops
                 using (var conn = new SQLiteConnection($"Data Source={DbPath};Version=3;"))
                 {
                     conn.Open();
-
-                    string table = "CREATE TABLE Drops (day INTEGER PRIMARY KEY, packet TEXT)";
+                    string table = "CREATE TABLE Drops (day INTEGER PRIMARY KEY, packet TEXT, hour INTEGER, type TEXT)";
                     using (var cmd = new SQLiteCommand(table, conn))
-                    {
                         cmd.ExecuteNonQuery();
-                    }
                 }
 
                 Logger.Msg($"[DataBase] 📁 Created new SQLite DB at {DbPath}");
@@ -46,53 +39,50 @@ namespace PaxDrops
             }
         }
 
-        /// <summary>
-        /// Saves a drop packet (list of item IDs) for a specific in-game day.
-        /// Overwrites any existing entry for the same day.
-        /// </summary>
-        /// <param name="day">The in-game day to store the drop for.</param>
-        /// <param name="dropPacket">A list of item IDs.</param>
-        public static void SaveDrop(int day, List<string> dropPacket)
+        public static void SaveDrop(int day, List<string> dropPacket, int hour = 700, string type = "random")
         {
             string joined = string.Join(",", dropPacket);
-
             using (var conn = new SQLiteConnection($"Data Source={DbPath};Version=3;"))
             {
                 conn.Open();
-
-                string query = "INSERT OR REPLACE INTO Drops (day, packet) VALUES (@day, @packet)";
+                string query = "INSERT OR REPLACE INTO Drops (day, packet, hour, type) VALUES (@day, @packet, @hour, @type)";
                 using (var cmd = new SQLiteCommand(query, conn))
                 {
                     cmd.Parameters.AddWithValue("@day", day);
                     cmd.Parameters.AddWithValue("@packet", joined);
+                    cmd.Parameters.AddWithValue("@hour", hour);
+                    cmd.Parameters.AddWithValue("@type", type);
                     cmd.ExecuteNonQuery();
                 }
             }
 
-            Logger.Msg($"[DataBase] 💾 Saved drop for Day {day}: {joined}");
+            Logger.Msg($"[DataBase] 💾 Saved drop for Day {day} ({type} @ {hour}): {joined}");
         }
 
-        /// <summary>
-        /// Retrieves a drop packet for a specific in-game day.
-        /// </summary>
-        /// <param name="day">The in-game day to fetch the packet for.</param>
-        /// <returns>List of item IDs if found; null otherwise.</returns>
-        public static List<string> GetDrop(int day)
+        public static bool GetDrop(int day, out List<string> packet, out int hour, out string type)
         {
+            packet = new List<string>();
+            hour = 0;
+            type = "";
+
             using (var conn = new SQLiteConnection($"Data Source={DbPath};Version=3;"))
             {
                 conn.Open();
-
-                string query = "SELECT packet FROM Drops WHERE day = @day";
+                string query = "SELECT packet, hour, type FROM Drops WHERE day = @day";
                 using (var cmd = new SQLiteCommand(query, conn))
                 {
                     cmd.Parameters.AddWithValue("@day", day);
-                    object result = cmd.ExecuteScalar();
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (!reader.Read())
+                            return false;
 
-                    if (result == null)
-                        return null;
-
-                    return new List<string>(result.ToString().Split(','));
+                        string raw = reader.GetString(0);
+                        packet = new List<string>(raw.Split(','));
+                        hour = reader.GetInt32(1);
+                        type = reader.GetString(2);
+                        return true;
+                    }
                 }
             }
         }

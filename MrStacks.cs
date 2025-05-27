@@ -1,6 +1,7 @@
-﻿using S1API.GameTime;      // Provides access to in-game time (day, hour, etc.)
-using S1API.Messaging;     // Used for Response objects sent via the phone
-using S1API.Entities;      // Gives access to NPCs and their messaging systems
+﻿using S1API.GameTime;
+using S1API.Messaging;
+using S1API.Entities;
+using System;
 
 namespace PaxDrops
 {
@@ -10,11 +11,9 @@ namespace PaxDrops
     /// </summary>
     public static class MrStacks
     {
-        // Cached reference to the NPC contact
         private static NPC _npc;
-
-        // Tracks whether the initial drop offer message has been sent this session
         private static bool _hasSentIntro;
+        private static int _lastIntroDay;
 
         /// <summary>
         /// Entry point called during PaxDrops init. Registers message callbacks and phone logic.
@@ -33,62 +32,77 @@ namespace PaxDrops
         /// </summary>
         private static void SetupContact()
         {
-            // Try to find a contact with ID 'MrStacks' in all loaded NPCs
             _npc = NPC.All.Find(n => n.ID == "MrStacks");
 
-            // If not found, spawn a runtime fallback contact
             if (_npc == null)
             {
                 _npc = new MrStacksContact("MrStacks", "Mr.", "Stacks");
-                Logger.Msg("[MrStacks] Created fallback NPC contact.");
+
+                // Manually register if not already in the list
+                if (!NPC.All.Contains(_npc))
+                    NPC.All.Add(_npc);
+
+                Logger.Msg("[MrStacks] 🧍 Created fallback NPC contact.");
             }
         }
 
         /// <summary>
         /// Triggers the message + drop request option during morning hours.
-        /// Only runs once per scene load.
+        /// Only runs once per day during valid hours.
         /// </summary>
         private static void TrySendIntroMessage()
         {
-            // Only allow once
-            if (_hasSentIntro || _npc == null)
+            if (_npc == null)
+            {
+                Logger.Warn("[MrStacks] ❌ Cannot send message — contact missing.");
+                return;
+            }
+
+            int hour = TimeManager.CurrentTime;
+            int today = TimeManager.ElapsedDays;
+
+            if (_hasSentIntro && _lastIntroDay == today)
                 return;
 
-            // Current in-game time (24h)
-            int hour = TimeManager.CurrentTime;
-
-            // Limit a message to a daytime window (7AM–7PM)
             if (hour < 700 || hour >= 1900)
             {
-                Logger.Msg($"[MrStacks] ⏰ Skipped intro message — hour {hour} is outside 7AM–7PM window.");
+                Logger.Msg($"[MrStacks] ⏰ Skipped intro message — hour {hour} is outside 7AM–7PM.");
                 return;
             }
 
             _hasSentIntro = true;
+            _lastIntroDay = today;
 
-            // Define a phone response option
-            var orderDrop = new Response
+            try
             {
-                Label = "ORDER_DROP",
-                Text = "Can I get a drop?",
-                OnTriggered = delegate
+                var orderDrop = new Response
                 {
-                    int tomorrow = TimeManager.ElapsedDays + 1;
-                    var packet = TierLevel.GetDropPacket(tomorrow);
-                    DataBase.SaveDrop(tomorrow, packet);
+                    Label = "ORDER_DROP",
+                    Text = "Can I get a drop?",
+                    OnTriggered = delegate
+                    {
+                        int tomorrow = TimeManager.ElapsedDays + 1;
+                        int dropHour = new Random().Next(700, 1900); // Random hour between 7am–7pm
+                        var packet = TierLevel.GetDropPacket(tomorrow);
 
-                    _npc.SendTextMessage("I'll send you a drop tomorrow morning.");
-                    Logger.Msg($"[MrStacks] ✅ Drop scheduled for Day {tomorrow}.");
-                }
-            };
+                        DataBase.SaveDrop(tomorrow, packet, dropHour, "order");
+                        _npc.SendTextMessage($"A drop is scheduled for tomorrow around {dropHour / 100}:00.");
+                        Logger.Msg($"[MrStacks] ✅ Drop scheduled for Day {tomorrow} @ {dropHour}.");
+                    }
+                };
 
-            // Send the initial "Need something?" message + drop option
-            _npc.SendTextMessage("Need something?", new[] { orderDrop });
+                _npc.SendTextMessage("Need something?", new[] { orderDrop });
+                Logger.Msg("[MrStacks] 📩 Intro message sent.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Exception(ex);
+                Logger.Warn("[MrStacks] ⚠️ Failed to send message — phone app may be unstable.");
+            }
         }
 
         /// <summary>
         /// Debug trigger: forcibly re-sends the intro message.
-        /// Useful for testing phone behavior (called from PageUp, etc.)
         /// </summary>
         public static void DebugTrigger()
         {
