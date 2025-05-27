@@ -8,12 +8,10 @@ using S1API.DeadDrops;
 
 namespace PaxDrops
 {
-    /// <summary>
-    /// Main entry point for the PaxDrops mod.
-    /// Initializes systems when the main scene loads and supports debug keybinds.
-    /// </summary>
     public class InitMain : MelonMod
     {
+        private bool prevPageUp, prevPageDown, prevHome, prevEnd;
+
         public override void OnInitializeMelon()
         {
             Logger.Msg(">> PaxDrops initialized. Awaiting scene 'Main'...");
@@ -40,15 +38,19 @@ namespace PaxDrops
         {
             if (!Application.isFocused) return;
 
-            // PageDown: Give player $5,000
-            if (Input.GetKeyDown(KeyCode.PageDown))
+            // Manual key state edge detection
+            bool pageUp = Input.GetKey(KeyCode.PageUp);
+            bool pageDown = Input.GetKey(KeyCode.PageDown);
+            bool home = Input.GetKey(KeyCode.Home);
+            bool end = Input.GetKey(KeyCode.End);
+
+            if (pageDown && !prevPageDown)
             {
                 Money.ChangeCashBalance(5000f, true, true);
                 Logger.Msg("💵 $5,000 added to Global Bank (PageDown).");
             }
 
-            // PageUp: Spawn a debug drop immediately
-            if (Input.GetKeyDown(KeyCode.PageUp))
+            if (pageUp && !prevPageUp)
             {
                 int today = TimeManager.ElapsedDays;
                 var drop = TierLevel.GetDropPacket(today);
@@ -60,47 +62,52 @@ namespace PaxDrops
                 DeadDrop.ForceSpawnDrop(today, drop.ToFlatList(), "debug");
             }
 
-            // Home: Set time to 8:00 PM
-            if (Input.GetKeyDown(KeyCode.Home))
+            if (home && !prevHome)
             {
                 TimeManager.SetTime(2000);
                 Logger.Msg("🕗 [Dev] Time set to 8:00 PM (Home key).");
             }
 
-            // End: Teleport player to closest dead drop
-            if (Input.GetKeyDown(KeyCode.End))
+            if (end && !prevEnd)
             {
                 var player = Player.Local;
                 if (player == null)
                 {
                     Logger.Warn("[Dev] Player not found — teleport skipped.");
-                    return;
-                }
-
-                Vector3 origin = player.Position;
-                DeadDropInstance closest = null;
-                float closestDist = float.MaxValue;
-
-                foreach (var drop in DeadDropManager.All)
-                {
-                    float dist = Vector3.Distance(origin, drop.Position);
-                    if (dist < closestDist)
-                    {
-                        closest = drop;
-                        closestDist = dist;
-                    }
-                }
-
-                if (closest != null)
-                {
-                    player.Position = closest.Position;
-                    Logger.Msg($"🧭 [Dev] Player teleported to closest dead drop at {closest.Position} (End key).");
                 }
                 else
                 {
-                    Logger.Warn("[Dev] No valid dead drops found to teleport to.");
+                    Vector3 origin = player.Position;
+                    DeadDropInstance closest = null;
+                    float closestDist = float.MaxValue;
+
+                    foreach (var drop in DeadDropManager.All)
+                    {
+                        float dist = Vector3.Distance(origin, drop.Position);
+                        if (dist < closestDist)
+                        {
+                            closest = drop;
+                            closestDist = dist;
+                        }
+                    }
+
+                    if (closest != null)
+                    {
+                        player.Position = closest.Position;
+                        Logger.Msg($"🧭 [Dev] Player teleported to closest dead drop at {closest.Position} (End key).");
+                    }
+                    else
+                    {
+                        Logger.Warn("[Dev] No valid dead drops found to teleport to.");
+                    }
                 }
             }
+
+            // Update previous key states
+            prevPageUp = pageUp;
+            prevPageDown = pageDown;
+            prevHome = home;
+            prevEnd = end;
         }
     }
 }
