@@ -1,78 +1,87 @@
 ﻿using System;
+using System.IO;
 using MelonLoader;
 using UnityEngine;
 
 namespace PaxDrops
 {
-    /// <summary>
-    /// Global logging utility for the PaxDrops mod.
-    /// Provides standardized, timestamped log output and utility helpers for warnings, errors, and debug messages.
-    /// </summary>
     public static class Logger
     {
-        // Static prefix tag for all logs
         private const string Prefix = "[PaxDrops]";
-        private const string TimeFormat = "HH:mm:ss";
-
-        // Toggle this to enable or disable debug logs
+        private const string LogDir = "Mods/PaxDrops/Logs";
+        private const string LatestLog = "latest.log";
+        private const int MaxLogs = 5;
+        private static StreamWriter _writer;
         private static readonly bool EnableDebug = true;
 
-        /// <summary>
-        /// Logs a standard info message to the MelonLoader console.
-        /// </summary>
+        public static void Init()
+        {
+            try
+            {
+                Directory.CreateDirectory(LogDir);
+                RotateLogs();
+
+                string fullPath = Path.Combine(LogDir, LatestLog);
+                _writer = new StreamWriter(fullPath, append: false) { AutoFlush = true };
+                Msg("Logger initialized. Writing to: " + fullPath);
+            }
+            catch (Exception ex)
+            {
+                MelonLogger.Warning($"{Prefix} ❌ Failed to initialize file logger: {ex.Message}");
+            }
+        }
+
         public static void Msg(string message)
         {
-            MelonLogger.Msg($"{Timestamp()} {Prefix} {message}");
+            MelonLogger.Msg($"{Prefix} {message}");
+            WriteToFile($"[INFO] {message}");
         }
 
-        /// <summary>
-        /// Logs a warning message to the console.
-        /// </summary>
         public static void Warn(string message)
         {
-            MelonLogger.Warning($"{Timestamp()} {Prefix} ⚠️ {message}");
+            MelonLogger.Warning($"{Prefix} ⚠️ {message}");
+            WriteToFile($"[WARN] {message}");
         }
 
-        /// <summary>
-        /// Logs an error message to the console.
-        /// </summary>
         public static void Error(string message)
         {
-            MelonLogger.Error($"{Timestamp()} {Prefix} ❌ {message}");
+            MelonLogger.Error($"{Prefix} ❌ {message}");
+            WriteToFile($"[ERROR] {message}");
         }
 
-        /// <summary>
-        /// Logs a debug message if debug logging is enabled.
-        /// </summary>
         public static void LogDebug(string message)
         {
             if (!EnableDebug) return;
-            MelonLogger.Msg($"{Timestamp()} {Prefix} 🛠️ DEBUG: {message}");
+            MelonLogger.Msg($"{Prefix} 🛠️ DEBUG: {message}");
+            WriteToFile($"[DEBUG] {message}");
         }
 
-        /// <summary>
-        /// Logs an exception with stack trace.
-        /// </summary>
         public static void Exception(Exception ex)
         {
-            MelonLogger.Error($"{Timestamp()} {Prefix} ❌ Exception: {ex.Message}");
-            MelonLogger.Error($"{Prefix} StackTrace:\n{ex.StackTrace}");
+            Error($"Exception: {ex.Message}");
+            WriteToFile($"[EXCEPTION]\n{ex}");
         }
 
-        /// <summary>
-        /// Optionally logs directly to Unity’s in-game console. Use for HUD debugging.
-        /// </summary>
         public static void UnityLog(string message)
         {
-            Debug.Log($"{Timestamp()} {Prefix} 🪵 {message}");
+            Debug.Log($"{Prefix} 🪵 {message}");
         }
 
-        /// <summary>
-        /// Returns a formatted timestamp.
-        /// </summary>
-        private static string Timestamp()
+        private static void WriteToFile(string line)
         {
-            return $"[{DateTime.Now.ToString(TimeFormat)}]";
+            _writer?.WriteLine($"{DateTime.Now:HH:mm:ss} {line}");
+        }
+
+        private static void RotateLogs()
+        {
+            for (int i = MaxLogs - 1; i > 0; i--)
+            {
+                string src = Path.Combine(LogDir, i == 1 ? LatestLog : $"log_{i - 1}.txt");
+                string dst = Path.Combine(LogDir, $"log_{i}.txt");
+
+                if (File.Exists(src))
+                    File.Copy(src, dst, overwrite: true);
+            }
         }
     }
 }

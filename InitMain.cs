@@ -1,63 +1,51 @@
-﻿using MelonLoader;
-using PaxDrops.Commands;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.SceneManagement;
-using ScheduleOne;
-using System.Collections.Generic;
-using System.Reflection;
+using MelonLoader; 
+
+[assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "CaptainPax")]
+[assembly: MelonGame("Cortez", "Schedule 1")]
 
 namespace PaxDrops
 {
     public class InitMain : MelonMod
     {
-        private bool _commandsRegistered;
+        private static GameObject _persistentRoot;
 
-        /// <summary>
-        /// Called when a scene finishes loading. We hook into the main gameplay scene here.
-        /// </summary>
-        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+        public override void OnInitializeMelon()
         {
-            if (sceneName == "Main") // Replace with your actual main scene name if different
-            {
-                MelonCoroutines.Start(DelayedInit());
-            }
+            Logger.Msg("[InitMain] 🚀 PaxDrops loading...");
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
-        /// <summary>
-        /// Delay initialization to allow ScheduleOne systems to finish loading first.
-        /// </summary>
-        private System.Collections.IEnumerator DelayedInit()
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            yield return new WaitForSeconds(1f); // Delay to ensure console is ready
+            if (scene.name != "Main")
+                return;
 
-            if (!_commandsRegistered)
+            Logger.Msg("[InitMain] 🎬 Main scene loaded. Bootstrapping PaxDrops...");
+
+            if (_persistentRoot == null)
             {
-                RegisterConsoleCommands();
-                _commandsRegistered = true;
+                _persistentRoot = new GameObject("PaxDrops.Persistent");
+                UnityEngine.Object.DontDestroyOnLoad(_persistentRoot);
             }
 
-            Logger.Msg("PaxDrops initialized.");
+            InitSystems();
         }
 
-        /// <summary>
-        /// Uses reflection to access the internal ScheduleOne.Console.commands dictionary
-        /// and inject our custom PaxDropCommand into both the lookup table and visible UI list.
-        /// </summary>
-        private void RegisterConsoleCommands()
+        private static void InitSystems()
         {
-            var consoleType = typeof(Console);
-            var commandsField = consoleType.GetField("commands", BindingFlags.NonPublic | BindingFlags.Static);
-            var commandsDict = commandsField?.GetValue(null) as Dictionary<string, Console.ConsoleCommand>;
+            Logger.Init();           // 🔧 Logging system
+            DataBase.Init();         // 💾 SQLite drop saves
+            TierLevel.Init();        // 📦 Tier + loot scaling
+            DeadDrop.Init();         // 📬 Dead drop spawner
+            MrStacks.Init();         // 📱 NPC message interface
+            CommandHandler.Init();   // 💻 Command registrar
+        }
 
-            if (commandsDict != null && !commandsDict.ContainsKey("paxdrop"))
-            {
-                var command = new PaxDropCommand();
-
-                commandsDict.Add(command.CommandWord, command); // Inject into dispatch system
-                Console.Commands.Add(command);                 // Show in console UI list
-
-                Logger.Msg("Registered paxdrop command to ScheduleOne.Console.");
-            }
+        public override void OnLateInitializeMelon()
+        {
+            Logger.Msg("[InitMain] ✅ PaxDrops loaded and persistent.");
         }
     }
 }

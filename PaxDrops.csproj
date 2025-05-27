@@ -38,6 +38,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="CommandHandler.cs" />
         <Compile Include="Commands\PaxDropCommand.cs" />
         <Compile Include="Commands\PaxGiveMoneyCommand.cs" />
         <Compile Include="Commands\PaxSetTimeCommand.cs" />
