@@ -38,12 +38,16 @@ namespace PaxDrops
 
         public override void OnUpdate()
         {
+            if (!Application.isFocused) return;
+
+            // PageDown: Give player $5,000
             if (Input.GetKeyDown(KeyCode.PageDown))
             {
                 Money.ChangeCashBalance(5000f, true, true);
                 Logger.Msg("💵 $5,000 added to Global Bank (PageDown).");
             }
 
+            // PageUp: Spawn a debug drop immediately
             if (Input.GetKeyDown(KeyCode.PageUp))
             {
                 int today = TimeManager.ElapsedDays;
@@ -56,44 +60,45 @@ namespace PaxDrops
                 DeadDrop.ForceSpawnDrop(today, drop.ToFlatList(), "debug");
             }
 
+            // Home: Set time to 8:00 PM
             if (Input.GetKeyDown(KeyCode.Home))
             {
-                TimeManager.SetTime(2000); // 8:00 PM
+                TimeManager.SetTime(2000);
                 Logger.Msg("🕗 [Dev] Time set to 8:00 PM (Home key).");
             }
 
+            // End: Teleport player to closest dead drop
             if (Input.GetKeyDown(KeyCode.End))
             {
-                NPC mrStacks = NPC.All.Find(n => n.ID == "MrStacks");
-                if (mrStacks != null)
+                var player = Player.Local;
+                if (player == null)
                 {
-                    Vector3 origin = mrStacks.Position;
-                    DeadDropInstance closest = null;
-                    float closestDist = float.MaxValue;
+                    Logger.Warn("[Dev] Player not found — teleport skipped.");
+                    return;
+                }
 
-                    foreach (var drop in DeadDropManager.All)
-                    {
-                        float dist = Vector3.Distance(origin, drop.Position);
-                        if (dist < closestDist)
-                        {
-                            closestDist = dist;
-                            closest = drop;
-                        }
-                    }
+                Vector3 origin = player.Position;
+                DeadDropInstance closest = null;
+                float closestDist = float.MaxValue;
 
-                    if (closest != null)
+                foreach (var drop in DeadDropManager.All)
+                {
+                    float dist = Vector3.Distance(origin, drop.Position);
+                    if (dist < closestDist)
                     {
-                        mrStacks.Position = closest.Position;
-                        Logger.Msg($"🧭 [Dev] Mr. Stacks teleported to closest dead drop at {closest.Position} (End key).");
+                        closest = drop;
+                        closestDist = dist;
                     }
-                    else
-                    {
-                        Logger.Warn("[Dev] No valid dead drops found to teleport to.");
-                    }
+                }
+
+                if (closest != null)
+                {
+                    player.Position = closest.Position;
+                    Logger.Msg($"🧭 [Dev] Player teleported to closest dead drop at {closest.Position} (End key).");
                 }
                 else
                 {
-                    Logger.Warn("[Dev] Mr. Stacks not found — teleport skipped.");
+                    Logger.Warn("[Dev] No valid dead drops found to teleport to.");
                 }
             }
         }
