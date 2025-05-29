@@ -14,18 +14,32 @@ namespace PaxDrops
     /// </summary>
     public static class DeadDrop
     {
+        private static bool _initialized = false;
+
         /// <summary>
         /// Initializes the DeadDrop system and recovers pending drops from saved state.
         /// </summary>
         public static void Init()
         {
+            if (_initialized) return;
+            _initialized = true;
+
             Logger.Msg("[DeadDrop] ✅ System initialized. Listening for OnDayPass...");
 
-            // Try recover drop on game load
-            TrySpawnPendingDrop();
-
-            // Listen for daily ticks
+            TrySpawnPendingDrop(); // Recover drop on game load
             TimeManager.OnDayPass += HandleDayPass;
+        }
+
+        /// <summary>
+        /// Cleans up listeners and state during mod unload or shutdown.
+        /// </summary>
+        public static void Shutdown()
+        {
+            if (!_initialized) return;
+            _initialized = false;
+
+            Logger.Msg("[DeadDrop] 🔌 Shutting down. Unsubscribing from events...");
+            TimeManager.OnDayPass -= HandleDayPass;
         }
 
         /// <summary>
@@ -36,7 +50,6 @@ namespace PaxDrops
             int day = TimeManager.ElapsedDays;
             int hour = TimeManager.CurrentTime;
 
-            // Skip if outside delivery window
             if (hour < 700 || hour > 1900)
                 return;
 
