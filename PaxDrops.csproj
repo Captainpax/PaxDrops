@@ -42,7 +42,6 @@
         <Compile Include="Commands\PaxDropCommand.cs" />
         <Compile Include="Commands\PaxGiveMoneyCommand.cs" />
         <Compile Include="Commands\PaxSetTimeCommand.cs" />
-        <Compile Include="Commands\PaxSpawnDropCommand.cs" />
         <Compile Include="Commands\PaxTeleportCommand.cs" />
         <Compile Include="DataBase.cs" />
         <Compile Include="DeadDrop.cs" />

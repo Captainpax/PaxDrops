@@ -5,20 +5,22 @@ namespace PaxDrops.Commands
 {
     public class PaxGiveMoneyCommand : ScheduleOne.Console.ConsoleCommand
     {
-        public override string CommandWord => "pax.givemoney";
-        public override string CommandDescription => "Adds money to the player.";
-        public override string ExampleUsage => "pax.givemoney 500";
+        public override string CommandWord => "paxmoney";
+        public override string CommandDescription => "Grants cash. Usage: paxmoney [amount]";
+        public override string ExampleUsage => "paxmoney 5000";
 
         public override void Execute(List<string> args)
         {
-            if (args.Count == 0 || !int.TryParse(args[0], out int amount))
+            int amount = 1000;
+
+            if (args.Count > 0 && !int.TryParse(args[0], out amount))
             {
-                ScheduleOne.Console.LogWarning("Usage: pax.givemoney <amount>");
+                ScheduleOne.Console.LogWarning("❌ Invalid amount. Usage: paxmoney [amount]");
                 return;
             }
 
             Money.ChangeCashBalance(amount, true, true);
-            ScheduleOne.Console.Log($"💵 Gave player ${amount}");
+            ScheduleOne.Console.Log($"💸 Gave player ${amount:n0}.");
         }
     }
 }

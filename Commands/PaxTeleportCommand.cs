@@ -7,16 +7,16 @@ namespace PaxDrops.Commands
 {
     public class PaxTeleportCommand : ScheduleOne.Console.ConsoleCommand
     {
-        public override string CommandWord => "pax.teleport";
-        public override string CommandDescription => "Teleports the player to the closest dead drop.";
-        public override string ExampleUsage => "pax.teleport";
+        public override string CommandWord => "paxtp";
+        public override string CommandDescription => "Teleports player to nearest dead drop.";
+        public override string ExampleUsage => "paxtp";
 
         public override void Execute(List<string> args)
         {
             var player = Player.Local;
             if (player == null)
             {
-                ScheduleOne.Console.LogWarning("Player not found.");
+                ScheduleOne.Console.LogWarning("❌ Player not found.");
                 return;
             }
 
@@ -37,11 +37,11 @@ namespace PaxDrops.Commands
             if (closest != null)
             {
                 player.Position = closest.Position;
-                ScheduleOne.Console.Log($"🧭 Player teleported to nearest dead drop at {closest.Position}");
+                ScheduleOne.Console.Log($"🧭 Teleported to dead drop at {closest.Position}");
             }
             else
             {
-                ScheduleOne.Console.LogWarning("No dead drops found.");
+                ScheduleOne.Console.LogWarning("❌ No dead drops found.");
             }
         }
     }
