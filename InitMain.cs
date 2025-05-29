@@ -4,9 +4,6 @@ using MelonLoader;
 using ScheduleOne.Persistence;
 using System.Collections;
 
-[assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "CaptainPax")]
-[assembly: MelonGame("Cortez", "Schedule 1")]
-
 namespace PaxDrops
 {
     /// <summary>
@@ -32,17 +29,37 @@ namespace PaxDrops
             if (scene.name != "Main")
                 return;
 
-            Logger.Msg("[InitMain] 🎬 Main scene loaded. Bootstrapping PaxDrops...");
+            Logger.Msg("[InitMain] 🎬 Main scene loaded. Waiting for save...");
 
-            // Only create the persistent GameObject once
             if (_persistentRoot == null)
             {
                 _persistentRoot = new GameObject("PaxDrops.Persistent");
                 Object.DontDestroyOnLoad(_persistentRoot);
             }
 
+            MelonCoroutines.Start(BootstrapAfterSaveLoad());
+        }
+
+        /// <summary>
+        /// Waits for the game to load a save file, then initializes all mod systems.
+        /// </summary>
+        private static IEnumerator BootstrapAfterSaveLoad()
+        {
+            var lm = LoadManager.Instance;
+
+            while (lm == null || !lm.IsGameLoaded)
+            {
+                yield return new WaitForSeconds(0.5f);
+                lm = LoadManager.Instance;
+            }
+
+            string folder = lm.LoadedGameFolderPath ?? "(null)";
+            string org = lm.ActiveSaveInfo?.OrganisationName ?? "Unknown Org";
+            Logger.Msg($"📂 Save Loaded: {folder}");
+            Logger.Msg($"🏢 Organization: {org}");
+
+            Logger.Msg("[InitMain] 🛠 Save ready. Bootstrapping PaxDrops systems...");
             InitSystems();
-            StartSaveInfoCoroutine(); // Wait and log active save once it's available
         }
 
         /// <summary>
@@ -59,30 +76,11 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Begins a coroutine that waits for the game to finish loading a save.
+        /// Called once all mods are loaded. Good for final notices.
         /// </summary>
-        private static void StartSaveInfoCoroutine()
+        public override void OnLateInitializeMelon()
         {
-            MelonCoroutines.Start(WaitForSaveLoad());
-        }
-
-        /// <summary>
-        /// Waits for LoadManager to report a loaded save file, then logs its metadata.
-        /// </summary>
-        private static IEnumerator WaitForSaveLoad()
-        {
-            var lm = LoadManager.Instance;
-
-            while (lm == null || !lm.IsGameLoaded)
-            {
-                yield return new WaitForSeconds(0.5f);
-                lm = LoadManager.Instance;
-            }
-
-            string folder = lm.LoadedGameFolderPath ?? "(null)";
-            string org = lm.ActiveSaveInfo?.OrganisationName ?? "Unknown Org";
-            Logger.Msg($"📂 Save Loaded: {folder}");
-            Logger.Msg($"🏢 Organization: {org}");
+            Logger.Msg("[InitMain] ✅ PaxDrops loaded and persistent.");
         }
 
         /// <summary>
@@ -103,14 +101,6 @@ namespace PaxDrops
             {
                 Logger.Exception(ex);
             }
-        }
-
-        /// <summary>
-        /// Called once all mods are loaded. Good for final notices.
-        /// </summary>
-        public override void OnLateInitializeMelon()
-        {
-            Logger.Msg("[InitMain] ✅ PaxDrops loaded and persistent.");
         }
     }
 }

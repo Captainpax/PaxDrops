@@ -13,12 +13,12 @@ namespace PaxDrops.Commands
         {
             if (args.Count == 0 || !int.TryParse(args[0], out int hour))
             {
-                ScheduleOne.Console.LogWarning("Usage: paxtime <hour> (e.g., paxtime 2000)");
+                Logger.Warn("Usage: paxtime <hour> (e.g., paxtime 2000)");
                 return;
             }
 
             TimeManager.SetTime(hour);
-            ScheduleOne.Console.Log($"🕒 Time set to {hour} via console.");
+            Logger.Msg($"🕒 Time set to {hour} via console.");
         }
     }
 }

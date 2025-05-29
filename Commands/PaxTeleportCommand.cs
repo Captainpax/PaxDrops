@@ -16,7 +16,7 @@ namespace PaxDrops.Commands
             var player = Player.Local;
             if (player == null)
             {
-                ScheduleOne.Console.LogWarning("❌ Player not found.");
+                Logger.Warn("❌ Player not found.");
                 return;
             }
 
@@ -37,11 +37,11 @@ namespace PaxDrops.Commands
             if (closest != null)
             {
                 player.Position = closest.Position;
-                ScheduleOne.Console.Log($"🧭 Teleported to dead drop at {closest.Position}");
+                Logger.Msg($"🧭 Teleported to dead drop at {closest.Position}");
             }
             else
             {
-                ScheduleOne.Console.LogWarning("❌ No dead drops found.");
+                Logger.Warn("❌ No dead drops found.");
             }
         }
     }

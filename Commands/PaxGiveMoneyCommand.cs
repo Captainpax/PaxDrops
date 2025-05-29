@@ -15,12 +15,12 @@ namespace PaxDrops.Commands
 
             if (args.Count > 0 && !int.TryParse(args[0], out amount))
             {
-                ScheduleOne.Console.LogWarning("❌ Invalid amount. Usage: paxmoney [amount]");
+                Logger.Warn("❌ Invalid amount. Usage: paxmoney [amount]");
                 return;
             }
 
             Money.ChangeCashBalance(amount, true, true);
-            ScheduleOne.Console.Log($"💸 Gave player ${amount:n0}.");
+            Logger.Msg($"💸 Gave player ${amount:n0}.");
         }
     }
 }

@@ -14,7 +14,6 @@ namespace PaxDrops.Commands
             int day = S1API.GameTime.TimeManager.ElapsedDays;
             string type = "debug";
 
-            // Parse optional args: [day] [type]
             if (args.Count >= 1 && int.TryParse(args[0], out int parsedDay))
                 day = parsedDay;
 
@@ -24,7 +23,7 @@ namespace PaxDrops.Commands
             var packet = TierLevel.GetDropPacket(day);
             DeadDrop.ForceSpawnDrop(day, packet.ToFlatList(), type);
 
-            Console.Log($"[PaxDrop] 📦 Forced drop for Day {day} | Type: {type}", null);
+            Logger.Msg($"📦 Forced drop for Day {day} | Type: {type}");
         }
     }
 }
