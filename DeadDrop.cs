@@ -10,7 +10,6 @@ namespace PaxDrops
 {
     /// <summary>
     /// Handles logic for spawning scheduled dead drops into the world.
-    /// Reacts to day progression and supports debug spawn injection.
     /// </summary>
     public static class DeadDrop
     {
@@ -34,9 +33,6 @@ namespace PaxDrops
             Logger.Msg("[DeadDrop] 🔌 Shutdown complete.");
         }
 
-        /// <summary>
-        /// Called at the start of each in-game day to check for drops.
-        /// </summary>
         public static void HandleDayPass()
         {
             int day = TimeManager.ElapsedDays;
@@ -54,19 +50,16 @@ namespace PaxDrops
                 return;
             }
 
-            Logger.Msg($"[DeadDrop] 🕐 Spawning scheduled drop for Day {day} now.");
+            Logger.Msg($"[DeadDrop] 🕐 Spawning drop for Day {day}...");
             SpawnDrop(drop);
         }
 
-        /// <summary>
-        /// Forces a drop spawn from any source (console, test, etc.).
-        /// </summary>
         public static void ForceSpawnDrop(int day, List<string> packet, string type = "debug", int hour = -1)
         {
             if (hour == -1)
                 hour = TimeManager.CurrentTime;
 
-            var drop = new DataBase.DropRecord
+            var record = new DataBase.DropRecord
             {
                 Day = day,
                 Items = packet,
@@ -78,12 +71,9 @@ namespace PaxDrops
                 Location = ""
             };
 
-            SpawnDrop(drop);
+            SpawnDrop(record);
         }
 
-        /// <summary>
-        /// Spawns a drop's contents into the nearest available dead drop instance.
-        /// </summary>
         private static void SpawnDrop(DataBase.DropRecord drop)
         {
             var all = DeadDropManager.All;
@@ -135,9 +125,6 @@ namespace PaxDrops
             Logger.Msg($"[DeadDrop] ✅ Drop complete: {success} added, {fail} failed.");
         }
 
-        /// <summary>
-        /// Finds the closest dead drop instance to the given position.
-        /// </summary>
         private static DeadDropInstance FindClosestDrop(Vector3 origin, DeadDropInstance[] all)
         {
             DeadDropInstance best = all[0];

@@ -1,20 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
-using System.Globalization;
 using System.IO;
+using ScheduleOne.Persistence;
+using S1API.GameTime;
 
 namespace PaxDrops
 {
     /// <summary>
-    /// Handles SQLite persistence of scheduled dead drops (day, items, time, location, org).
+    /// Manages persistent drop storage using SQLite, including drop verification and live cache.
     /// </summary>
     public static class DataBase
     {
-        private static readonly string DbPath = Path.Combine("Mods", "PaxDrops", "drops.db");
-        private static readonly string ConnStr = $"Data Source={DbPath};Version=3;";
-
-        public static readonly Dictionary<int, DropRecord> PendingDrops = new Dictionary<int, DropRecord>();
+        private const string DbDir = "Mods/PaxDrops/Data";
+        private const string DbPath = "Mods/PaxDrops/Data/drops.db";
+        private static SQLiteConnection _conn;
 
         public class DropRecord
         {
@@ -23,191 +23,144 @@ namespace PaxDrops
             public int DropHour;
             public string DropTime;
             public string Org;
+            public string CreatedTime;
             public string Type;
             public string Location;
-            public string CreatedTime;
         }
 
-        static DataBase()
-        {
-            string dir = Path.GetDirectoryName(DbPath);
-            if (!string.IsNullOrEmpty(dir))
-                Directory.CreateDirectory(dir);
-        }
+        public static Dictionary<int, DropRecord> PendingDrops = new Dictionary<int, DropRecord>();
 
-        /// <summary>
-        /// Initializes the database and loads any pending drops.
-        /// </summary>
         public static void Init()
         {
-            bool newDb = !File.Exists(DbPath);
-            if (newDb)
-            {
-                SQLiteConnection.CreateFile(DbPath);
-                Logger.Msg($"[DataBase] 📁 Created SQLite DB: {DbPath}");
-            }
-            else
-            {
-                Logger.Msg($"[DataBase] 🔗 Using existing DB at: {DbPath}");
-            }
+            Directory.CreateDirectory(DbDir);
+            bool createSchema = !File.Exists(DbPath);
 
-            try
-            {
-                using (var conn = new SQLiteConnection(ConnStr))
-                {
-                    conn.Open();
-                    string createTable = @"CREATE TABLE IF NOT EXISTS Drops (
-                        day INTEGER PRIMARY KEY,
-                        packet TEXT,
-                        hour INTEGER,
-                        dropTime TEXT,
-                        createdTime TEXT,
-                        type TEXT,
-                        location TEXT,
-                        org TEXT
-                    );";
-                    using (var cmd = new SQLiteCommand(createTable, conn))
-                        cmd.ExecuteNonQuery();
-                }
+            _conn = new SQLiteConnection($"Data Source={DbPath};Version=3;");
+            _conn.Open();
 
-                LoadPendingDrops();
-            }
-            catch (Exception ex)
-            {
-                Logger.Exception(ex);
-            }
+            if (createSchema)
+                CreateSchema();
+
+            Logger.Msg("[DataBase] ✅ Initialized SQLite DB");
+            LoadAllPending();
+        }
+
+        private static void CreateSchema()
+        {
+            string sql = @"
+                CREATE TABLE IF NOT EXISTS drops (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    day INTEGER,
+                    org TEXT,
+                    createdTime TEXT,
+                    dropTime TEXT,
+                    hour INTEGER,
+                    items TEXT,
+                    type TEXT,
+                    location TEXT
+                );
+            ";
+
+            using (var cmd = new SQLiteCommand(sql, _conn))
+                cmd.ExecuteNonQuery();
+
+            Logger.Msg("[DataBase] 📁 Created initial DB schema.");
         }
 
         /// <summary>
-        /// Loads all saved drops into memory.
+        /// Loads all future-dated drops into memory cache.
         /// </summary>
-        private static void LoadPendingDrops()
+        private static void LoadAllPending()
+        {
+            PendingDrops.Clear();
+            int today = TimeManager.ElapsedDays;
+
+            string sql = "SELECT day, org, createdTime, dropTime, hour, items, type, location FROM drops WHERE day >= @today";
+            using (var cmd = new SQLiteCommand(sql, _conn))
+            {
+                cmd.Parameters.AddWithValue("@today", today);
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var record = new DropRecord
+                        {
+                            Day = reader.GetInt32(0),
+                            Org = reader.GetString(1),
+                            CreatedTime = reader.GetString(2),
+                            DropTime = reader.GetString(3),
+                            DropHour = reader.GetInt32(4),
+                            Items = new List<string>(reader.GetString(5).Split(',')),
+                            Type = reader.GetString(6),
+                            Location = reader.IsDBNull(7) ? "" : reader.GetString(7)
+                        };
+
+                        if (!PendingDrops.ContainsKey(record.Day))
+                            PendingDrops[record.Day] = record;
+                    }
+                }
+            }
+
+            Logger.Msg($"[DataBase] 📤 Loaded {PendingDrops.Count} future drop(s) into cache.");
+        }
+
+        /// <summary>
+        /// Persists a drop to disk and verifies it was committed.
+        /// </summary>
+        public static void SaveDrop(int day, List<string> items, int hour, string type = "manual", string location = "")
         {
             try
             {
-                using (var conn = new SQLiteConnection(ConnStr))
+                string org = LoadManager.Instance?.ActiveSaveInfo?.OrganisationName ?? "Unknown";
+                string createdTime = DateTime.Now.ToString("s");
+                string dropTime = TimeSpan.FromMinutes(hour).ToString(@"hh\:mm");
+                string joinedItems = string.Join(",", items);
+
+                string sql = @"
+                    INSERT INTO drops (day, org, createdTime, dropTime, hour, items, type, location)
+                    VALUES (@day, @org, @created, @drop, @hour, @items, @type, @location);
+                ";
+
+                using (var cmd = new SQLiteCommand(sql, _conn))
                 {
-                    conn.Open();
-                    string query = "SELECT * FROM Drops";
-                    using (var cmd = new SQLiteCommand(query, conn))
-                    using (var reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            int day = reader.GetInt32(0);
-                            string raw = reader.IsDBNull(1) ? "" : reader.GetString(1);
-                            int hour = reader.IsDBNull(2) ? 700 : reader.GetInt32(2);
-                            string dropTime = reader.IsDBNull(3) ? "07:00" : reader.GetString(3);
-                            string createdTime = reader.IsDBNull(4) ? "" : reader.GetString(4);
-                            string type = reader.IsDBNull(5) ? "random" : reader.GetString(5);
-                            string location = reader.IsDBNull(6) ? "" : reader.GetString(6);
-                            string org = reader.IsDBNull(7) ? "" : reader.GetString(7);
-
-                            var items = new List<string>();
-                            if (!string.IsNullOrWhiteSpace(raw))
-                            {
-                                foreach (var entry in raw.Split(','))
-                                {
-                                    var trimmed = entry.Trim();
-                                    if (!string.IsNullOrEmpty(trimmed))
-                                        items.Add(trimmed);
-                                }
-                            }
-
-                            PendingDrops[day] = new DropRecord
-                            {
-                                Day = day,
-                                Items = items,
-                                DropHour = hour,
-                                DropTime = dropTime,
-                                CreatedTime = createdTime,
-                                Type = type,
-                                Location = location,
-                                Org = org
-                            };
-                        }
-                    }
+                    cmd.Parameters.AddWithValue("@day", day);
+                    cmd.Parameters.AddWithValue("@org", org);
+                    cmd.Parameters.AddWithValue("@created", createdTime);
+                    cmd.Parameters.AddWithValue("@drop", dropTime);
+                    cmd.Parameters.AddWithValue("@hour", hour);
+                    cmd.Parameters.AddWithValue("@items", joinedItems);
+                    cmd.Parameters.AddWithValue("@type", type);
+                    cmd.Parameters.AddWithValue("@location", location);
+                    cmd.ExecuteNonQuery();
                 }
 
-                Logger.Msg($"[DataBase] 📦 Loaded {PendingDrops.Count} scheduled drop(s) from DB.");
+                long lastId = (long)new SQLiteCommand("SELECT last_insert_rowid();", _conn).ExecuteScalar();
+                Logger.Msg($"[DataBase] 💾 Drop saved: Day {day}, {joinedItems} @ {hour} ({type}) → #{lastId}");
+
+                // Add to cache immediately
+                PendingDrops[day] = new DropRecord
+                {
+                    Day = day,
+                    Org = org,
+                    CreatedTime = createdTime,
+                    DropTime = dropTime,
+                    DropHour = hour,
+                    Items = items,
+                    Type = type,
+                    Location = location
+                };
             }
             catch (Exception ex)
             {
+                Logger.Error("[DataBase] ❌ Failed to save drop.");
                 Logger.Exception(ex);
             }
         }
 
         public static void Shutdown()
         {
-            Logger.Msg("[DataBase] 🔌 Shutdown complete.");
-        }
-
-        public static void SaveDrop(int day, List<string> dropPacket, int hour = 700, string type = "random", string location = "", string org = "unknown")
-        {
-            if (dropPacket == null || dropPacket.Count == 0)
-            {
-                Logger.Warn("[DataBase] ⚠️ Tried to save empty drop packet.");
-                return;
-            }
-
-            try
-            {
-                string joined = string.Join(",", dropPacket);
-                string createdTime = DateTime.Now.ToString("s", CultureInfo.InvariantCulture);
-                string dropTime = TimeSpan.FromMinutes(hour).ToString(@"hh\:mm");
-
-                using (var conn = new SQLiteConnection(ConnStr))
-                {
-                    conn.Open();
-                    string query = @"INSERT OR REPLACE INTO Drops 
-                        (day, packet, hour, dropTime, createdTime, type, location, org) 
-                        VALUES (@day, @packet, @hour, @dropTime, @createdTime, @type, @location, @org)";
-                    using (var cmd = new SQLiteCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@day", day);
-                        cmd.Parameters.AddWithValue("@packet", joined);
-                        cmd.Parameters.AddWithValue("@hour", hour);
-                        cmd.Parameters.AddWithValue("@dropTime", dropTime);
-                        cmd.Parameters.AddWithValue("@createdTime", createdTime);
-                        cmd.Parameters.AddWithValue("@type", type);
-                        cmd.Parameters.AddWithValue("@location", location);
-                        cmd.Parameters.AddWithValue("@org", org);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-
-                Logger.Msg($"[DataBase] 💾 Saved drop ➤ Day {day} | {type} @ {dropTime} for {org} → {location} :: {joined}");
-            }
-            catch (Exception ex)
-            {
-                Logger.Exception(ex);
-            }
-        }
-
-        public static bool GetDrop(int day, out List<string> packet, out int hour, out string type, out string location)
-        {
-            packet = new List<string>();
-            hour = 0;
-            type = "";
-            location = "";
-
-            try
-            {
-                if (!PendingDrops.ContainsKey(day))
-                    return false;
-
-                var drop = PendingDrops[day];
-                packet = new List<string>(drop.Items);
-                hour = drop.DropHour;
-                type = drop.Type;
-                location = drop.Location;
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Exception(ex);
-                return false;
-            }
+            _conn?.Close();
+            Logger.Msg("[DataBase] 🔒 Closed SQLite connection.");
         }
     }
 }
