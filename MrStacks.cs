@@ -1,56 +1,54 @@
-﻿using S1API.GameTime;
-using S1API.Messaging;
-using S1API.Entities;
-using System;
+﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using MelonLoader;
+using S1API.GameTime;
+using S1API.Messaging;
 using static PaxDrops.TierLevel;
+using S1NPC = S1API.Entities.NPC;
 
 namespace PaxDrops
 {
     /// <summary>
-    /// Manages the phone interaction with Mr. Stacks, allowing the player to request custom drop tiers.
+    /// Handles messaging from the NPC "MrStacks" to schedule player-requested tiered drops.
     /// </summary>
     public static class MrStacks
     {
-        private static NPC _npc;
+        private static S1NPC _npc;
         private static bool _hasSentToday;
         private static int _lastDay;
+        private static bool _ready;
 
-        /// <summary>
-        /// Initializes Mr. Stacks and ensures his contact exists.
-        /// </summary>
         public static void Init()
         {
-            Logger.Msg("[MrStacks] 🧠 Booting up.");
-            SetupContact();
+            Logger.Msg("[MrStacks] 🔧 Initializing...");
+            MelonCoroutines.Start(WaitForNpc());
             TimeManager.OnDayPass += TrySendIntroMessage;
         }
 
-        /// <summary>
-        /// Ensures Mr. Stacks exists as a contact in the phone system.
-        /// </summary>
-        private static void SetupContact()
+        private static IEnumerator WaitForNpc()
         {
-            _npc = NPC.All.Find(n => n.ID == "MrStacks");
+            yield return new WaitUntil(() => S1NPC.All.Any(npc => npc.ID == "MrStacks"));
+            _npc = S1NPC.All.FirstOrDefault(npc => npc.ID == "MrStacks");
 
             if (_npc == null)
             {
-                _npc = new MrStacksContact("MrStacks", "Mr.", "Stacks");
-
-                if (!NPC.All.Contains(_npc))
-                    NPC.All.Add(_npc);
-
-                Logger.Msg("[MrStacks] 📇 Created fallback contact.");
+                Logger.Error("[MrStacks] ❌ Failed to fetch MrStacks NPC.");
+                yield break;
             }
+
+            Logger.Msg("[MrStacks] ✅ NPC loaded.");
+            _ready = true;
         }
 
-        /// <summary>
-        /// Sends the initial "Need somethin'?" message if during valid hours and not yet sent today.
-        /// </summary>
         private static void TrySendIntroMessage()
         {
-            if (_npc == null)
+            if (!_ready || _npc == null)
+            {
+                Logger.Warn("[MrStacks] ⚠️ NPC not ready yet, skipping message.");
                 return;
+            }
 
             int hour = TimeManager.CurrentTime;
             int today = TimeManager.ElapsedDays;
@@ -60,15 +58,14 @@ namespace PaxDrops
 
             if (hour < 700 || hour >= 1900)
             {
-                Logger.Msg($"[MrStacks] 💤 Skipped message — hour {hour} outside 7AM–7PM.");
+                Logger.Msg($"[MrStacks] 💤 Outside hours ({hour}). Skipping.");
                 return;
             }
 
             _hasSentToday = true;
             _lastDay = today;
 
-            // Tier group options (split by mafia theme)
-            var groupOptions = new List<Response>
+            _npc.SendTextMessage("Lookin' for somethin' special?", new[]
             {
                 new Response
                 {
@@ -97,17 +94,19 @@ namespace PaxDrops
                         Tier.Don1, Tier.Don2, Tier.Don3
                     })
                 }
-            };
+            });
 
-            _npc.SendTextMessage("Lookin' for somethin' special?", groupOptions.ToArray());
-            Logger.Msg("[MrStacks] 📲 Intro message sent.");
+            Logger.Msg("[MrStacks] 📲 Sent intro message.");
         }
 
-        /// <summary>
-        /// Asks the player to choose a tier from the selected group.
-        /// </summary>
         private static void AskForTier(string groupName, Tier[] groupTiers)
         {
+            if (_npc == null)
+            {
+                Logger.Warn("[MrStacks] ❌ Cannot ask for tier — NPC not available.");
+                return;
+            }
+
             int today = TimeManager.ElapsedDays;
             var options = new List<Response>();
 
@@ -122,12 +121,11 @@ namespace PaxDrops
                     Text = $"Tier {(int)tier}",
                     OnTriggered = () =>
                     {
-                        int dropHour = new Random().Next(700, 1900);
+                        int dropHour = new System.Random().Next(700, 1900);
                         var packet = GetDropPacket(today + 1);
-
                         DataBase.SaveDrop(today + 1, packet.ToFlatList(), dropHour, $"order:{tier}");
                         _npc.SendTextMessage($"You got it. Tier {(int)tier} comin' your way around {dropHour / 100}:00.");
-                        Logger.Msg($"[MrStacks] 📦 Scheduled Tier {(int)tier} drop for Day {today + 1} @ {dropHour}.");
+                        Logger.Msg($"[MrStacks] ✅ Scheduled Tier {(int)tier} drop for Day {today + 1} @ {dropHour}.");
                     }
                 });
             }
@@ -141,22 +139,10 @@ namespace PaxDrops
             _npc.SendTextMessage($"Which {groupName} drop you want?", options.ToArray());
         }
 
-        /// <summary>
-        /// Forces message resend for testing.
-        /// </summary>
         public static void DebugTrigger()
         {
             _hasSentToday = false;
             TrySendIntroMessage();
-        }
-
-        /// <summary>
-        /// Fallback NPC contact if none exists in game.
-        /// </summary>
-        private class MrStacksContact : NPC
-        {
-            public MrStacksContact(string id, string first, string last)
-                : base(id, first, last) { }
         }
     }
 }

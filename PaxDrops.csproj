@@ -63,6 +63,9 @@
         <Reference Include="Assembly-CSharp-firstpass">
           <HintPath>A:\SteamLibrary\steamapps\common\Schedule I\Schedule I_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
         </Reference>
+        <Reference Include="FishNet.Runtime">
+          <HintPath>A:\SteamLibrary\steamapps\common\Schedule I\Schedule I_Data\Managed\FishNet.Runtime.dll</HintPath>
+        </Reference>
         <Reference Include="MelonLoader">
             <HintPath>A:\SteamLibrary\steamapps\common\Schedule I\MelonLoader\net35\MelonLoader.dll</HintPath>
         </Reference>
