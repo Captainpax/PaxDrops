@@ -4,15 +4,17 @@ using MelonLoader;
 using ScheduleOne.Persistence;
 using System.Collections;
 
+[assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "CaptainPax")]
+[assembly: MelonGame("Cortez", "Schedule 1")]
+
 namespace PaxDrops
 {
     /// <summary>
     /// Entry point and lifecycle manager for the PaxDrops mod.
-    /// Handles system initialization, persistence, shutdown, and save info reporting.
+    /// Handles system initialization, persistence, and shutdown.
     /// </summary>
     public class InitMain : MelonMod
     {
-        // Keeps this GameObject alive across scene loads
         private static GameObject _persistentRoot;
 
         public override void OnInitializeMelon()
@@ -21,15 +23,11 @@ namespace PaxDrops
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
-        /// <summary>
-        /// Handles scene transitions. We only care about the "Main" scene.
-        /// </summary>
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != "Main")
-                return;
+            if (scene.name != "Main") return;
 
-            Logger.Msg("[InitMain] 🎬 Main scene loaded. Waiting for save...");
+            Logger.Msg("[InitMain] 🎬 Main scene loaded. Bootstrapping PaxDrops...");
 
             if (_persistentRoot == null)
             {
@@ -37,13 +35,21 @@ namespace PaxDrops
                 Object.DontDestroyOnLoad(_persistentRoot);
             }
 
-            MelonCoroutines.Start(BootstrapAfterSaveLoad());
+            InitSystems();
+            MelonCoroutines.Start(WaitForSaveLoad());
         }
 
-        /// <summary>
-        /// Waits for the game to load a save file, then initializes all mod systems.
-        /// </summary>
-        private static IEnumerator BootstrapAfterSaveLoad()
+        private static void InitSystems()
+        {
+            Logger.Init();           // 🔧 Logging system
+            DataBase.Init();         // 💾 SQLite drop persistence
+            TierLevel.Init();        // 📦 Tier/loot scaling
+            DeadDrop.Init();         // 📬 Drop spawning
+            MrStacks.Init();         // 📱 Messaging system
+            CommandHandler.Init();   // ⌨️ Console commands
+        }
+
+        private static IEnumerator WaitForSaveLoad()
         {
             var lm = LoadManager.Instance;
 
@@ -58,49 +64,27 @@ namespace PaxDrops
             Logger.Msg($"📂 Save Loaded: {folder}");
             Logger.Msg($"🏢 Organization: {org}");
 
-            Logger.Msg("[InitMain] 🛠 Save ready. Bootstrapping PaxDrops systems...");
-            InitSystems();
+            MrStacks.TriggerIntroIfReady(); // ✅ Force intro message after save is loaded
         }
 
-        /// <summary>
-        /// Boots all PaxDrops systems in load order.
-        /// </summary>
-        private static void InitSystems()
-        {
-            Logger.Init();           // 🔧 Logging system
-            DataBase.Init();         // 💾 SQLite drop persistence
-            TierLevel.Init();        // 📦 Tier/loot scaling
-            DeadDrop.Init();         // 📬 Drop lifecycle + spawning
-            MrStacks.Init();         // 📱 Messaging system
-            CommandHandler.Init();   // ⌨️ Console commands
-        }
-
-        /// <summary>
-        /// Called once all mods are loaded. Good for final notices.
-        /// </summary>
-        public override void OnLateInitializeMelon()
-        {
-            Logger.Msg("[InitMain] ✅ PaxDrops loaded and persistent.");
-        }
-
-        /// <summary>
-        /// Called when the application is closing.
-        /// Allows systems to clean up state or flush data.
-        /// </summary>
         public override void OnApplicationQuit()
         {
-            Logger.Msg("[InitMain] 🧼 PaxDrops shutting down. Cleaning up...");
-
+            Logger.Msg("[InitMain] 🧼 PaxDrops shutting down...");
             try
             {
-                DeadDrop.Shutdown();  // Unsubscribe from game hooks
-                DataBase.Shutdown();  // Finalize DB
+                DeadDrop.Shutdown();
+                DataBase.Shutdown();
                 Logger.Msg("[InitMain] ✅ Shutdown complete.");
             }
             catch (System.Exception ex)
             {
                 Logger.Exception(ex);
             }
+        }
+
+        public override void OnLateInitializeMelon()
+        {
+            Logger.Msg("[InitMain] ✅ PaxDrops loaded and persistent.");
         }
     }
 }

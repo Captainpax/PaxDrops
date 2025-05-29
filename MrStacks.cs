@@ -11,7 +11,7 @@ using S1NPC = S1API.Entities.NPC;
 namespace PaxDrops
 {
     /// <summary>
-    /// Handles messaging from the NPC "MrStacks" to schedule player-requested tiered drops.
+    /// Handles NPC messaging from "MrStacks" and supports scheduling tiered drops via player response.
     /// </summary>
     public static class MrStacks
     {
@@ -29,24 +29,30 @@ namespace PaxDrops
 
         private static IEnumerator WaitForNpc()
         {
-            yield return new WaitUntil(() => S1NPC.All.Any(npc => npc.ID == "MrStacks"));
-            _npc = S1NPC.All.FirstOrDefault(npc => npc.ID == "MrStacks");
+            yield return new WaitUntil(() => S1NPC.All.Any(n => n.ID == "MrStacks"));
+            _npc = S1NPC.All.FirstOrDefault(n => n.ID == "MrStacks");
 
             if (_npc == null)
             {
-                Logger.Error("[MrStacks] ❌ Failed to fetch MrStacks NPC.");
+                Logger.Error("[MrStacks] ❌ Could not find MrStacks NPC.");
                 yield break;
             }
 
-            Logger.Msg("[MrStacks] ✅ NPC loaded.");
             _ready = true;
+            Logger.Msg("[MrStacks] ✅ NPC loaded and ready.");
+        }
+
+        public static void TriggerIntroIfReady()
+        {
+            _hasSentToday = false; // Reset so message will show
+            TrySendIntroMessage();
         }
 
         private static void TrySendIntroMessage()
         {
             if (!_ready || _npc == null)
             {
-                Logger.Warn("[MrStacks] ⚠️ NPC not ready yet, skipping message.");
+                Logger.Warn("[MrStacks] ⚠️ NPC not ready, cannot send message.");
                 return;
             }
 
@@ -103,7 +109,7 @@ namespace PaxDrops
         {
             if (_npc == null)
             {
-                Logger.Warn("[MrStacks] ❌ Cannot ask for tier — NPC not available.");
+                Logger.Warn("[MrStacks] ❌ Cannot prompt tier — NPC missing.");
                 return;
             }
 
@@ -112,8 +118,7 @@ namespace PaxDrops
 
             foreach (var tier in groupTiers)
             {
-                if (!IsTierUnlocked(tier))
-                    continue;
+                if (!IsTierUnlocked(tier)) continue;
 
                 options.Add(new Response
                 {
@@ -123,9 +128,13 @@ namespace PaxDrops
                     {
                         int dropHour = new System.Random().Next(700, 1900);
                         var packet = GetDropPacket(today + 1);
-                        DataBase.SaveDrop(today + 1, packet.ToFlatList(), dropHour, $"order:{tier}");
+
+                        string org = ScheduleOne.Persistence.LoadManager.Instance?.ActiveSaveInfo?.OrganisationName ?? "Unknown";
+                        string dropTime = $"{today + 1:D3} @ {dropHour}";
+                        DataBase.SaveDrop(today + 1, packet.ToFlatList(), dropHour, $"order:{tier}", org);
+
                         _npc.SendTextMessage($"You got it. Tier {(int)tier} comin' your way around {dropHour / 100}:00.");
-                        Logger.Msg($"[MrStacks] ✅ Scheduled Tier {(int)tier} drop for Day {today + 1} @ {dropHour}.");
+                        Logger.Msg($"[MrStacks] ✅ Scheduled Tier {(int)tier} drop ➤ Day {today + 1} @ {dropHour} | Org: {org}");
                     }
                 });
             }
@@ -141,8 +150,20 @@ namespace PaxDrops
 
         public static void DebugTrigger()
         {
-            _hasSentToday = false;
-            TrySendIntroMessage();
+            if (!_ready || _npc == null)
+            {
+                Logger.Warn("[MrStacks] ⚠️ NPC not ready for debug.");
+                return;
+            }
+
+            var today = TimeManager.ElapsedDays;
+            int dropHour = TimeManager.CurrentTime;
+
+            var packet = GetDropPacket(today);
+            string org = ScheduleOne.Persistence.LoadManager.Instance?.ActiveSaveInfo?.OrganisationName ?? "Unknown";
+
+            DataBase.SaveDrop(today, packet.ToFlatList(), dropHour, "debug", org);
+            Logger.Msg($"[MrStacks] 🧪 Debug drop saved: Day {today} @ {dropHour} | Org: {org}");
         }
     }
 }

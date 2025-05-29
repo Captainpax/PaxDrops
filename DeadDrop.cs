@@ -1,10 +1,10 @@
-﻿using S1API.GameTime;
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
+using S1API.GameTime;
 using S1API.DeadDrops;
 using S1API.Items;
 using S1API.Entities;
-using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
 
 namespace PaxDrops
 {
@@ -14,114 +14,101 @@ namespace PaxDrops
     /// </summary>
     public static class DeadDrop
     {
-        private static bool _initialized = false;
+        private static bool _initialized;
 
-        /// <summary>
-        /// Initializes the DeadDrop system and recovers pending drops from saved state.
-        /// </summary>
         public static void Init()
         {
             if (_initialized) return;
             _initialized = true;
 
             Logger.Msg("[DeadDrop] ✅ System initialized. Listening for OnDayPass...");
-
-            TrySpawnPendingDrop(); // Recover drop on game load
             TimeManager.OnDayPass += HandleDayPass;
         }
 
-        /// <summary>
-        /// Cleans up listeners and state during mod unload or shutdown.
-        /// </summary>
         public static void Shutdown()
         {
             if (!_initialized) return;
             _initialized = false;
 
-            Logger.Msg("[DeadDrop] 🔌 Shutting down. Unsubscribing from events...");
             TimeManager.OnDayPass -= HandleDayPass;
+            Logger.Msg("[DeadDrop] 🔌 Shutdown complete.");
         }
 
         /// <summary>
-        /// Handles startup recovery in case a drop was scheduled but not yet spawned due to mid-day save/load.
-        /// </summary>
-        private static void TrySpawnPendingDrop()
-        {
-            int day = TimeManager.ElapsedDays;
-            int hour = TimeManager.CurrentTime;
-
-            if (hour < 700 || hour > 1900)
-                return;
-
-            if (!DataBase.GetDrop(day, out var packet, out int dropHour, out string type, out string _))
-                return;
-
-            if (dropHour <= hour)
-            {
-                Logger.Msg($"[DeadDrop] 🔄 Recovering saved drop (Day {day} @ {dropHour})");
-                SpawnDrop(day, packet, dropHour, type);
-            }
-        }
-
-        /// <summary>
-        /// Called each in-game day to evaluate and spawn the day's drop if timing matches.
+        /// Called at the start of each in-game day to check for drops.
         /// </summary>
         public static void HandleDayPass()
         {
             int day = TimeManager.ElapsedDays;
-            int hour = TimeManager.CurrentTime;
+            int currentHour = TimeManager.CurrentTime;
 
-            if (hour < 700 || hour > 1900)
-            {
-                Logger.Msg($"[DeadDrop] ⏰ Skipped drop — current hour {hour} is outside 7AM–7PM window.");
-                return;
-            }
-
-            if (!DataBase.GetDrop(day, out var packet, out int scheduledHour, out string type, out string _))
+            if (!DataBase.PendingDrops.TryGetValue(day, out var drop))
             {
                 Logger.Msg($"[DeadDrop] 📭 No scheduled drop found for Day {day}.");
                 return;
             }
 
-            if (scheduledHour != hour)
+            if (currentHour < drop.DropHour)
             {
-                Logger.Msg($"[DeadDrop] ⏳ Drop not ready — set for {scheduledHour}, now is {hour}.");
+                Logger.Msg($"[DeadDrop] ⏳ Drop scheduled later today @ {drop.DropTime}.");
                 return;
             }
 
-            SpawnDrop(day, packet, hour, type);
+            Logger.Msg($"[DeadDrop] 🕐 Spawning scheduled drop for Day {day} now.");
+            SpawnDrop(drop);
         }
 
         /// <summary>
-        /// Immediately forces a drop to spawn at the nearest dead drop.
+        /// Forces a drop spawn from any source (console, test, etc.).
         /// </summary>
         public static void ForceSpawnDrop(int day, List<string> packet, string type = "debug", int hour = -1)
         {
             if (hour == -1)
                 hour = TimeManager.CurrentTime;
 
-            SpawnDrop(day, packet, hour, type);
+            var drop = new DataBase.DropRecord
+            {
+                Day = day,
+                Items = packet,
+                DropHour = hour,
+                DropTime = TimeSpan.FromMinutes(hour).ToString(@"hh\:mm"),
+                Org = "DevCommand",
+                CreatedTime = DateTime.Now.ToString("s"),
+                Type = type,
+                Location = ""
+            };
+
+            SpawnDrop(drop);
         }
 
         /// <summary>
-        /// Core logic to convert a drop packet into real items and place them into storage.
+        /// Spawns a drop's contents into the nearest available dead drop instance.
         /// </summary>
-        private static void SpawnDrop(int day, List<string> packet, int hour, string type)
+        private static void SpawnDrop(DataBase.DropRecord drop)
         {
-            DeadDropInstance target = GetNearestAvailableDrop();
-            if (target == null)
+            var all = DeadDropManager.All;
+            if (all == null || all.Length == 0)
             {
-                Logger.Warn("[DeadDrop] ❌ No valid drop point found.");
+                Logger.Warn("[DeadDrop] ❌ No drop locations available.");
                 return;
             }
 
-            Logger.Msg($"[DeadDrop] 📦 Spawning into dead drop at {target.Position} ➤ {target.Storage.GetType().Name}");
-            Logger.Msg($"[DeadDrop] 📅 Day {day} @ {hour} ({type}) ➤ Contents: {string.Join(", ", packet)}");
+            var player = Player.Local;
+            DeadDropInstance target = player != null
+                ? FindClosestDrop(player.Position, all)
+                : all[0];
+
+            Logger.Msg($"[DeadDrop] 📦 Dropping at {target.Position} | Storage: {target.Storage.GetType().Name}");
+            Logger.Msg($"[DeadDrop] 🧾 From: {drop.Org} | {drop.Type} | {drop.DropTime} | Items: {drop.Items.Count}");
 
             int success = 0, fail = 0;
 
-            foreach (string id in packet)
+            foreach (string entry in drop.Items)
             {
+                string[] parts = entry.Split(':');
+                string id = parts[0];
+                int amount = (parts.Length > 1 && int.TryParse(parts[1], out int parsed)) ? parsed : 1;
+
                 var def = ItemManager.GetItemDefinition(id);
                 if (def == null)
                 {
@@ -130,35 +117,43 @@ namespace PaxDrops
                     continue;
                 }
 
-                var item = def.CreateInstance();
-                if (item == null)
+                for (int i = 0; i < amount; i++)
                 {
-                    Logger.Warn($"[DeadDrop] ❌ Failed to create item: '{id}'");
-                    fail++;
-                    continue;
-                }
+                    var item = def.CreateInstance();
+                    if (item == null)
+                    {
+                        Logger.Warn($"[DeadDrop] ❌ Failed to create item: '{id}'");
+                        fail++;
+                        continue;
+                    }
 
-                target.Storage.AddItem(item);
-                success++;
+                    target.Storage.AddItem(item);
+                    success++;
+                }
             }
 
-            Logger.Msg($"[DeadDrop] ✅ Drop spawned: {success} added, {fail} failed.");
+            Logger.Msg($"[DeadDrop] ✅ Drop complete: {success} added, {fail} failed.");
         }
 
         /// <summary>
-        /// Finds the closest dead drop to the player, or returns first available if player isn't found.
+        /// Finds the closest dead drop instance to the given position.
         /// </summary>
-        private static DeadDropInstance GetNearestAvailableDrop()
+        private static DeadDropInstance FindClosestDrop(Vector3 origin, DeadDropInstance[] all)
         {
-            var all = DeadDropManager.All;
-            if (all == null || all.Length == 0)
-                return null;
+            DeadDropInstance best = all[0];
+            float bestDist = Vector3.Distance(origin, best.Position);
 
-            var player = Player.Local;
-            if (player == null)
-                return all.FirstOrDefault();
+            foreach (var drop in all)
+            {
+                float dist = Vector3.Distance(origin, drop.Position);
+                if (dist < bestDist)
+                {
+                    best = drop;
+                    bestDist = dist;
+                }
+            }
 
-            return all.OrderBy(d => Vector3.Distance(player.Position, d.Position)).FirstOrDefault();
+            return best;
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using S1API.GameTime;
-using S1API.Leveling; 
+using S1API.Leveling;
 
 namespace PaxDrops
 {
@@ -17,19 +17,19 @@ namespace PaxDrops
         public enum Tier
         {
             // 👕 Street Earners (1–3)
-            StreetEarner1 = 1, // 1
-            StreetEarner2,     // 2
-            StreetEarner3,     // 3
+            StreetEarner1 = 1,
+            StreetEarner2,
+            StreetEarner3,
 
             // 🧥 Capos (4–6)
-            Capo1,             // 4
-            Capo2,             // 5
-            Capo3,             // 6
+            Capo1,
+            Capo2,
+            Capo3,
 
             // 👑 Dons (7–9)
-            Don1,              // 7
-            Don2,              // 8
-            Don3               // 9
+            Don1,
+            Don2,
+            Don3
         }
 
         /// <summary>
@@ -46,11 +46,19 @@ namespace PaxDrops
                 return $"${CashAmount} + [{items}]";
             }
 
+            /// <summary>
+            /// Converts the packet into a list of formatted item strings like "cash:500", "acid:3".
+            /// </summary>
             public List<string> ToFlatList()
             {
-                var list = new List<string> { "cash" };
+                var list = new List<string>
+                {
+                    $"cash:{CashAmount}"
+                };
+
                 foreach (var stack in Loot)
-                    list.Add(stack.ItemID);
+                    list.Add($"{stack.ItemID}:{stack.Quantity}");
+
                 return list;
             }
 
@@ -141,7 +149,10 @@ namespace PaxDrops
                 loot.Add(new DropPacket.ItemStack { ItemID = itemID, Quantity = qty });
             }
 
-            int cash = Mathf.Clamp((int)(Rng.Next(MinCash, MaxCash + 1) * (0.7f + tierNum * 0.1f)), MinCash, MaxCash);
+            int cash = Mathf.Clamp(
+                (int)(Rng.Next(MinCash, MaxCash + 1) * (0.7f + tierNum * 0.1f)),
+                MinCash, MaxCash
+            );
 
             var packet = new DropPacket
             {
@@ -163,6 +174,9 @@ namespace PaxDrops
             return UnityEngine.Random.Range(1, 3);                   // Street: 1–2
         }
 
+        /// <summary>
+        /// Determines max tier unlocked by the given day and player rank.
+        /// </summary>
         public static Tier GetMaxUnlockedTier(int day)
         {
             Rank rank = LevelManager.Rank;
@@ -177,8 +191,9 @@ namespace PaxDrops
             return (Tier)Mathf.Clamp(maxTier, 1, MaxTier);
         }
 
-
-
+        /// <summary>
+        /// Returns true if the specified tier is currently unlocked.
+        /// </summary>
         public static bool IsTierUnlocked(Tier tier)
         {
             return (int)tier <= (int)GetMaxUnlockedTier(TimeManager.ElapsedDays);
