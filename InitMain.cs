@@ -3,6 +3,9 @@ using UnityEngine.SceneManagement;
 using MelonLoader;
 using ScheduleOne.Persistence;
 using System.Collections;
+using PaxDrops.Core;
+using PaxDrops.Drops;
+using PaxDrops.NPC;
 
 [assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "CaptainPax")]
 [assembly: MelonGame("Cortez", "Schedule 1")]
@@ -11,7 +14,7 @@ namespace PaxDrops
 {
     /// <summary>
     /// Entry point and lifecycle manager for the PaxDrops mod.
-    /// Handles system initialization, persistence, and shutdown.
+    /// Responsible for initializing all major systems.
     /// </summary>
     public class InitMain : MelonMod
     {
@@ -27,7 +30,7 @@ namespace PaxDrops
         {
             if (scene.name != "Main") return;
 
-            Logger.Msg("[InitMain] 🎬 Main scene loaded. Bootstrapping PaxDrops...");
+            Logger.Msg("[InitMain] 🎬 Main scene loaded. Bootstrapping systems...");
 
             if (_persistentRoot == null)
             {
@@ -39,16 +42,22 @@ namespace PaxDrops
             MelonCoroutines.Start(WaitForSaveLoad());
         }
 
+        /// <summary>
+        /// Initializes all modular systems in startup order.
+        /// </summary>
         private static void InitSystems()
         {
             Logger.Init();           // 🔧 Logging system
-            DataBase.Init();         // 💾 SQLite drop persistence
-            TierLevel.Init();        // 📦 Tier/loot scaling
-            DeadDrop.Init();         // 📬 Drop spawning
-            MrStacks.Init();         // 📱 Messaging system
-            CommandHandler.Init();   // ⌨️ Console commands
+            DataBase.Init();         // 💾 SQLite persistence
+            TierLevel.Init();        // 📦 Tiered loot system
+            DeadDrop.Init();         // 📬 Drop spawner
+            MrStacks.Init();         // 📱 Mrs. Stacks NPC handler
+            CommandHandler.Init();   // ⌨️ Console command registration
         }
 
+        /// <summary>
+        /// Waits until the save system is ready, then logs basic metadata.
+        /// </summary>
         private static IEnumerator WaitForSaveLoad()
         {
             var lm = LoadManager.Instance;
@@ -63,8 +72,11 @@ namespace PaxDrops
             string org = lm.ActiveSaveInfo?.OrganisationName ?? "Unknown Org";
             Logger.Msg($"📂 Save Loaded: {folder}");
             Logger.Msg($"🏢 Organization: {org}");
+        }
 
-            MrStacks.TriggerIntroIfReady(); // ✅ Force intro message after save is loaded
+        public override void OnLateInitializeMelon()
+        {
+            Logger.Msg("[InitMain] ✅ PaxDrops fully loaded and persistent.");
         }
 
         public override void OnApplicationQuit()
@@ -80,11 +92,6 @@ namespace PaxDrops
             {
                 Logger.Exception(ex);
             }
-        }
-
-        public override void OnLateInitializeMelon()
-        {
-            Logger.Msg("[InitMain] ✅ PaxDrops loaded and persistent.");
         }
     }
 }
