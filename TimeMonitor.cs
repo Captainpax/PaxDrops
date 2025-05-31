@@ -14,8 +14,6 @@ namespace PaxDrops
     public static class TimeMonitor
     {
         private static bool _initialized;
-        private static int _lastDay = -1;
-        private static bool _hasCheckedToday;
 
         public static void Init()
         {

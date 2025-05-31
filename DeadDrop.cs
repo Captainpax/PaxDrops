@@ -158,7 +158,7 @@ namespace PaxDrops
                 Logger.Msg($"[DeadDrop] 🧾 From: {drop.Org} | {drop.Type} | {drop.DropTime} | Items: {drop.Items.Count}");
 
                 // Find a suitable dead drop using the game's system
-                Il2CppScheduleOne.Economy.DeadDrop targetDeadDrop = FindSuitableDeadDrop();
+                Il2CppScheduleOne.Economy.DeadDrop? targetDeadDrop = FindSuitableDeadDrop();
                 
                 if (targetDeadDrop == null)
                 {
@@ -290,7 +290,7 @@ namespace PaxDrops
         /// <summary>
         /// Finds a suitable dead drop location using Schedule I's dead drop system
         /// </summary>
-        private static Il2CppScheduleOne.Economy.DeadDrop FindSuitableDeadDrop()
+        private static Il2CppScheduleOne.Economy.DeadDrop? FindSuitableDeadDrop()
         {
             try
             {
@@ -418,7 +418,7 @@ namespace PaxDrops
         /// <summary>
         /// Creates an item instance from definition
         /// </summary>
-        private static ItemInstance CreateItemInstance(ItemDefinition definition, int amount = 1)
+        private static ItemInstance? CreateItemInstance(ItemDefinition definition, int amount = 1)
         {
             try
             {
@@ -464,7 +464,7 @@ namespace PaxDrops
                     if (getDefaultMethod != null)
                     {
                         var parameters = getDefaultMethod.GetParameters();
-                        object result = null;
+                        object? result = null;
                         
                         if (parameters.Length >= 1 && parameters[0].ParameterType == typeof(int))
                         {
@@ -494,6 +494,7 @@ namespace PaxDrops
                     Logger.Warn($"[DeadDrop] ⚠️ GetDefaultInstance method failed: {ex.Message}");
                 }
 
+                /*
                 // Method 4: Try creating with constructor (last resort)
                 try
                 {
@@ -530,6 +531,7 @@ namespace PaxDrops
                 {
                     Logger.Warn($"[DeadDrop] ⚠️ Constructor approach failed: {ex.Message}");
                 }
+                */
 
                 Logger.Error($"[DeadDrop] ❌ All methods failed for item definition: {definition.name} (type: {definition.GetType().Name})");
                 return null;

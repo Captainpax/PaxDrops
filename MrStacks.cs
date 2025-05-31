@@ -170,10 +170,8 @@ namespace PaxDrops
                 // Get player info for realistic drop context
                 var player = Il2CppScheduleOne.PlayerScripts.Player.Local;
                 string playerName = player?.PlayerName ?? "Unknown";
-                string orgName = "Mrs. Stacks"; // Default organization
                 
                 // Try to get player rank if possible (for tier calculations)
-                Il2CppScheduleOne.Levelling.ERank? playerRank = null;
                 try
                 {
                     // Attempt to get player's crime rank or level
