@@ -183,6 +183,83 @@ namespace PaxDrops
         }
 
         /// <summary>
+        /// Returns a premium drop packet with enhanced loot and cash
+        /// </summary>
+        public static DropPacket GetPremiumDropPacket(int day)
+        {
+            if (!_initialized) Init();
+
+            Tier tier = GetMaxUnlockedTier(day);
+            List<string> pool = LootPools[tier];
+            int tierNum = (int)tier;
+
+            // Premium gets full 5 slots (4 loot + 1 cash)
+            int lootSlots = MaxSlots - 1;
+
+            var loot = new List<DropPacket.ItemStack>();
+            for (int i = 0; i < lootSlots; i++)
+            {
+                string itemID = pool[UnityEngine.Random.Range(0, pool.Count)];
+                // Premium gets 50% more quantity
+                int qty = Mathf.RoundToInt(GetStackQuantity(tierNum) * 1.5f);
+                loot.Add(new DropPacket.ItemStack(itemID, qty));
+            }
+
+            // Premium gets 75% more cash
+            int baseCash = (int)(Rng.Next(MinCash, MaxCash + 1) * (0.7f + tierNum * 0.1f));
+            int cash = Mathf.Clamp((int)(baseCash * 1.75f), MinCash * 2, MaxCash * 2);
+
+            var packet = new DropPacket
+            {
+                CashAmount = cash,
+                Loot = loot
+            };
+
+            Logger.Msg($"[TierLevel] Created PREMIUM drop for Day {day} ({tier}) ➤ {packet}");
+            return packet;
+        }
+
+        /// <summary>
+        /// Returns a random surprise drop packet with items from multiple tiers
+        /// </summary>
+        public static DropPacket GetRandomDropPacket(int day)
+        {
+            if (!_initialized) Init();
+
+            Tier maxTier = GetMaxUnlockedTier(day);
+            int maxTierNum = (int)maxTier;
+
+            // Random gets between 2-4 loot slots
+            int lootSlots = UnityEngine.Random.Range(2, 5);
+
+            var loot = new List<DropPacket.ItemStack>();
+            for (int i = 0; i < lootSlots; i++)
+            {
+                // Pick a random tier up to the max unlocked
+                Tier randomTier = (Tier)UnityEngine.Random.Range(1, maxTierNum + 1);
+                List<string> pool = LootPools[randomTier];
+                
+                string itemID = pool[UnityEngine.Random.Range(0, pool.Count)];
+                int qty = GetStackQuantity((int)randomTier);
+                loot.Add(new DropPacket.ItemStack(itemID, qty));
+            }
+
+            // Random cash amount varies wildly
+            int tierNum = maxTierNum;
+            int baseCash = (int)(Rng.Next(MinCash, MaxCash + 1) * (0.5f + tierNum * 0.15f));
+            int cash = Mathf.Clamp(baseCash, MinCash / 2, MaxCash * 3);
+
+            var packet = new DropPacket
+            {
+                CashAmount = cash,
+                Loot = loot
+            };
+
+            Logger.Msg($"[TierLevel] Created RANDOM drop for Day {day} (max tier {maxTier}) ➤ {packet}");
+            return packet;
+        }
+
+        /// <summary>
         /// Returns quantity per item stack based on tier strength.
         /// </summary>
         private static int GetStackQuantity(int tierNum)

@@ -17,52 +17,111 @@ namespace PaxDrops.Commands
         {
             try
             {
-                int day = TimeManager.Instance?.ElapsedDays ?? 1;
-                TierLevel.Tier? specificTier = null;
+                Logger.Msg("[PaxDropCommand] 📦 Processing drop command...");
 
-                // Parse day argument
-                if (args.Count >= 1 && int.TryParse(args[0], out int parsedDay))
-                    day = parsedDay;
-
-                // Parse tier argument
-                if (args.Count >= 2)
+                if (args.Count == 0)
                 {
-                    if (System.Enum.TryParse<TierLevel.Tier>(args[1], true, out var tier))
-                    {
-                        specificTier = tier;
-                    }
+                    // Show help
+                    Logger.Msg("[PaxDropCommand] 💡 Available options:");
+                    Logger.Msg("[PaxDropCommand]   paxdrop test_message  - Send test message from Mrs. Stacks dealer");
+                    Logger.Msg("[PaxDropCommand]   paxdrop order [type]  - Order a drop via dealer system (standard/premium/surprise)");
+                    Logger.Msg("[PaxDropCommand]   paxdrop force [items]  - Force spawn a drop with specified items");
+                    Logger.Msg("[PaxDropCommand]   paxdrop show_pending   - Show pending scheduled drops");
+                    return;
                 }
 
-                // Generate loot packet
-                TierLevel.DropPacket packet = TierLevel.GetDropPacket(day);
+                string command = args[0].ToString().ToLower();
 
-                // If specific tier was requested, use it (this could be enhanced to generate for specific tier)
-                if (specificTier.HasValue)
+                switch (command)
                 {
-                    Logger.Msg($"[PaxDropCommand] 🎯 Using tier {specificTier.Value} for drop");
-                    // For now, still use the day-based generation but could be enhanced
+                    case "test_message":
+                    case "message":
+                    case "msg":
+                        Logger.Msg("[PaxDropCommand] 🧪 Triggering test order...");
+                        MrStacks.TriggerTestOrder();
+                        break;
+
+                    case "order":
+                        string orderType = args.Count > 1 ? args[1].ToString().ToLower() : "standard";
+                        Logger.Msg($"[PaxDropCommand] 🛒 Ordering {orderType} drop via dealer system...");
+                        Logger.Msg($"[PaxDropCommand] 📱 This simulates player interaction with Mrs. Stacks dealer");
+                        MrStacks.ProcessOrder(orderType);
+                        break;
+
+                    case "force":
+                    case "spawn":
+                        Logger.Msg("[PaxDropCommand] 🚀 Force spawning drop...");
+                        HandleForceSpawn(args);
+                        break;
+
+                    case "show_pending":
+                    case "pending":
+                    case "list":
+                        Logger.Msg("[PaxDropCommand] 📋 Showing pending drops...");
+                        ShowPendingDrops();
+                        break;
+
+                    default:
+                        Logger.Warn($"[PaxDropCommand] ❓ Unknown command: {command}");
+                        Logger.Msg("[PaxDropCommand] Use 'paxdrop' with no args to see available options");
+                        break;
                 }
-
-                // Convert packet to the old string format for compatibility
-                List<string> items = packet.ToFlatList();
-
-                // Save to database and force spawn immediately
-                int currentHour = TimeManager.Instance?.CurrentTime ?? 12;
-                JsonDataStore.SaveDrop(day, items, currentHour, "command");
-                
-                // Force spawn immediately for testing
-                DeadDrop.ForceSpawnDrop(day, items, "command", currentHour);
-
-                Logger.Msg($"[PaxDropCommand] 📦 Command drop for Day {day} | Items: {packet.Loot.Count} + ${packet.CashAmount}");
-                
-                // Also log to console
-                Il2CppScheduleOne.Console.Log($"PaxDrop spawned for Day {day} with {packet.Loot.Count} items + ${packet.CashAmount} cash");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                Logger.Error($"[PaxDropCommand] ❌ Command execution failed: {ex.Message}");
+                Logger.Error($"[PaxDropCommand] ❌ Command failed: {ex.Message}");
                 Logger.Exception(ex);
-                Il2CppScheduleOne.Console.Log("PaxDrop command failed - check logs");
+            }
+        }
+
+        private void HandleForceSpawn(Il2CppSystem.Collections.Generic.List<string> args)
+        {
+            var timeManager = TimeManager.Instance;
+            if (timeManager == null)
+            {
+                Logger.Error("[PaxDropCommand] ❌ TimeManager not available");
+                return;
+            }
+
+            int currentDay = timeManager.ElapsedDays;
+
+            if (args.Count > 1)
+            {
+                // Custom items specified
+                var items = new List<string>();
+                for (int i = 1; i < args.Count; i++)
+                {
+                    items.Add(args[i].ToString());
+                }
+                
+                Logger.Msg($"[PaxDropCommand] 📦 Force spawning custom items: {string.Join(", ", items)}");
+                DeadDrop.ForceSpawnDrop(currentDay, items, "command_custom");
+            }
+            else
+            {
+                // Generate tier-appropriate drop
+                var packet = TierLevel.GetDropPacket(currentDay);
+                var items = packet.ToFlatList();
+                
+                Logger.Msg($"[PaxDropCommand] 📦 Force spawning tier drop: {packet}");
+                DeadDrop.ForceSpawnDrop(currentDay, items, "command_tier");
+            }
+        }
+
+        private void ShowPendingDrops()
+        {
+            if (JsonDataStore.PendingDrops.Count == 0)
+            {
+                Logger.Msg("[PaxDropCommand] 📭 No pending drops scheduled");
+                return;
+            }
+
+            Logger.Msg($"[PaxDropCommand] 📋 {JsonDataStore.PendingDrops.Count} pending drops:");
+            foreach (var kvp in JsonDataStore.PendingDrops)
+            {
+                var drop = kvp.Value;
+                Logger.Msg($"[PaxDropCommand]   Day {kvp.Key}: {drop.Items.Count} items, ${drop.Items.Where(i => i.StartsWith("cash:")).Sum(i => int.Parse(i.Split(':')[1]))} cash");
+                Logger.Msg($"[PaxDropCommand]     Time: {drop.DropTime} | From: {drop.Org} | Type: {drop.Type}");
             }
         }
     }
