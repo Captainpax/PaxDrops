@@ -1,0 +1,74 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Library</OutputType>
+    <AssemblyName>PaxDrops</AssemblyName>
+    <RootNamespace>PaxDrops</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <S1Dir>/Users/shreyas/Library/Application Support/CrossOver/Bottles/Schedule I/drive_c/Program Files (x86)/Steam/steamapps/common/Schedule I/</S1Dir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Exclude old Mono files completely -->
+    <Compile Remove="my_references\**\*.cs" />
+    <Compile Remove="DataBase.cs" />
+
+    <!-- IL2CPP Game References - using absolute paths like working project -->
+    <Reference Include="Assembly-CSharp-firstpass">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Assembly-CSharp-firstpass.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2CppFishNet.Runtime">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Il2CppFishNet.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(S1Dir)\MelonLoader\net6\Il2CppInterop.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2CppInterop.Common">
+      <HintPath>$(S1Dir)\MelonLoader\net6\Il2CppInterop.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(S1Dir)\MelonLoader\net6\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="MelonLoader">
+      <HintPath>$(S1Dir)\MelonLoader\net6\MelonLoader.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\UnityEngine.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.InputModule">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\UnityEngine.InputModule.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.InputSystem">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Unity.InputSystem.dll</HintPath>
+    </Reference>
+    <!-- Additional IL2CPP assemblies -->
+    <!-- <Reference Include="Il2CppSystem">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Il2CppSystem.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2CppSystem.Core">
+      <HintPath>$(S1Dir)\MelonLoader\Il2CppAssemblies\Il2CppSystem.Core.dll</HintPath>
+    </Reference> -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- NuGet Packages -->
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project> 

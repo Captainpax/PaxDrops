@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using MelonLoader;
 using UnityEngine;
@@ -11,7 +11,7 @@ namespace PaxDrops
         private const string LogDir = "Mods/PaxDrops/Logs";
         private const string LatestLog = "latest.log";
         private const int MaxLogs = 5;
-        private static StreamWriter _writer;
+        private static StreamWriter? _writer;
         private static readonly bool EnableDebug = true;
 
         public static void Init()
@@ -83,5 +83,12 @@ namespace PaxDrops
                     File.Copy(src, dst, overwrite: true);
             }
         }
+
+        public static void Shutdown()
+        {
+            _writer?.Close();
+            _writer?.Dispose();
+            _writer = null;
+        }
     }
-}
+} 

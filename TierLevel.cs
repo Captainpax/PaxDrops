@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
-using S1API.GameTime;
-using S1API.Leveling;
+using Il2CppScheduleOne.GameTime;
+using Il2CppScheduleOne.Levelling;
 
 namespace PaxDrops
 {
@@ -40,6 +41,11 @@ namespace PaxDrops
             public int CashAmount;
             public List<ItemStack> Loot;
 
+            public DropPacket()
+            {
+                Loot = new List<ItemStack>();
+            }
+
             public override string ToString()
             {
                 string items = string.Join(", ", Loot.ConvertAll(x => $"{x.ItemID} x{x.Quantity}"));
@@ -66,6 +72,12 @@ namespace PaxDrops
             {
                 public string ItemID;
                 public int Quantity;
+
+                public ItemStack(string itemId, int quantity)
+                {
+                    ItemID = itemId;
+                    Quantity = quantity;
+                }
             }
         }
 
@@ -76,14 +88,18 @@ namespace PaxDrops
 
         private static readonly Dictionary<Tier, List<string>> LootPools = new Dictionary<Tier, List<string>>();
         private static readonly System.Random Rng = new System.Random();
+        private static bool _initialized = false;
 
         public static void Init()
         {
+            if (_initialized) return;
+            _initialized = true;
+
             Logger.Msg("[TierLevel] Loading mafia-themed loot pools...");
 
             LootPools[Tier.StreetEarner1] = new List<string>
             {
-                "acid", "baggie", "soil", "pseudo", "cokeleaf"
+                "acid", "baggie", "soil", "pseudo"
             };
 
             LootPools[Tier.StreetEarner2] = new List<string>(LootPools[Tier.StreetEarner1])
@@ -93,7 +109,7 @@ namespace PaxDrops
 
             LootPools[Tier.StreetEarner3] = new List<string>(LootPools[Tier.StreetEarner2])
             {
-                "meth", "cocainebase", "glass"
+                "meth", "cocainebase", "glass", "cocaleaf"
             };
 
             LootPools[Tier.Capo1] = new List<string>(LootPools[Tier.StreetEarner3])
@@ -126,7 +142,7 @@ namespace PaxDrops
                 "goldentoilet", "goldenskateboard", "jukebox"
             };
 
-            Logger.Msg("[TierLevel] Loot pools loaded.");
+            Logger.Msg("[TierLevel] Loot pools loaded with 9 tiers.");
         }
 
         /// <summary>
@@ -134,6 +150,8 @@ namespace PaxDrops
         /// </summary>
         public static DropPacket GetDropPacket(int day)
         {
+            if (!_initialized) Init();
+
             Tier tier = GetMaxUnlockedTier(day);
             List<string> pool = LootPools[tier];
             int tierNum = (int)tier;
@@ -146,7 +164,7 @@ namespace PaxDrops
             {
                 string itemID = pool[UnityEngine.Random.Range(0, pool.Count)];
                 int qty = GetStackQuantity(tierNum);
-                loot.Add(new DropPacket.ItemStack { ItemID = itemID, Quantity = qty });
+                loot.Add(new DropPacket.ItemStack(itemID, qty));
             }
 
             int cash = Mathf.Clamp(
@@ -179,16 +197,25 @@ namespace PaxDrops
         /// </summary>
         public static Tier GetMaxUnlockedTier(int day)
         {
-            Rank rank = LevelManager.Rank;
+            try
+            {
+                var levelManager = Il2CppScheduleOne.Levelling.LevelManager.Instance;
+                var rank = levelManager?.Rank ?? Il2CppScheduleOne.Levelling.ERank.Street_Rat;
 
-            int rankLimit = 3;
-            if (rank >= Rank.ShotCaller)
-                rankLimit = 9;
-            else if (rank >= Rank.Peddler)
-                rankLimit = 6;
+                int rankLimit = 3;
+                if (rank >= Il2CppScheduleOne.Levelling.ERank.Shot_Caller)
+                    rankLimit = 9;
+                else if (rank >= Il2CppScheduleOne.Levelling.ERank.Peddler)
+                    rankLimit = 6;
 
-            int maxTier = Mathf.Min(day, rankLimit);
-            return (Tier)Mathf.Clamp(maxTier, 1, MaxTier);
+                int maxTier = Mathf.Min(day, rankLimit);
+                return (Tier)Mathf.Clamp(maxTier, 1, MaxTier);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[TierLevel] ❌ Error getting rank, defaulting to Tier 1: {ex.Message}");
+                return Tier.StreetEarner1;
+            }
         }
 
         /// <summary>
@@ -196,7 +223,43 @@ namespace PaxDrops
         /// </summary>
         public static bool IsTierUnlocked(Tier tier)
         {
-            return (int)tier <= (int)GetMaxUnlockedTier(TimeManager.ElapsedDays);
+            try
+            {
+                int currentDay = TimeManager.Instance?.ElapsedDays ?? 1;
+                return (int)tier <= (int)GetMaxUnlockedTier(currentDay);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[TierLevel] ❌ Error checking tier unlock: {ex.Message}");
+                return tier == Tier.StreetEarner1; // Default to tier 1 only
+            }
+        }
+
+        /// <summary>
+        /// Gets all available tiers for a given tier group
+        /// </summary>
+        public static Tier[] GetTiersInGroup(string groupName)
+        {
+            switch (groupName.ToLower())
+            {
+                case "street":
+                case "streetearner":
+                    return new[] { Tier.StreetEarner1, Tier.StreetEarner2, Tier.StreetEarner3 };
+                case "capo":
+                    return new[] { Tier.Capo1, Tier.Capo2, Tier.Capo3 };
+                case "don":
+                    return new[] { Tier.Don1, Tier.Don2, Tier.Don3 };
+                default:
+                    return new[] { Tier.StreetEarner1 };
+            }
+        }
+
+        /// <summary>
+        /// Gets a formatted tier name for display
+        /// </summary>
+        public static string GetTierDisplayName(Tier tier)
+        {
+            return tier.ToString().Replace("StreetEarner", "Street Earner ");
         }
     }
-}
+} 

@@ -1,8 +1,5 @@
-﻿using UnityEngine;
-using UnityEngine.SceneManagement;
+using UnityEngine;
 using MelonLoader;
-using ScheduleOne.Persistence;
-using System.Collections;
 
 [assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "CaptainPax")]
 [assembly: MelonGame("Cortez", "Schedule 1")]
@@ -15,76 +12,68 @@ namespace PaxDrops
     /// </summary>
     public class InitMain : MelonMod
     {
-        private static GameObject _persistentRoot;
+        private static bool _initialized = false;
 
         public override void OnInitializeMelon()
         {
-            Logger.Msg("[InitMain] 🚀 PaxDrops loading...");
-            SceneManager.sceneLoaded += OnSceneLoaded;
-        }
-
-        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
-        {
-            if (scene.name != "Main") return;
-
-            Logger.Msg("[InitMain] 🎬 Main scene loaded. Bootstrapping PaxDrops...");
-
-            if (_persistentRoot == null)
-            {
-                _persistentRoot = new GameObject("PaxDrops.Persistent");
-                Object.DontDestroyOnLoad(_persistentRoot);
-            }
-
-            InitSystems();
-            MelonCoroutines.Start(WaitForSaveLoad());
-        }
-
-        private static void InitSystems()
-        {
-            Logger.Init();           // 🔧 Logging system
-            DataBase.Init();         // 💾 SQLite drop persistence
-            TierLevel.Init();        // 📦 Tier/loot scaling
-            DeadDrop.Init();         // 📬 Drop spawning
-            MrStacks.Init();         // 📱 Messaging system
-            CommandHandler.Init();   // ⌨️ Console commands
-        }
-
-        private static IEnumerator WaitForSaveLoad()
-        {
-            var lm = LoadManager.Instance;
-
-            while (lm == null || !lm.IsGameLoaded)
-            {
-                yield return new WaitForSeconds(0.5f);
-                lm = LoadManager.Instance;
-            }
-
-            string folder = lm.LoadedGameFolderPath ?? "(null)";
-            string org = lm.ActiveSaveInfo?.OrganisationName ?? "Unknown Org";
-            Logger.Msg($"📂 Save Loaded: {folder}");
-            Logger.Msg($"🏢 Organization: {org}");
-
-            MrStacks.TriggerIntroIfReady(); // ✅ Force intro message after save is loaded
-        }
-
-        public override void OnApplicationQuit()
-        {
-            Logger.Msg("[InitMain] 🧼 PaxDrops shutting down...");
-            try
-            {
-                DeadDrop.Shutdown();
-                DataBase.Shutdown();
-                Logger.Msg("[InitMain] ✅ Shutdown complete.");
-            }
-            catch (System.Exception ex)
-            {
-                Logger.Exception(ex);
-            }
+            MelonLogger.Msg("🚀 PaxDrops loading...");
+            Logger.Init();
         }
 
         public override void OnLateInitializeMelon()
         {
-            Logger.Msg("[InitMain] ✅ PaxDrops loaded and persistent.");
+            MelonLogger.Msg("✅ PaxDrops loaded and persistent.");
+        }
+
+        public override void OnSceneWasLoaded(int buildIndex, string sceneName)
+        {
+            // Main scene is usually index 1 or has "Main" in name
+            if ((buildIndex == 1 || sceneName.Contains("Main")) && !_initialized)
+            {
+                MelonLogger.Msg("🎬 Main scene loaded. Bootstrapping PaxDrops...");
+                
+                // Initialize database first
+                JsonDataStore.Init();
+                
+                // Initialize all other systems
+                InitSystems();
+
+                _initialized = true;
+                MelonLogger.Msg("🎮 PaxDrops fully initialized!");
+            }
+        }
+
+        public override void OnApplicationQuit()
+        {
+            MelonLogger.Msg("🧼 PaxDrops shutting down...");
+            try
+            {
+                TimeMonitor.Shutdown();
+                // CommandHandler.Shutdown();
+                JsonDataStore.Shutdown();
+                Logger.Shutdown();
+                MelonLogger.Msg("✅ Shutdown complete.");
+            }
+            catch (System.Exception ex)
+            {
+                MelonLogger.Error($"❌ Shutdown error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Initializes all modular systems in startup order.
+        /// </summary>
+        private static void InitSystems()
+        {
+            Logger.Msg("[InitMain] 🔧 Initializing PaxDrops systems...");
+            
+            TierLevel.Init();        // 📦 Tiered loot system  
+            DeadDrop.Init();         // 📬 Drop spawner
+            TimeMonitor.Init();      // ⏰ Time monitoring system
+            MrStacks.Init();         // 📱 Mrs. Stacks NPC handler
+            // CommandHandler.Init();   // ⌨️ Console command registration
+            
+            Logger.Msg("[InitMain] ✅ All systems initialized successfully.");
         }
     }
-}
+} 
