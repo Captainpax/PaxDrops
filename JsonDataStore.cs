@@ -176,34 +176,19 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Check if Mrs. Stacks has already been ordered from today
+        /// Check if Mrs. Stacks has already received an order today
         /// </summary>
         public static bool HasMrsStacksOrderToday(int day)
         {
-            return MrsStacksOrdersToday.ContainsKey(day) && MrsStacksOrdersToday[day];
+            return MrsStacksOrdersToday.ContainsKey(day);
         }
 
         /// <summary>
-        /// Mark Mrs. Stacks as ordered for today
+        /// Mark that Mrs. Stacks received an order today
         /// </summary>
         public static void MarkMrsStacksOrderToday(int day)
         {
             MrsStacksOrdersToday[day] = true;
-            
-            // Clean up old tracking (keep only last 3 days)
-            var keysToRemove = new List<int>();
-            foreach (var kvp in MrsStacksOrdersToday)
-            {
-                if (kvp.Key < day - 2)
-                {
-                    keysToRemove.Add(kvp.Key);
-                }
-            }
-            
-            foreach (var key in keysToRemove)
-            {
-                MrsStacksOrdersToday.Remove(key);
-            }
         }
     }
 } 

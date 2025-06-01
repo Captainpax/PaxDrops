@@ -423,34 +423,42 @@ namespace PaxDrops
         {
             try
             {
+                // Method 1: Try MoneyManager.GetCashInstance first
                 var moneyManager = MoneyManager.Instance;
                 if (moneyManager != null)
                 {
                     var cashInstance = moneyManager.GetCashInstance((float)amount);
                     if (cashInstance != null)
                     {
+                        Logger.Msg($"[DeadDrop] 💰 Using MoneyManager.GetCashInstance for ${amount}");
                         return AddItemToStorage(storage, cashInstance);
                     }
                 }
 
-                // Fallback: direct cash balance change
-                var player = Player.Local;
-                if (player != null && moneyManager != null)
-                {
-                    float currentBalance = moneyManager.cashBalance;
-                    moneyManager.ChangeCashBalance((float)amount, true, true);
-                    
-                    if (Math.Abs(moneyManager.cashBalance - (currentBalance + amount)) < 0.01f)
-                    {
-                        Logger.Msg("[DeadDrop] 💰 Cash added to player inventory (storage limitation)");
-                        return true;
-                    }
-                }
-
-                // Last resort: create cash instance manually
+                // Method 2: Try creating cash instance via Registry
                 var cashDef = Il2CppScheduleOne.Registry.GetItem<CashDefinition>("cash");
                 if (cashDef != null)
                 {
+                    try
+                    {
+                        var cashInstance = cashDef.GetDefaultInstance(amount);
+                        if (cashInstance is CashInstance cashInst)
+                        {
+                            // Ensure correct balance
+                            if (Math.Abs(cashInst.Balance - amount) > 0.01f)
+                            {
+                                cashInst.SetBalance((float)amount, false);
+                            }
+                            Logger.Msg($"[DeadDrop] 💰 Using CashDefinition.GetDefaultInstance for ${amount}");
+                            return AddItemToStorage(storage, cashInst);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"[DeadDrop] ⚠️ CashDefinition.GetDefaultInstance failed: {ex.Message}");
+                    }
+                    
+                    // Try manual CashInstance creation
                     try
                     {
                         var cashInstance = new CashInstance(cashDef, amount);
@@ -460,24 +468,30 @@ namespace PaxDrops
                             {
                                 cashInstance.SetBalance((float)amount, false);
                             }
+                            Logger.Msg($"[DeadDrop] 💰 Using manual CashInstance for ${amount}");
                             return AddItemToStorage(storage, cashInstance);
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Try GetDefaultInstance
-                        var itemInstance = cashDef.GetDefaultInstance(amount);
-                        if (itemInstance is CashInstance cashInst)
-                        {
-                            if (Math.Abs(cashInst.Balance - amount) > 0.01f)
-                            {
-                                cashInst.SetBalance((float)amount, false);
-                            }
-                            return AddItemToStorage(storage, cashInst);
-                        }
+                        Logger.Warn($"[DeadDrop] ⚠️ Manual CashInstance creation failed: {ex.Message}");
                     }
                 }
 
+                // Method 3: Last resort - add to player inventory directly (no double-adding!)
+                if (moneyManager != null)
+                {
+                    float currentBalance = moneyManager.cashBalance;
+                    moneyManager.ChangeCashBalance((float)amount, true, true);
+                    
+                    if (Math.Abs(moneyManager.cashBalance - (currentBalance + amount)) < 0.01f)
+                    {
+                        Logger.Msg($"[DeadDrop] 💰 Added ${amount} to player inventory (storage unavailable)");
+                        return true;
+                    }
+                }
+
+                Logger.Error($"[DeadDrop] ❌ All cash methods failed for ${amount}");
                 return false;
             }
             catch (Exception ex)

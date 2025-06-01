@@ -4,6 +4,7 @@ using MelonLoader;
 using System.Collections.Generic;
 using System.Collections;
 using UnityEngine;
+using PaxDrops.MrStacks;
 
 namespace PaxDrops
 {
@@ -88,7 +89,7 @@ namespace PaxDrops
                 if (currentHour == 700) // 7:00 AM
                 {
                     Logger.Msg("[TimeMonitor] 🌅 Morning business hours starting!");
-                    MrStacks.OnNewDay();
+                    MrsStacksNPC.OnNewDay();
                 }
 
                 // Check for scheduled drops
@@ -115,7 +116,7 @@ namespace PaxDrops
                 Logger.Msg($"[TimeMonitor] 📅 Day changed to {currentDay}");
 
                 // Notify MrStacks about day change
-                MrStacks.OnDayChanged();
+                MrsStacksNPC.OnDayChanged();
 
                 // Clean up old drops from database
                 CleanupOldDrops(currentDay);

@@ -1,5 +1,6 @@
 using UnityEngine;
 using MelonLoader;
+using PaxDrops.MrStacks;
 
 [assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "CaptainPax")]
 [assembly: MelonGame("Cortez", "Schedule 1")]
@@ -48,8 +49,9 @@ namespace PaxDrops
             MelonLogger.Msg("🧼 PaxDrops shutting down...");
             try
             {
+                MrsStacksNPC.Shutdown();
                 TimeMonitor.Shutdown();
-                // CommandHandler.Shutdown();
+                CommandHandler.Shutdown();
                 JsonDataStore.Shutdown();
                 Logger.Shutdown();
                 MelonLogger.Msg("✅ Shutdown complete.");
@@ -70,8 +72,8 @@ namespace PaxDrops
             TierLevel.Init();        // 📦 Tiered loot system  
             DeadDrop.Init();         // 📬 Drop spawner
             TimeMonitor.Init();      // ⏰ Time monitoring system
-            MrStacks.Init();         // 📱 Mrs. Stacks NPC handler
-            // CommandHandler.Init();   // ⌨️ Console command registration
+            MrsStacksNPC.Init();         // 📱 Mrs. Stacks NPC handler
+            CommandHandler.Init();   // ⌨️ Console command registration
             
             Logger.Msg("[InitMain] ✅ All systems initialized successfully.");
         }
