@@ -32,7 +32,7 @@ namespace PaxDrops.MrStacks
         public static Supplier? GetMrsStacksSupplier() => _mrsStacks;
 
         /// <summary>
-        /// Called when a new day starts - send daily availability message
+        /// Called when a new day starts - check for inactivity reminders
         /// </summary>
         public static void OnNewDay()
         {
@@ -46,8 +46,10 @@ namespace PaxDrops.MrStacks
                 // Check if Mrs. Stacks is available
                 if (_mrsStacks != null)
                 {
-                    // Use new daily ordering system for availability messages
-                    DailyDropOrdering.SendDailyAvailabilityMessage();
+                    Logger.Msg("[MrsStacksNPC] 🌅 New day business hours started!");
+                    
+                    // Send inactivity reminder if player hasn't ordered in 4+ days
+                    DailyDropOrdering.SendInactivityReminderIfNeeded();
                 }
             }
             catch (Exception ex)
@@ -224,6 +226,9 @@ namespace PaxDrops.MrStacks
                 MrsStacksMessaging.SetupConversation(mrsStacksNPC);
                 
                 Logger.Msg("[MrsStacksNPC] ✅ Mrs. Stacks created successfully");
+                
+                // Send welcome message after a short delay to ensure everything is set up
+                MelonCoroutines.Start(SendDelayedWelcomeMessage());
             }
             catch (Exception ex)
             {
@@ -348,6 +353,28 @@ namespace PaxDrops.MrStacks
             _mrsStacks.DeliveriesEnabled = false;
             _mrsStacks.ChangeDebt(-_mrsStacks.Debt);
             MrsStacksPatches.Shutdown();
+        }
+
+        /// <summary>
+        /// Send welcome message after a delay to ensure Mrs. Stacks is fully set up
+        /// </summary>
+        private static System.Collections.IEnumerator SendDelayedWelcomeMessage()
+        {
+            yield return new UnityEngine.WaitForSeconds(3.0f);
+            
+            try
+            {
+                // Only send welcome if player hasn't ordered before
+                int lastOrderDay = JsonDataStore.GetLastMrsStacksOrderDay();
+                if (lastOrderDay == -1) // Never ordered before
+                {
+                    DailyDropOrdering.SendWelcomeMessage();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[MrsStacksNPC] ❌ Delayed welcome message failed: {ex.Message}");
+            }
         }
     }
 } 

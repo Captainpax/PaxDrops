@@ -69,12 +69,11 @@ namespace PaxDrops.MrStacks
                 {
                     Logger.Msg("[MrsStacksPatches] 🛑 Intercepted Mrs. Stacks dead drop request - bypassing shop interface");
                     
-                    // Get current day for order processing
-                    var timeManager = Il2CppScheduleOne.GameTime.TimeManager.Instance;
-                    int currentDay = timeManager?.ElapsedDays ?? 0;
+                    // Process order via DailyDropOrdering system (handles daily limits and tracking)
+                    DailyDropOrdering.ProcessMrsStacksOrder("deadrop_interaction", null, true);
 
-                    // Use the unified order processor
-                    MelonCoroutines.Start(ProcessMrsStacksOrder(currentDay));
+                    // Inform the player that bypass worked
+                    Logger.Msg("[MrsStacksPatches] ✅ Mrs. Stacks dead drop order bypassed shop interface");
                     
                     return false; // Skip original method
                 }
@@ -85,26 +84,6 @@ namespace PaxDrops.MrStacks
             }
             
             return true; // Continue with original method for other suppliers
-        }
-
-        /// <summary>
-        /// Process Mrs. Stacks order using the OrderProcessor system
-        /// </summary>
-        private static System.Collections.IEnumerator ProcessMrsStacksOrder(int currentDay)
-        {
-            yield return new UnityEngine.WaitForSeconds(0.1f);
-            
-            try
-            {
-                Logger.Msg("[MrsStacksPatches] 📦 Processing Mrs. Stacks dead drop order...");
-                
-                // Use the unified order processor with Mrs. Stacks organization
-                OrderProcessor.ProcessOrder("Mrs. Stacks", "deadrop_interaction", null, null, true);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"[MrsStacksPatches] ❌ Mrs. Stacks order processing failed: {ex.Message}");
-            }
         }
 
         /// <summary>

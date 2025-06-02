@@ -63,9 +63,19 @@ namespace PaxDrops.MrStacks
                         return;
                     }
 
-                    // Mark order for today
+                    // Mark order for today (this tracks ORDER DAY, not delivery day)
                     JsonDataStore.MarkMrsStacksOrderToday(currentDay);
                 }
+
+                // Calculate delivery day - always next game day
+                int deliveryDay = currentDay + 1;
+                int deliveryHour = 730; // 7:30 AM game time
+                
+                // Calculate expiry - day after delivery at same time
+                int expiryDay = deliveryDay + 1;
+                int expiryHour = deliveryHour;
+
+                Logger.Msg($"[OrderProcessor] 📅 Order placed on game day {currentDay}, delivery on game day {deliveryDay} at {deliveryHour}");
 
                 // Generate package based on order type
                 List<string> items;
@@ -114,19 +124,40 @@ namespace PaxDrops.MrStacks
                     tierInfo = $"{TierConfig.GetTierName(package.Tier)} ({TierConfig.GetOrganizationName(TierConfig.GetOrganization(package.Tier))})";
                 }
 
-                // Calculate drop delay based on tier
-                int dropHours = DropConfig.GetRandomDropDelay();
-
                 // Send confirmation message if messaging enabled
                 if (sendMessages)
                 {
-                    SendConfirmationMessage(organization, orderType, dropHours, items.Count, cashAmount, tierInfo);
+                    SendConfirmationMessage(organization, orderType, deliveryDay, deliveryHour, items.Count, cashAmount, tierInfo);
                 }
 
-                // Schedule drop spawn
-                MelonCoroutines.Start(SpawnDropAfterDelay(organization, orderType, dropHours, items, cashAmount, currentDay, sendMessages, tierInfo));
+                // Create drop record for delivery day (NOT order day)
+                var dropRecord = new JsonDataStore.DropRecord
+                {
+                    Day = deliveryDay,           // When drop becomes available (next game day)
+                    Items = items,
+                    DropHour = deliveryHour,
+                    DropTime = DropConfig.FormatGameTime(deliveryHour),
+                    Org = $"{organization} ({tierInfo})",
+                    CreatedTime = DateTime.Now.ToString("s"), // Real time when order was created
+                    Type = orderType,
+                    Location = "",
+                    ExpiryTime = $"{expiryDay}:{expiryHour}", // Store as game day:hour format
+                    OrderDay = currentDay,       // When order was placed (current game day)
+                    IsCollected = false,
+                    InitialItemCount = items.Count + (cashAmount > 0 ? 1 : 0) // Include cash as item
+                };
 
-                Logger.Msg($"[OrderProcessor] ✅ {organization} {orderType} order processed - {items.Count} items, ${cashAmount}, {tierInfo}, ready in {dropHours}h");
+                // Schedule the drop for delivery
+                JsonDataStore.SaveDropRecord(dropRecord);
+
+                // Send immediate preparation message with location assignment
+                if (sendMessages && organization == "Mrs. Stacks")
+                {
+                    SendPreparationMessage(organization, deliveryDay, deliveryHour, tierInfo);
+                }
+
+                Logger.Msg($"[OrderProcessor] ✅ {organization} {orderType} order scheduled for game day {deliveryDay} at {DropConfig.FormatGameTime(deliveryHour)} - {items.Count} items, ${cashAmount}, {tierInfo}");
+                Logger.Msg($"[OrderProcessor] 📋 Order tracking: OrderDay={currentDay}, DeliveryDay={deliveryDay}, ExpiryDay={expiryDay}");
             }
             catch (Exception ex)
             {
@@ -136,70 +167,9 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Spawn drop after time delay
-        /// </summary>
-        private static System.Collections.IEnumerator SpawnDropAfterDelay(string organization, string orderType, 
-            int hours, List<string> items, int cashAmount, int day, bool sendMessages, string tierInfo)
-        {
-            yield return new UnityEngine.WaitForSeconds(hours * 60.0f);
-            
-            // Execute spawn logic after yield
-            ExecuteSpawnLogic(organization, orderType, hours, items, cashAmount, day, sendMessages, tierInfo);
-        }
-
-        /// <summary>
-        /// Execute the spawn logic (separated to avoid yield/try-catch conflict)
-        /// </summary>
-        private static void ExecuteSpawnLogic(string organization, string orderType, int hours, 
-            List<string> items, int cashAmount, int day, bool sendMessages, string tierInfo)
-        {
-            try
-            {
-                Logger.Msg($"[OrderProcessor] ⏰ Spawning {organization} drop ({tierInfo})...");
-
-                var allItems = new List<string>(items);
-                
-                var dropRecord = new JsonDataStore.DropRecord
-                {
-                    Day = day,
-                    Items = allItems,
-                    DropHour = hours,
-                    DropTime = $"{hours:D2}:00",
-                    Org = $"{organization} ({tierInfo})",
-                    CreatedTime = DateTime.Now.ToString("s"),
-                    Type = orderType,
-                    Location = ""
-                };
-
-                string? location = DeadDrop.SpawnImmediateDrop(dropRecord);
-                
-                // Send ready message if messaging enabled
-                if (sendMessages)
-                {
-                    MelonCoroutines.Start(SendReadyMessageAfterDelay(organization, location, tierInfo));
-                }
-
-                Logger.Msg($"[OrderProcessor] ✅ {organization} drop spawned at: {location ?? "unknown"}");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"[OrderProcessor] ❌ {organization} drop spawn failed: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Send ready message after brief delay
-        /// </summary>
-        private static System.Collections.IEnumerator SendReadyMessageAfterDelay(string organization, string? location, string tierInfo)
-        {
-            yield return new UnityEngine.WaitForSeconds(2.0f);
-            SendReadyMessage(organization, location, tierInfo);
-        }
-
-        /// <summary>
         /// Send order confirmation message (only for Mrs. Stacks messaging)
         /// </summary>
-        private static void SendConfirmationMessage(string organization, string orderType, int hours, int itemCount, int cashAmount, string tierInfo)
+        private static void SendConfirmationMessage(string organization, string orderType, int deliveryDay, int deliveryHour, int itemCount, int cashAmount, string tierInfo)
         {
             if (organization != "Mrs. Stacks") return; // Only Mrs. Stacks sends messages
             
@@ -217,39 +187,13 @@ namespace PaxDrops.MrStacks
 
                 MrsStacksMessaging.SendMessage(npc, 
                     $"Copy that. Preparing {typeText} from {tierInfo} with {itemCount} items and ${cashAmount} cash. " +
-                    $"Give me {hours} hours. I'll message when ready with location.");
+                    $"Delivery tomorrow at {DropConfig.FormatGameTime(deliveryHour)}. I'll message when ready with location.");
 
                 Logger.Msg("[OrderProcessor] 📱 Confirmation sent");
             }
             catch (Exception ex)
             {
                 Logger.Error($"[OrderProcessor] ❌ Confirmation failed: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Send ready message with location (only for Mrs. Stacks messaging)
-        /// </summary>
-        private static void SendReadyMessage(string organization, string? location, string tierInfo)
-        {
-            if (organization != "Mrs. Stacks") return; // Only Mrs. Stacks sends messages
-            
-            try
-            {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
-                if (npc == null) return;
-
-                string locationText = !string.IsNullOrEmpty(location) ? location : "a secure location";
-                
-                MrsStacksMessaging.SendMessage(npc, 
-                    $"Package ready! Your {tierInfo} delivery is waiting at {locationText}. " +
-                    $"Retrieve when safe. Quality guaranteed as always.");
-
-                Logger.Msg("[OrderProcessor] 📱 Ready message sent");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"[OrderProcessor] ❌ Ready message failed: {ex.Message}");
             }
         }
 
@@ -321,6 +265,30 @@ namespace PaxDrops.MrStacks
             catch (Exception ex)
             {
                 Logger.Error($"[OrderProcessor] ❌ Error message failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Send preparation message with location assignment (only for Mrs. Stacks messaging)
+        /// </summary>
+        private static void SendPreparationMessage(string organization, int deliveryDay, int deliveryHour, string tierInfo)
+        {
+            if (organization != "Mrs. Stacks") return; // Only Mrs. Stacks sends messages
+            
+            try
+            {
+                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                if (npc == null) return;
+
+                MrsStacksMessaging.SendMessage(npc, 
+                    $"Package prep underway. Scheduled for day {deliveryDay} at {DropConfig.FormatGameTime(deliveryHour)}. " +
+                    $"I'll message you with the actual dead drop location when it's ready. Stay tuned!");
+
+                Logger.Msg($"[OrderProcessor] 📱 Preparation message sent (no preliminary location to avoid confusion)");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[OrderProcessor] ❌ Preparation message failed: {ex.Message}");
             }
         }
     }

@@ -1,298 +1,270 @@
 using System;
-using System.Collections.Generic;
+using MelonLoader;
 using Il2CppScheduleOne.GameTime;
-using Il2CppScheduleOne.Levelling;
 using PaxDrops.Configs;
 using PaxDrops.MrStacks;
 
 namespace PaxDrops
 {
     /// <summary>
-    /// Handles daily drop ordering system based on player rank.
-    /// Players can order drops once per day (or more based on their tier).
-    /// All drops are tier-based according to player's current rank.
+    /// Enhanced daily drop ordering system - properly tracks order day vs delivery day
+    /// Ensures once-per-day ordering based on when the order was placed, not when delivered
     /// </summary>
     public static class DailyDropOrdering
     {
         private static bool _initialized = false;
 
-        /// <summary>
-        /// Initialize the daily drop ordering system
-        /// </summary>
         public static void Init()
         {
             if (_initialized) return;
             _initialized = true;
+
             Logger.Msg("[DailyDropOrdering] 🎯 Daily drop ordering system initialized");
         }
 
         /// <summary>
-        /// Order a drop for today (standard)
+        /// Check if player can order drops today (based on order day, not delivery day)
         /// </summary>
-        public static bool OrderStandardDrop()
-        {
-            return OrderDrop("standard");
-        }
-
-        /// <summary>
-        /// Order a premium drop for today
-        /// </summary>
-        public static bool OrderPremiumDrop()
-        {
-            return OrderDrop("premium");
-        }
-
-        /// <summary>
-        /// Order a random drop for today
-        /// </summary>
-        public static bool OrderRandomDrop()
-        {
-            return OrderDrop("random");
-        }
-
-        /// <summary>
-        /// Main drop ordering logic
-        /// </summary>
-        private static bool OrderDrop(string dropType)
+        public static bool CanPlayerOrderToday()
         {
             try
             {
-                if (!_initialized) Init();
-
-                var currentDay = DropConfig.GetCurrentGameDay();
-                var playerRank = DropConfig.GetCurrentPlayerRank();
-                var playerTier = DropConfig.GetCurrentPlayerTier();
-
-                // Check if player can order today
-                if (!DropConfig.CanPlayerOrderToday(currentDay))
+                var timeManager = TimeManager.Instance;
+                if (timeManager == null)
                 {
-                    var remaining = DropConfig.GetRemainingOrdersToday(currentDay);
-                    SendDailyLimitMessage(playerTier, remaining);
+                    Logger.Error("[DailyDropOrdering] ❌ TimeManager not available");
                     return false;
                 }
 
-                // Generate the appropriate drop package
-                TierDropSystem.DropPackage package = dropType.ToLower() switch
-                {
-                    "premium" => TierDropSystem.GeneratePremiumDropPackage(playerTier),
-                    "random" => TierDropSystem.GenerateRandomDropPackage(),
-                    _ => TierDropSystem.GenerateDropPackage(playerTier)
-                };
-
-                // Process the order
-                var dropHour = DropConfig.GetRandomDropDelay();
-                var tierInfo = $"{TierConfig.GetTierName(playerTier)} tier";
-                var orgName = TierConfig.GetOrganizationName(TierConfig.GetOrganization(playerTier));
-
-                OrderProcessor.ProcessOrder(
-                    organization: "Mrs. Stacks",
-                    orderType: dropType,
-                    customDay: currentDay,
-                    customItems: package.ToFlatList(),
-                    sendMessages: true,
-                    tier: playerTier
-                );
-
-                Logger.Msg($"[DailyDropOrdering] ✅ {dropType} drop ordered for Day {currentDay} from {tierInfo}");
-                
-                // Send confirmation message
-                SendOrderConfirmationMessage(dropType, tierInfo, orgName, package.CashAmount, package.Items.Count, dropHour);
-                
-                return true;
+                int currentDay = timeManager.ElapsedDays;
+                return DropConfig.CanPlayerOrderToday(currentDay);
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Order failed: {ex.Message}");
-                SendErrorMessage($"Order failed: {ex.Message}");
+                Logger.Error($"[DailyDropOrdering] ❌ Error checking order availability: {ex.Message}");
                 return false;
             }
         }
 
         /// <summary>
-        /// Check if player can order any drops today
+        /// Get remaining orders available today for the player
         /// </summary>
-        public static bool CanOrderToday()
-        {
-            var currentDay = DropConfig.GetCurrentGameDay();
-            return DropConfig.CanPlayerOrderToday(currentDay);
-        }
-
-        /// <summary>
-        /// Get player's ordering status for today
-        /// </summary>
-        public static (int ordersUsed, int ordersLimit, int ordersRemaining) GetTodaysOrderStatus()
-        {
-            var currentDay = DropConfig.GetCurrentGameDay();
-            var playerTier = DropConfig.GetCurrentPlayerTier();
-            var limit = DropConfig.GetDailyOrderLimit(playerTier);
-            var used = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
-            var remaining = Math.Max(0, limit - used);
-
-            return (used, limit, remaining);
-        }
-
-        /// <summary>
-        /// Get player's current tier information
-        /// </summary>
-        public static (TierConfig.Tier tier, string tierName, string orgName, ERank playerRank) GetPlayerTierInfo()
-        {
-            var playerRank = DropConfig.GetCurrentPlayerRank();
-            var playerTier = DropConfig.GetCurrentPlayerTier();
-            var tierName = TierConfig.GetTierName(playerTier);
-            var orgName = TierConfig.GetOrganizationName(TierConfig.GetOrganization(playerTier));
-
-            return (playerTier, tierName, orgName, playerRank);
-        }
-
-        /// <summary>
-        /// Get next tier progression info
-        /// </summary>
-        public static string GetProgressionInfo()
-        {
-            return TierDropSystem.GetNextTierRequirements();
-        }
-
-        /// <summary>
-        /// Send order confirmation message
-        /// </summary>
-        private static void SendOrderConfirmationMessage(string orderType, string tierInfo, string orgName, int cashAmount, int itemCount, int hours)
+        public static int GetRemainingOrdersToday()
         {
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
-                if (npc == null) return;
+                var timeManager = TimeManager.Instance;
+                if (timeManager == null) return 0;
 
-                string typeText = orderType.ToLower() switch
-                {
-                    "premium" => "premium package",
-                    "random" => "surprise package",
-                    _ => "standard package"
-                };
-
-                var message = $"Order confirmed! Preparing {typeText} from {tierInfo} ({orgName}). " +
-                             $"Package contains {itemCount} items plus ${cashAmount} cash. " +
-                             $"Delivery in {hours} hours - I'll text the location when ready.";
-
-                MrsStacksMessaging.SendMessage(npc, message);
-                Logger.Msg("[DailyDropOrdering] 📱 Confirmation sent");
+                int currentDay = timeManager.ElapsedDays;
+                return DropConfig.GetRemainingOrdersToday(currentDay);
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Confirmation failed: {ex.Message}");
+                Logger.Error($"[DailyDropOrdering] ❌ Error getting remaining orders: {ex.Message}");
+                return 0;
             }
         }
 
         /// <summary>
-        /// Send daily limit message
+        /// Get player's order status information
         /// </summary>
-        private static void SendDailyLimitMessage(TierConfig.Tier playerTier, int remaining)
+        public static string GetOrderStatusInfo()
+        {
+            try
+            {
+                var timeManager = TimeManager.Instance;
+                if (timeManager == null) return "Time system unavailable";
+
+                int currentDay = timeManager.ElapsedDays;
+                var currentTier = DropConfig.GetCurrentPlayerTier();
+                var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
+                var ordersToday = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
+                int remaining = dailyLimit - ordersToday;
+
+                return $"Day {currentDay}: {ordersToday}/{dailyLimit} orders used, {remaining} remaining";
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[DailyDropOrdering] ❌ Error getting status info: {ex.Message}");
+                return "Status unavailable";
+            }
+        }
+
+        /// <summary>
+        /// Process a Mrs. Stacks drop order - handles daily limit enforcement
+        /// </summary>
+        public static void ProcessMrsStacksOrder(string orderType = "standard", int? tier = null, bool sendMessages = true)
+        {
+            try
+            {
+                if (!CanPlayerOrderToday())
+                {
+                    var statusInfo = GetOrderStatusInfo();
+                    Logger.Msg($"[DailyDropOrdering] 🚫 Daily order limit reached - {statusInfo}");
+                    
+                    if (sendMessages)
+                    {
+                        var timeManager = TimeManager.Instance;
+                        int currentDay = timeManager?.ElapsedDays ?? 0;
+                        var currentTier = DropConfig.GetCurrentPlayerTier();
+                        var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
+                        
+                        SendDailyLimitMessage(dailyLimit);
+                    }
+                    return;
+                }
+
+                // Process the order through OrderProcessor
+                OrderProcessor.ProcessOrder("Mrs. Stacks", orderType, tier, sendMessages: sendMessages);
+                
+                Logger.Msg($"[DailyDropOrdering] ✅ Mrs. Stacks {orderType} order processed");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[DailyDropOrdering] ❌ Error processing Mrs. Stacks order: {ex.Message}");
+                Logger.Exception(ex);
+            }
+        }
+
+        /// <summary>
+        /// Send daily limit reached message
+        /// </summary>
+        private static void SendDailyLimitMessage(int dailyLimit)
         {
             try
             {
                 var npc = MrsStacksMessaging.FindMrsStacksNPC();
                 if (npc == null) return;
 
-                var tierName = TierConfig.GetTierName(playerTier);
-                var nextTierInfo = TierDropSystem.GetNextTierRequirements();
-                
-                string message;
-                if (remaining <= 0)
+                string limitText = dailyLimit switch
                 {
-                    message = $"You've reached your daily order limit for {tierName} tier. " +
-                             $"Come back tomorrow for fresh inventory. " +
-                             $"Tip: {nextTierInfo}";
-                }
-                else
-                {
-                    message = $"You have {remaining} order(s) remaining today for {tierName} tier.";
-                }
+                    1 => "one order per day",
+                    2 => "two orders per day", 
+                    3 => "three orders per day",
+                    4 => "four orders per day",
+                    _ => $"{dailyLimit} orders per day"
+                };
 
-                MrsStacksMessaging.SendMessage(npc, message);
+                MrsStacksMessaging.SendMessage(npc, 
+                    $"You've reached your daily limit of {limitText}. " +
+                    $"Come back tomorrow for more business opportunities.");
+
                 Logger.Msg("[DailyDropOrdering] 📱 Daily limit message sent");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Daily limit message failed: {ex.Message}");
+                Logger.Error($"[DailyDropOrdering] ❌ Failed to send daily limit message: {ex.Message}");
             }
         }
 
+        public static void Shutdown()
+        {
+            _initialized = false;
+            Logger.Msg("[DailyDropOrdering] 🔌 Daily drop ordering shutdown");
+        }
+
         /// <summary>
-        /// Send error message
+        /// Send reminder message if player hasn't ordered in 4+ days
         /// </summary>
-        private static void SendErrorMessage(string errorText)
+        public static void SendInactivityReminderIfNeeded()
         {
             try
             {
                 var npc = MrsStacksMessaging.FindMrsStacksNPC();
                 if (npc == null) return;
 
-                MrsStacksMessaging.SendMessage(npc, $"Sorry, there was an issue with your order: {errorText}");
-                Logger.Msg("[DailyDropOrdering] 📱 Error message sent");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"[DailyDropOrdering] ❌ Error message failed: {ex.Message}");
-            }
-        }
+                var timeManager = TimeManager.Instance;
+                if (timeManager == null) return;
 
-        /// <summary>
-        /// Send daily availability message (called on new day)
-        /// </summary>
-        public static void SendDailyAvailabilityMessage()
-        {
-            try
-            {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
-                if (npc == null) return;
-
-                var (tier, tierName, orgName, playerRank) = GetPlayerTierInfo();
-                var (used, limit, remaining) = GetTodaysOrderStatus();
-
-                if (remaining > 0)
+                int currentDay = timeManager.ElapsedDays;
+                int daysSinceLastOrder = JsonDataStore.GetDaysSinceLastMrsStacksOrder(currentDay);
+                
+                // Send reminder if 4+ days since last order (or never ordered and it's been 4+ days since start)
+                bool shouldSendReminder = false;
+                
+                if (daysSinceLastOrder == -1) // Never ordered
                 {
-                    var messages = new[]
+                    // Send reminder if it's been 4+ days since game start
+                    if (currentDay >= 4)
                     {
-                        $"Good morning! Fresh {tierName} tier inventory available. {remaining} order(s) left for today.",
-                        $"Morning briefing: {orgName} operations are active. Premium {tierName} packages ready.",
-                        $"Day's open for business! {tierName} tier drops available - {remaining} order(s) remaining.",
-                        $"Fresh stock from {orgName}! Your {tierName} tier access gives you {remaining} order(s) today."
-                    };
-
-                    var random = new System.Random();
-                    var dailyMessage = messages[random.Next(messages.Length)];
-                    
-                    MrsStacksMessaging.SendMessage(npc, dailyMessage);
-                    Logger.Msg("[DailyDropOrdering] 📱 Daily availability message sent");
+                        shouldSendReminder = true;
+                    }
                 }
+                else if (daysSinceLastOrder >= 4)
+                {
+                    shouldSendReminder = true;
+                }
+
+                if (!shouldSendReminder) return;
+
+                var currentTier = DropConfig.GetCurrentPlayerTier();
+                var currentRank = DropConfig.GetCurrentPlayerRank();
+                var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
+                var tierName = TierConfig.GetTierName(currentTier);
+                var org = TierConfig.GetOrganization(currentTier);
+                var orgName = TierConfig.GetOrganizationName(org);
+
+                var reminderMessages = daysSinceLastOrder == -1 ? new[]
+                {
+                    // First-time user messages
+                    $"Hey there! I'm Mrs. Stacks, your connection to {orgName}. Your {currentRank} rank gives you access to {tierName} tier drops. Interested in some business?",
+                    $"Word on the street is you might need some... special deliveries. I handle {tierName} tier packages for {orgName}. What do you say?",
+                    $"New face around here? I'm Mrs. Stacks - I arrange discrete deliveries. Your {tierName} tier access gets you {dailyLimit} order(s) per day.",
+                    $"Looking for reliable supply lines? {orgName} operations are my specialty. Your rank unlocks {tierName} tier packages."
+                } : new[]
+                {
+                    // Returning customer messages
+                    $"It's been {daysSinceLastOrder} days since our last business. Missing the quality {tierName} tier packages? {orgName} has fresh inventory waiting.",
+                    $"Haven't heard from you in {daysSinceLastOrder} days! The {tierName} tier supply chain is running smooth. Ready for another order?",
+                    $"Mrs. Stacks here - been {daysSinceLastOrder} days since your last drop. Your {currentRank} access to {tierName} tier is still active. Need anything?",
+                    $"Long time no see! {daysSinceLastOrder} days without business. {orgName} has some premium {tierName} tier stock if you're interested.",
+                    $"Day {currentDay} check-in: It's been {daysSinceLastOrder} days since our last deal. Your {tierName} tier privileges are still good - want to place an order?"
+                };
+
+                var random = new System.Random();
+                var reminderMessage = reminderMessages[random.Next(reminderMessages.Length)];
+                
+                MrsStacksMessaging.SendMessage(npc, reminderMessage);
+                
+                string logType = daysSinceLastOrder == -1 ? "first-time" : $"{daysSinceLastOrder}-day inactivity";
+                Logger.Msg($"[DailyDropOrdering] 📱 Sent {logType} reminder message");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Daily availability failed: {ex.Message}");
+                Logger.Error($"[DailyDropOrdering] ❌ Inactivity reminder failed: {ex.Message}");
+                Logger.Exception(ex);
             }
         }
 
         /// <summary>
-        /// Show current ordering status (for debugging/console)
+        /// Send welcome message when Mrs. Stacks is first discovered
         /// </summary>
-        public static void ShowOrderingStatus()
+        public static void SendWelcomeMessage()
         {
             try
             {
-                var (tier, tierName, orgName, playerRank) = GetPlayerTierInfo();
-                var (used, limit, remaining) = GetTodaysOrderStatus();
-                var currentDay = DropConfig.GetCurrentGameDay();
+                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                if (npc == null) return;
 
-                Logger.Msg($"[DailyDropOrdering] 📊 Ordering Status:");
-                Logger.Msg($"  Player Rank: {playerRank}");
-                Logger.Msg($"  Current Tier: {tierName} ({orgName})");
-                Logger.Msg($"  Game Day: {currentDay}");
-                Logger.Msg($"  Orders Today: {used}/{limit} (Remaining: {remaining})");
-                Logger.Msg($"  Can Order: {(remaining > 0 ? "Yes" : "No")}");
-                Logger.Msg($"  Progression: {GetProgressionInfo()}");
+                var currentTier = DropConfig.GetCurrentPlayerTier();
+                var currentRank = DropConfig.GetCurrentPlayerRank();
+                var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
+                var tierName = TierConfig.GetTierName(currentTier);
+                var org = TierConfig.GetOrganization(currentTier);
+                var orgName = TierConfig.GetOrganizationName(org);
+
+                var welcomeMessage = $"Welcome to the network! I'm Mrs. Stacks, your connection to {orgName} operations. " +
+                                   $"Your {currentRank} rank gives you access to {tierName} tier packages - up to {dailyLimit} order(s) per day. " +
+                                   $"Deliveries arrive at 7:30 AM and expire after 24 hours. Ready to do business?";
+
+                MrsStacksMessaging.SendMessage(npc, welcomeMessage);
+                Logger.Msg("[DailyDropOrdering] 📱 Welcome message sent");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Status display failed: {ex.Message}");
+                Logger.Error($"[DailyDropOrdering] ❌ Welcome message failed: {ex.Message}");
+                Logger.Exception(ex);
             }
         }
     }

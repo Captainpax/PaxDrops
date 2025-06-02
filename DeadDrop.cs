@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Il2CppScheduleOne;
 using Il2CppScheduleOne.GameTime;
 using Il2CppScheduleOne.Storage;
 using Il2CppScheduleOne.ItemFramework;
@@ -124,19 +125,105 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Spawn immediate drop (for Mrs. Stacks orders)
+        /// Spawn a drop immediately from a drop record and return location
         /// </summary>
-        public static string? SpawnImmediateDrop(JsonDataStore.DropRecord dropRecord)
+        public static string? SpawnImmediateDrop(JsonDataStore.DropRecord drop)
         {
             try
             {
-                Logger.Msg($"[DeadDrop] 🚀 Spawning immediate drop from {dropRecord.Org}");
-                SpawnDrop(dropRecord);
-                return dropRecord.Location;
+                Logger.Msg($"[DeadDrop] 📦 Spawning drop: {drop.Items.Count} items from {drop.Org}");
+
+                var targetDeadDrop = FindSuitableDeadDrop();
+                if (targetDeadDrop?.Storage == null)
+                {
+                    Logger.Warn("[DeadDrop] ❌ No suitable dead drop found");
+                    return null;
+                }
+
+                Logger.Msg($"[DeadDrop] 📍 Target: {targetDeadDrop.DeadDropName}");
+                drop.Location = targetDeadDrop.DeadDropName;
+
+                // Save the complete drop record with location
+                JsonDataStore.SaveDropRecord(drop);
+
+                // Consolidate items and cash
+                var consolidatedItems = new Dictionary<string, int>();
+                int cashAmount = 0;
+                
+                foreach (string entry in drop.Items)
+                {
+                    string[] parts = entry.Split(':');
+                    string itemId = parts[0];
+                    int amount = (parts.Length > 1 && int.TryParse(parts[1], out int parsed)) ? parsed : 1;
+
+                    if (itemId == "cash")
+                    {
+                        cashAmount += amount;
+                        continue;
+                    }
+
+                    string stackingKey = CreateItemStackingKey(itemId);
+                    consolidatedItems[stackingKey] = consolidatedItems.GetValueOrDefault(stackingKey, 0) + amount;
+                }
+
+                int success = 0, fail = 0;
+
+                // Add cash first
+                if (cashAmount > 0)
+                {
+                    if (AddCashToStorage(targetDeadDrop.Storage, cashAmount))
+                    {
+                        success++;
+                        Logger.Msg($"[DeadDrop] ✅ Added ${cashAmount} cash");
+                    }
+                    else
+                    {
+                        fail++;
+                        Logger.Warn($"[DeadDrop] ❌ Failed to add ${cashAmount} cash");
+                    }
+                }
+
+                // Add items
+                foreach (var kvp in consolidatedItems)
+                {
+                    string itemId = ExtractItemIdFromStackingKey(kvp.Key);
+                    int totalAmount = kvp.Value;
+                    
+                    var itemDef = Il2CppScheduleOne.Registry.GetItem(itemId);
+                    if (itemDef == null)
+                    {
+                        Logger.Warn($"[DeadDrop] ⚠️ Invalid item: {itemId}");
+                        fail++;
+                        continue;
+                    }
+
+                    try
+                    {
+                        var itemInstance = CreateItemInstance(itemDef, totalAmount);
+                        if (itemInstance != null && AddItemToStorage(targetDeadDrop.Storage, itemInstance))
+                        {
+                            success++;
+                            Logger.Msg($"[DeadDrop] ✅ Added {itemId} x{totalAmount}");
+                        }
+                        else
+                        {
+                            fail++;
+                            Logger.Warn($"[DeadDrop] ❌ Failed to add {itemId} x{totalAmount}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"[DeadDrop] ❌ Error with {itemId}: {ex.Message}");
+                        fail++;
+                    }
+                }
+
+                Logger.Msg($"[DeadDrop] ✅ Drop complete: {success} added, {fail} failed at {targetDeadDrop.DeadDropName}");
+                return targetDeadDrop.DeadDropName;
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DeadDrop] ❌ Immediate spawn failed: {ex.Message}");
+                Logger.Error($"[DeadDrop] ❌ Spawn failed: {ex.Message}");
                 return null;
             }
         }
@@ -241,7 +328,7 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Find suitable dead drop location
+        /// Find suitable dead drop location (avoid conflicts with other active drops)
         /// </summary>
         private static Il2CppScheduleOne.Economy.DeadDrop? FindSuitableDeadDrop()
         {
@@ -254,12 +341,37 @@ namespace PaxDrops
                     return null;
                 }
 
-                // Filter for available drops
+                Logger.Msg($"[DeadDrop] 🗺️ Found {allDeadDrops.Count} total dead drops in game:");
+                for (int i = 0; i < allDeadDrops.Count; i++)
+                {
+                    var deadDrop = allDeadDrops[i];
+                    if (deadDrop != null)
+                    {
+                        Logger.Msg($"[DeadDrop] 📍 {i + 1}. {deadDrop.DeadDropName} - Available: {IsDeadDropAvailable(deadDrop)}");
+                    }
+                }
+
+                // Get currently assigned drop locations to avoid conflicts
+                var assignedLocations = new HashSet<string>();
+                var allDrops = JsonDataStore.GetAllDrops();
+                foreach (var drop in allDrops)
+                {
+                    if (!string.IsNullOrEmpty(drop.Location) && !drop.IsCollected)
+                    {
+                        assignedLocations.Add(drop.Location);
+                    }
+                }
+
+                Logger.Msg($"[DeadDrop] 🚫 Currently assigned locations to avoid: {string.Join(", ", assignedLocations)}");
+
+                // Filter for available drops that aren't already assigned
                 var availableDrops = new List<Il2CppScheduleOne.Economy.DeadDrop>();
                 for (int i = 0; i < allDeadDrops.Count; i++)
                 {
                     var deadDrop = allDeadDrops[i];
-                    if (deadDrop?.Storage != null && IsDeadDropAvailable(deadDrop))
+                    if (deadDrop?.Storage != null && 
+                        IsDeadDropAvailable(deadDrop) && 
+                        !assignedLocations.Contains(deadDrop.DeadDropName))
                     {
                         availableDrops.Add(deadDrop);
                     }
@@ -267,26 +379,46 @@ namespace PaxDrops
 
                 if (availableDrops.Count == 0)
                 {
-                    Logger.Warn("[DeadDrop] ⚠️ No available dead drops");
-                    return null;
-                }
-
-                // Try game's method first
-                var player = Player.Local;
-                if (player?.transform != null)
-                {
-                    var randomDrop = Il2CppScheduleOne.Economy.DeadDrop.GetRandomEmptyDrop(player.transform.position);
-                    if (randomDrop != null)
+                    Logger.Warn("[DeadDrop] ⚠️ No available dead drops (all may be assigned or full)");
+                    // Fallback: allow reuse if no other options
+                    for (int i = 0; i < allDeadDrops.Count; i++)
                     {
-                        Logger.Msg($"[DeadDrop] 🎯 Selected: {randomDrop.DeadDropName}");
-                        return randomDrop;
+                        var deadDrop = allDeadDrops[i];
+                        if (deadDrop?.Storage != null && IsDeadDropAvailable(deadDrop))
+                        {
+                            availableDrops.Add(deadDrop);
+                        }
+                    }
+                    
+                    if (availableDrops.Count == 0)
+                    {
+                        Logger.Error("[DeadDrop] ❌ No dead drops available at all");
+                        return null;
                     }
                 }
 
-                // Fallback: manual selection
-                var selected = availableDrops[new System.Random().Next(availableDrops.Count)];
-                Logger.Msg($"[DeadDrop] 🎲 Manual selection: {selected.DeadDropName}");
-                return selected;
+                Logger.Msg($"[DeadDrop] ✅ {availableDrops.Count} dead drops available for assignment");
+
+                // Prefer game's selection method if available
+                var player = Player.Local;
+                if (player?.transform != null && availableDrops.Count > 1)
+                {
+                    // Try to get a random drop from our available list near player
+                    var nearbyDrops = availableDrops.Where(drop => 
+                        Vector3.Distance(player.transform.position, drop.transform.position) < 1000f).ToList();
+                    
+                    if (nearbyDrops.Count > 0)
+                    {
+                        var selected = nearbyDrops[new System.Random().Next(nearbyDrops.Count)];
+                        Logger.Msg($"[DeadDrop] 🎯 Selected nearby: {selected.DeadDropName}");
+                        return selected;
+                    }
+                }
+
+                // Fallback: manual selection from available drops
+                var finalSelected = availableDrops[new System.Random().Next(availableDrops.Count)];
+                Logger.Msg($"[DeadDrop] 🎲 Selected: {finalSelected.DeadDropName} (avoided {assignedLocations.Count} assigned locations)");
+                return finalSelected;
             }
             catch (Exception ex)
             {

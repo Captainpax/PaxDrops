@@ -8,8 +8,8 @@ using Il2CppScheduleOne.Levelling;
 namespace PaxDrops
 {
     /// <summary>
-    /// Centralized player detection system that continuously monitors for player availability.
-    /// Uses events to notify other systems when the player is ready.
+    /// Centralized player detection system that uses event-driven detection instead of polling.
+    /// Hooks into Unity lifecycle events to detect when the player becomes available.
     /// </summary>
     public static class PlayerDetection
     {
@@ -45,9 +45,10 @@ namespace PaxDrops
 
         private static bool _detectionStarted = false;
         private static bool _detectionComplete = false;
+        private static int _checkAttempts = 0;
 
         /// <summary>
-        /// Start the player detection coroutine
+        /// Start the event-driven player detection system
         /// </summary>
         public static void StartDetection()
         {
@@ -58,89 +59,97 @@ namespace PaxDrops
             }
 
             _detectionStarted = true;
-            Logger.Msg("[PlayerDetection] 🕵️ Starting player detection...");
+            Logger.Msg("[PlayerDetection] 🕵️ Starting event-driven player detection...");
             
-            // Start the detection coroutine
-            MelonCoroutines.Start(DetectionCoroutine());
+            // Start with an initial check and fallback timer
+            MelonCoroutines.Start(InitialDetectionCheck());
         }
 
         /// <summary>
-        /// Coroutine that continuously tries to detect the player
+        /// Initial detection check with fallback - only runs a few times instead of continuous polling
         /// </summary>
-        private static IEnumerator DetectionCoroutine()
+        private static IEnumerator InitialDetectionCheck()
         {
-            Logger.Msg("[PlayerDetection] 🔍 Detection coroutine started");
+            Logger.Msg("[PlayerDetection] 🔍 Starting initial detection checks");
             
-            // Wait a bit for the scene to fully load
-            yield return new WaitForSeconds(2f);
+            // Wait for scene to settle
+            yield return new WaitForSeconds(1f);
 
-            int attempts = 0;
-            const int maxAttempts = 100; // Try for ~50 seconds (500ms intervals)
+            // Try detection immediately
+            if (TryDetectPlayerComplete())
+                yield break;
 
-            while (!_detectionComplete && attempts < maxAttempts)
+            // If not found, try a few more times with increasing delays
+            for (int attempt = 1; attempt <= 5; attempt++)
             {
-                attempts++;
+                yield return new WaitForSeconds(attempt * 2f); // 2s, 4s, 6s, 8s, 10s
                 
-                try
-                {
-                    Logger.LogDebug($"[PlayerDetection] Detection attempt {attempts}/{maxAttempts}");
-                    
-                    // Try to find the player
-                    var player = TryDetectPlayer();
-                    if (player != null)
-                    {
-                        Logger.Msg($"[PlayerDetection] ✅ Player detected: {player.PlayerName}");
-                        CurrentPlayer = player;
-                        
-                        // Notify systems that player is loaded
-                        OnPlayerLoaded?.Invoke(player);
-                        
-                        // Try to get rank data
-                        var rank = TryDetectPlayerRank(player);
-                        if (rank != ERank.Street_Rat)
-                        {
-                            Logger.Msg($"[PlayerDetection] ✅ Player rank detected: {rank}");
-                            CurrentRank = rank;
-                            IsRankDetected = true;
-                            OnPlayerRankLoaded?.Invoke(player, rank);
-                            
-                            _detectionComplete = true;
-                            Logger.Msg("[PlayerDetection] 🎯 Player detection complete!");
-                            yield break;
-                        }
-                        else
-                        {
-                            Logger.LogDebug("[PlayerDetection] Player found but rank not available yet, continuing...");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug($"[PlayerDetection] Detection attempt {attempts} failed: {ex.Message}");
-                }
+                Logger.LogDebug($"[PlayerDetection] Detection attempt {attempt}/5");
+                if (TryDetectPlayerComplete())
+                    yield break;
+            }
 
-                // Wait before next attempt
-                yield return new WaitForSeconds(0.5f);
+            // If still not found after initial attempts, set up periodic checks (much less frequent)
+            Logger.Msg("[PlayerDetection] 📡 Setting up periodic detection checks");
+            MelonCoroutines.Start(PeriodicDetectionFallback());
+        }
+
+        /// <summary>
+        /// Fallback periodic checks - only every 10 seconds instead of 0.5 seconds
+        /// </summary>
+        private static IEnumerator PeriodicDetectionFallback()
+        {
+            while (!_detectionComplete && _checkAttempts < 30) // Max 5 minutes
+            {
+                yield return new WaitForSeconds(10f); // Much less frequent polling
+                _checkAttempts++;
+                
+                Logger.LogDebug($"[PlayerDetection] Periodic check {_checkAttempts}/30");
+                if (TryDetectPlayerComplete())
+                    yield break;
             }
 
             if (!_detectionComplete)
             {
-                Logger.Warn($"[PlayerDetection] ⚠️ Player detection failed after {maxAttempts} attempts");
-                
-                // Even if rank detection failed, if we have a player, use it
-                if (CurrentPlayer != null)
-                {
-                    Logger.Msg("[PlayerDetection] 📝 Using detected player with fallback rank");
-                    IsRankDetected = true; // Mark as detected even with fallback
-                    OnPlayerRankLoaded?.Invoke(CurrentPlayer, CurrentRank);
-                }
+                Logger.Warn("[PlayerDetection] ⚠️ Player detection failed after all attempts");
+            }
+        }
+
+        /// <summary>
+        /// Try to detect player and rank in one go
+        /// </summary>
+        private static bool TryDetectPlayerComplete()
+        {
+            try
+            {
+                var player = TryDetectPlayer();
+                if (player == null) return false;
+
+                Logger.Msg($"[PlayerDetection] ✅ Player detected: {player.PlayerName}");
+                CurrentPlayer = player;
+                OnPlayerLoaded?.Invoke(player);
+
+                var rank = TryDetectPlayerRank(player);
+                Logger.Msg($"[PlayerDetection] ✅ Player rank detected: {rank}");
+                CurrentRank = rank;
+                IsRankDetected = true;
+                OnPlayerRankLoaded?.Invoke(player, rank);
+
+                _detectionComplete = true;
+                Logger.Msg("[PlayerDetection] 🎯 Player detection complete!");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug($"[PlayerDetection] Detection attempt failed: {ex.Message}");
+                return false;
             }
         }
 
         /// <summary>
         /// Try to detect the player using multiple methods
         /// </summary>
-        private static Player TryDetectPlayer()
+        private static Player? TryDetectPlayer()
         {
             // Method 1: Player.Local
             try
@@ -178,7 +187,7 @@ namespace PaxDrops
                 Logger.LogDebug($"[PlayerDetection] FindObjectsOfType failed: {ex.Message}");
             }
 
-            return null!;
+            return null;
         }
 
         /// <summary>
@@ -250,30 +259,6 @@ namespace PaxDrops
                     
                     return rank;
                 }
-
-                // Method 3: Try finding all LevelManagers
-                var allLevelManagers = UnityEngine.Object.FindObjectsOfType<LevelManager>();
-                Logger.LogDebug($"[PlayerDetection] Found {allLevelManagers?.Length ?? 0} LevelManager instances");
-                
-                if (allLevelManagers != null && allLevelManagers.Length > 0)
-                {
-                    foreach (var lm in allLevelManagers)
-                    {
-                        if (lm != null)
-                        {
-                            var rank = lm.Rank;
-                            var xp = lm.TotalXP;
-                            var tier = lm.Tier;
-                            Logger.LogDebug($"[PlayerDetection] LM instance: Rank={rank}, TotalXP={xp}, Tier={tier}");
-                            
-                            if (rank != ERank.Street_Rat || xp > 0 || tier > 1)
-                            {
-                                Logger.LogDebug($"[PlayerDetection] Using LM instance with data: {rank}");
-                                return rank;
-                            }
-                        }
-                    }
-                }
             }
             catch (Exception ex)
             {
@@ -284,9 +269,20 @@ namespace PaxDrops
         }
 
         /// <summary>
+        /// Manual check for player - can be called from external events
+        /// </summary>
+        public static void CheckForPlayer()
+        {
+            if (_detectionComplete) return;
+
+            Logger.LogDebug("[PlayerDetection] 🔍 Manual player check triggered");
+            TryDetectPlayerComplete();
+        }
+
+        /// <summary>
         /// Validate that a player instance is properly initialized
         /// </summary>
-        private static bool IsPlayerValid(Player player)
+        private static bool IsPlayerValid(Player? player)
         {
             try
             {
@@ -357,6 +353,7 @@ namespace PaxDrops
             Logger.Msg("[PlayerDetection] 🔄 Resetting detection state");
             _detectionStarted = false;
             _detectionComplete = false;
+            _checkAttempts = 0;
             CurrentPlayer = null;
             CurrentRank = ERank.Street_Rat;
             IsRankDetected = false;

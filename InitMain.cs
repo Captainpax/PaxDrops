@@ -63,7 +63,7 @@ namespace PaxDrops
 
                 MrsStacksNPC.Shutdown();
                 TimeMonitor.Shutdown();
-                CommandHandler.Shutdown();
+                // CommandHandler.Shutdown();  // DISABLED FOR NOW
                 JsonDataStore.Shutdown();
                 Logger.Shutdown();
                 MelonLogger.Msg("✅ Shutdown complete.");
@@ -87,7 +87,7 @@ namespace PaxDrops
                 JsonDataStore.Init();      // 💾 JSON persistence layer
                 DeadDrop.Init();           // ⚰️ Dead drop spawning system
                 TierDropSystem.Init();     // 🎯 Tier-based drop system (basic init)
-                CommandHandler.Init();     // 🎮 Console command system
+                // CommandHandler.Init();     // 🎮 Console command system (DISABLED FOR NOW)
                 TimeMonitor.Init();        // ⏰ Time monitoring for drops
 
                 Logger.Msg("✅ [InitMain] Core systems initialized successfully!");

@@ -85,9 +85,19 @@ namespace PaxDrops.Configs
         };
 
         /// <summary>
-        /// Drop delay ranges in hours (never instant, 1-6 hours)
+        /// Drop preparation time in hours (max 4 hours to prepare)
         /// </summary>
-        public static readonly (int min, int max) DropDelayHours = (1, 6);
+        public static readonly (int min, int max) DropPreparationHours = (1, 4);
+
+        /// <summary>
+        /// Target drop time - always 7:30 AM next day
+        /// </summary>
+        public static readonly (int hour, int minute) DropTargetTime = (7, 30);
+
+        /// <summary>
+        /// Drop expiry - expires at 7:30 AM the day after drop day
+        /// </summary>
+        public static readonly int DropExpiryHours = 24;
 
         /// <summary>
         /// Daily random drop limits (higher tiers get more random drops)
@@ -141,11 +151,47 @@ namespace PaxDrops.Configs
         }
 
         /// <summary>
-        /// Get random drop delay in hours
+        /// Get random drop preparation time in hours (1-4 hours)
         /// </summary>
-        public static int GetRandomDropDelay()
+        public static int GetRandomPreparationTime()
         {
-            return UnityEngine.Random.Range(DropDelayHours.min, DropDelayHours.max + 1);
+            return UnityEngine.Random.Range(DropPreparationHours.min, DropPreparationHours.max + 1);
+        }
+
+        /// <summary>
+        /// Calculate drop delivery time - always next day at 7:30 AM
+        /// </summary>
+        public static DateTime CalculateDropDeliveryTime()
+        {
+            var now = DateTime.Now;
+            var tomorrow = now.Date.AddDays(1);
+            var deliveryTime = tomorrow.AddHours(DropTargetTime.hour).AddMinutes(DropTargetTime.minute);
+            
+            Logger.Msg($"[DropConfig] 📅 Drop scheduled for: {deliveryTime:yyyy-MM-dd HH:mm}");
+            return deliveryTime;
+        }
+
+        /// <summary>
+        /// Calculate drop expiry time - 7:30 AM the day after delivery
+        /// </summary>
+        public static DateTime CalculateDropExpiryTime(DateTime deliveryTime)
+        {
+            var expiryTime = deliveryTime.AddHours(DropExpiryHours);
+            Logger.Msg($"[DropConfig] ⏰ Drop expires at: {expiryTime:yyyy-MM-dd HH:mm}");
+            return expiryTime;
+        }
+
+        /// <summary>
+        /// Check if enough preparation time is available before target delivery
+        /// </summary>
+        public static bool HasSufficientPreparationTime()
+        {
+            var now = DateTime.Now;
+            var deliveryTime = CalculateDropDeliveryTime();
+            var hoursUntilDelivery = (deliveryTime - now).TotalHours;
+            
+            // Need at least minimum preparation time
+            return hoursUntilDelivery >= DropPreparationHours.min;
         }
 
         /// <summary>
@@ -294,7 +340,7 @@ namespace PaxDrops.Configs
         }
 
         /// <summary>
-        /// Check if player can order drops (once per day limit)
+        /// Check if player can order drops (once per day limit based on order day, not delivery day)
         /// </summary>
         public static bool CanPlayerOrderToday(int currentDay)
         {
@@ -306,7 +352,7 @@ namespace PaxDrops.Configs
         }
 
         /// <summary>
-        /// Get player's remaining orders for today
+        /// Get player's remaining orders for today (based on order day, not delivery day)
         /// </summary>
         public static int GetRemainingOrdersToday(int currentDay)
         {
@@ -326,6 +372,55 @@ namespace PaxDrops.Configs
                    $"Rank: {(PlayerDetection.IsRankDetected ? "✅" : "❌")} | " +
                    $"Current: {PlayerDetection.CurrentRank} | " +
                    $"Info: {PlayerDetection.GetPlayerInfo()}";
+        }
+
+        /// <summary>
+        /// Format game time (HHMM) to readable string
+        /// </summary>
+        public static string FormatGameTime(int gameTime)
+        {
+            int hours = gameTime / 100;
+            int minutes = gameTime % 100;
+            return $"{hours:D2}:{minutes:D2}";
+        }
+
+        /// <summary>
+        /// Parse expiry time from string format "day:hour" to day and hour
+        /// </summary>
+        public static (int day, int hour) ParseExpiryTime(string expiryTime)
+        {
+            try
+            {
+                var parts = expiryTime.Split(':');
+                if (parts.Length == 2 && int.TryParse(parts[0], out int day) && int.TryParse(parts[1], out int hour))
+                {
+                    return (day, hour);
+                }
+            }
+            catch { }
+            
+            return (-1, -1); // Invalid
+        }
+
+        /// <summary>
+        /// Check if a drop has expired based on current game day and time
+        /// </summary>
+        public static bool IsDropExpired(string expiryTime, int currentDay, int currentHour)
+        {
+            var (expiryDay, expiryHour) = ParseExpiryTime(expiryTime);
+            if (expiryDay == -1) return false; // Invalid expiry time, don't expire
+            
+            // Drop is expired if current time is past expiry time
+            return (currentDay > expiryDay) || (currentDay == expiryDay && currentHour >= expiryHour);
+        }
+
+        /// <summary>
+        /// Check if a drop is available for pickup based on current game day and time
+        /// </summary>
+        public static bool IsDropAvailable(int deliveryDay, int deliveryHour, int currentDay, int currentHour)
+        {
+            // Drop is available if current time is at or past delivery time
+            return (currentDay > deliveryDay) || (currentDay == deliveryDay && currentHour >= deliveryHour);
         }
     }
 } 
