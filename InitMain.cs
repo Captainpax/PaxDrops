@@ -69,13 +69,41 @@ namespace PaxDrops
         {
             Logger.Msg("[InitMain] 🔧 Initializing PaxDrops systems...");
             
-            TierLevel.Init();        // 📦 Tiered loot system  
-            DeadDrop.Init();         // 📬 Drop spawner
-            TimeMonitor.Init();      // ⏰ Time monitoring system
-            MrsStacksNPC.Init();         // 📱 Mrs. Stacks NPC handler
-            CommandHandler.Init();   // ⌨️ Console command registration
+            try
+            {
+                Logger.Msg("🚀 [InitMain] Starting PaxDrops IL2CPP initialization...");
+
+                // Initialize core systems first
+                DeadDrop.Init();        // ⚰️ Dead drop spawning system
+                TierDropSystem.Init();   // 🎯 New tier-based drop system with ERank integration
+                DailyDropOrdering.Init(); // 📅 Daily drop ordering system (rank-based)
+
+                // Initialize data storage
+                JsonDataStore.Init();   // 💾 JSON persistence layer
+                
+                // Initialize specific features
+                CommandHandler.Init();  // 🎮 Console command system
+                MrsStacksNPC.Init();    // 👤 Mrs. Stacks NPC integration
+                TimeMonitor.Init();     // ⏰ Time monitoring for drops
+
+                Logger.Msg("✅ [InitMain] PaxDrops IL2CPP initialization complete!");
+                Logger.Msg("🎯 [InitMain] New rank-based tier system active (11 tiers mapped 1:1 with ERank)");
+                Logger.Msg("📅 [InitMain] Daily ordering system enabled - tier rewards based on player rank");
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Error($"❌ [InitMain] PaxDrops IL2CPP initialization error: {ex.Message}");
+            }
             
-            Logger.Msg("[InitMain] ✅ All systems initialized successfully.");
+            // Log tier system status
+            var currentRank = PaxDrops.Configs.DropConfig.GetCurrentPlayerRank();
+            var currentDay = PaxDrops.Configs.DropConfig.GetCurrentGameDay();
+            var maxTier = PaxDrops.Configs.DropConfig.GetCurrentMaxUnlockedTier();
+            var unlockedOrgs = TierDropSystem.GetPlayerUnlockedOrganizations();
+            
+            Logger.Msg($"[InitMain] 📊 Player Status: Day {currentDay}, Rank {currentRank}");
+            Logger.Msg($"[InitMain] 🏆 Max Unlocked Tier: {PaxDrops.Configs.TierConfig.GetTierName(maxTier)}");
+            Logger.Msg($"[InitMain] 🏢 Unlocked Organizations: {string.Join(", ", unlockedOrgs)}");
         }
     }
 } 

@@ -32,7 +32,7 @@ namespace PaxDrops.MrStacks
         public static Supplier? GetMrsStacksSupplier() => _mrsStacks;
 
         /// <summary>
-        /// Called at 7:00 AM each day - sends intro/availability messages
+        /// Called when a new day starts - send daily availability message
         /// </summary>
         public static void OnNewDay()
         {
@@ -43,27 +43,11 @@ namespace PaxDrops.MrStacks
                 
                 Logger.Msg($"[MrsStacksNPC] 🌅 New day {currentDay} - checking Mrs. Stacks availability");
 
-                // Check if Mrs. Stacks is available and hasn't ordered today
-                if (_mrsStacks != null && !JsonDataStore.HasMrsStacksOrderToday(currentDay))
+                // Check if Mrs. Stacks is available
+                if (_mrsStacks != null)
                 {
-                    // Send daily availability message
-                    var npc = MrsStacksMessaging.FindMrsStacksNPC();
-                    if (npc != null)
-                    {
-                        var messages = new[]
-                        {
-                            "Good morning! Mrs. Stacks here. Fresh inventory available today. Send 'order' when ready.",
-                            "Morning! Got some premium packages ready. Quality guaranteed as always.",
-                            "Hey there! Business is open. Today's selection is particularly good.",
-                            "Morning briefing: All systems operational. Premium drops available on request."
-                        };
-
-                        var random = new System.Random();
-                        var dailyMessage = messages[random.Next(messages.Length)];
-                        
-                        MrsStacksMessaging.SendMessage(npc, dailyMessage);
-                        Logger.Msg("[MrsStacksNPC] 📱 Daily availability message sent");
-                    }
+                    // Use new daily ordering system for availability messages
+                    DailyDropOrdering.SendDailyAvailabilityMessage();
                 }
             }
             catch (Exception ex)

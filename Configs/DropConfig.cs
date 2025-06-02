@@ -1,77 +1,87 @@
 using System;
 using System.Collections.Generic;
+using Il2CppScheduleOne.Levelling;
+using Il2CppScheduleOne.GameTime;
+using Il2CppScheduleOne.PlayerScripts;
 
 namespace PaxDrops.Configs
 {
     /// <summary>
     /// Static configuration for drop mechanics, cash ranges, daily limits, and progression.
-    /// Based on the exact requirements from the documentation.
+    /// Now uses pure rank-based unlocking with 1:1 ERank mapping to 11 tiers.
+    /// No time restrictions - only player rank determines available tiers.
     /// </summary>
     public static class DropConfig
     {
         /// <summary>
-        /// Cash amount ranges per tier ($250-$1000 as specified)
+        /// Cash amount ranges per tier - scales from $250 to $1000 across all 11 tiers
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, (int min, int max)> CashRanges = new Dictionary<TierConfig.Tier, (int, int)>
         {
-            // 🍒 Cherry Green Gang
-            { TierConfig.Tier.TIER_CHERRY_1, (250, 400) },
-            { TierConfig.Tier.TIER_CHERRY_2, (300, 500) },
-            { TierConfig.Tier.TIER_CHERRY_3, (400, 600) },
+            // 🍒 Cherry Green Gang - Street Level (Tiers 1-4)
+            { TierConfig.Tier.TIER_STREET_RAT, (250, 350) },
+            { TierConfig.Tier.TIER_HOODLUM, (300, 400) },
+            { TierConfig.Tier.TIER_PEDDLER, (350, 450) },
+            { TierConfig.Tier.TIER_HUSTLER, (400, 500) },
 
-            // 🔴 Crimson Vultures
-            { TierConfig.Tier.TIER_CRIMSON_1, (500, 700) },
-            { TierConfig.Tier.TIER_CRIMSON_2, (600, 800) },
-            { TierConfig.Tier.TIER_CRIMSON_3, (700, 900) },
+            // 🔴 Crimson Vultures - Mid Tier (Tiers 5-8)
+            { TierConfig.Tier.TIER_BAGMAN, (450, 550) },
+            { TierConfig.Tier.TIER_ENFORCER, (500, 600) },
+            { TierConfig.Tier.TIER_SHOT_CALLER, (550, 650) },
+            { TierConfig.Tier.TIER_BLOCK_BOSS, (600, 700) },
 
-            // 🟡 Golden Circle
-            { TierConfig.Tier.TIER_GOLD_1, (800, 950) },
-            { TierConfig.Tier.TIER_GOLD_2, (900, 1000) },
-            { TierConfig.Tier.TIER_GOLD_3, (950, 1000) }
+            // 🟡 Golden Circle - Elite Tier (Tiers 9-11)
+            { TierConfig.Tier.TIER_UNDERLORD, (650, 750) },
+            { TierConfig.Tier.TIER_BARON, (700, 850) },
+            { TierConfig.Tier.TIER_KINGPIN, (800, 1000) }
         };
 
         /// <summary>
         /// Daily order limits based on tier progression
-        /// Base tier: 1 order/day → Max tier: 3 orders/day
+        /// Street level: 1 order/day → Mid tier: 2 orders/day → Elite: 3+ orders/day
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, int> DailyOrderLimits = new Dictionary<TierConfig.Tier, int>
         {
-            // 🍒 Cherry Green Gang
-            { TierConfig.Tier.TIER_CHERRY_1, 1 },
-            { TierConfig.Tier.TIER_CHERRY_2, 1 },
-            { TierConfig.Tier.TIER_CHERRY_3, 1 },
+            // 🍒 Cherry Green Gang - Street Level
+            { TierConfig.Tier.TIER_STREET_RAT, 1 },
+            { TierConfig.Tier.TIER_HOODLUM, 1 },
+            { TierConfig.Tier.TIER_PEDDLER, 1 },
+            { TierConfig.Tier.TIER_HUSTLER, 1 },
 
-            // 🔴 Crimson Vultures
-            { TierConfig.Tier.TIER_CRIMSON_1, 2 },
-            { TierConfig.Tier.TIER_CRIMSON_2, 2 },
-            { TierConfig.Tier.TIER_CRIMSON_3, 2 },
+            // 🔴 Crimson Vultures - Mid Tier
+            { TierConfig.Tier.TIER_BAGMAN, 2 },
+            { TierConfig.Tier.TIER_ENFORCER, 2 },
+            { TierConfig.Tier.TIER_SHOT_CALLER, 2 },
+            { TierConfig.Tier.TIER_BLOCK_BOSS, 2 },
 
-            // 🟡 Golden Circle
-            { TierConfig.Tier.TIER_GOLD_1, 3 },
-            { TierConfig.Tier.TIER_GOLD_2, 3 },
-            { TierConfig.Tier.TIER_GOLD_3, 3 }
+            // 🟡 Golden Circle - Elite Tier
+            { TierConfig.Tier.TIER_UNDERLORD, 3 },
+            { TierConfig.Tier.TIER_BARON, 3 },
+            { TierConfig.Tier.TIER_KINGPIN, 4 } // Max tier gets 4 orders per day
         };
 
         /// <summary>
         /// Random drop chance for going one tier above current tier
-        /// Cherry Green: 60-70% → Crimson: ~85% → Golden: 100%
+        /// Progressive scaling from 60% to 100%
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, float> RandomDropUpgradeChance = new Dictionary<TierConfig.Tier, float>
         {
-            // 🍒 Cherry Green Gang
-            { TierConfig.Tier.TIER_CHERRY_1, 0.60f },
-            { TierConfig.Tier.TIER_CHERRY_2, 0.65f },
-            { TierConfig.Tier.TIER_CHERRY_3, 0.70f },
+            // 🍒 Cherry Green Gang - Street Level
+            { TierConfig.Tier.TIER_STREET_RAT, 0.60f },
+            { TierConfig.Tier.TIER_HOODLUM, 0.65f },
+            { TierConfig.Tier.TIER_PEDDLER, 0.70f },
+            { TierConfig.Tier.TIER_HUSTLER, 0.75f },
 
-            // 🔴 Crimson Vultures
-            { TierConfig.Tier.TIER_CRIMSON_1, 0.80f },
-            { TierConfig.Tier.TIER_CRIMSON_2, 0.85f },
-            { TierConfig.Tier.TIER_CRIMSON_3, 0.90f },
+            // 🔴 Crimson Vultures - Mid Tier
+            { TierConfig.Tier.TIER_BAGMAN, 0.80f },
+            { TierConfig.Tier.TIER_ENFORCER, 0.85f },
+            { TierConfig.Tier.TIER_SHOT_CALLER, 0.90f },
+            { TierConfig.Tier.TIER_BLOCK_BOSS, 0.95f },
 
-            // 🟡 Golden Circle
-            { TierConfig.Tier.TIER_GOLD_1, 0.95f },
-            { TierConfig.Tier.TIER_GOLD_2, 1.00f },
-            { TierConfig.Tier.TIER_GOLD_3, 1.00f } // Max tier, guaranteed 2 drops
+            // 🟡 Golden Circle - Elite Tier
+            { TierConfig.Tier.TIER_UNDERLORD, 1.00f },
+            { TierConfig.Tier.TIER_BARON, 1.00f },
+            { TierConfig.Tier.TIER_KINGPIN, 1.00f } // Max tier, guaranteed upgrades
         };
 
         /// <summary>
@@ -80,45 +90,26 @@ namespace PaxDrops.Configs
         public static readonly (int min, int max) DropDelayHours = (1, 6);
 
         /// <summary>
-        /// Daily random drop limits (max tier gets 2 guaranteed random drops)
+        /// Daily random drop limits (higher tiers get more random drops)
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, int> DailyRandomDrops = new Dictionary<TierConfig.Tier, int>
         {
-            // 🍒 Cherry Green Gang
-            { TierConfig.Tier.TIER_CHERRY_1, 1 },
-            { TierConfig.Tier.TIER_CHERRY_2, 1 },
-            { TierConfig.Tier.TIER_CHERRY_3, 1 },
+            // 🍒 Cherry Green Gang - Street Level
+            { TierConfig.Tier.TIER_STREET_RAT, 1 },
+            { TierConfig.Tier.TIER_HOODLUM, 1 },
+            { TierConfig.Tier.TIER_PEDDLER, 1 },
+            { TierConfig.Tier.TIER_HUSTLER, 1 },
 
-            // 🔴 Crimson Vultures
-            { TierConfig.Tier.TIER_CRIMSON_1, 1 },
-            { TierConfig.Tier.TIER_CRIMSON_2, 1 },
-            { TierConfig.Tier.TIER_CRIMSON_3, 1 },
+            // 🔴 Crimson Vultures - Mid Tier
+            { TierConfig.Tier.TIER_BAGMAN, 1 },
+            { TierConfig.Tier.TIER_ENFORCER, 1 },
+            { TierConfig.Tier.TIER_SHOT_CALLER, 2 },
+            { TierConfig.Tier.TIER_BLOCK_BOSS, 2 },
 
-            // 🟡 Golden Circle
-            { TierConfig.Tier.TIER_GOLD_1, 1 },
-            { TierConfig.Tier.TIER_GOLD_2, 1 },
-            { TierConfig.Tier.TIER_GOLD_3, 2 } // Max tier gets 2 guaranteed random drops
-        };
-
-        /// <summary>
-        /// Tier unlock progression based on in-game days
-        /// </summary>
-        public static readonly Dictionary<TierConfig.Tier, int> TierUnlockDays = new Dictionary<TierConfig.Tier, int>
-        {
-            // 🍒 Cherry Green Gang
-            { TierConfig.Tier.TIER_CHERRY_1, 0 },   // Available from start
-            { TierConfig.Tier.TIER_CHERRY_2, 3 },   // Day 3
-            { TierConfig.Tier.TIER_CHERRY_3, 7 },   // Day 7
-
-            // 🔴 Crimson Vultures
-            { TierConfig.Tier.TIER_CRIMSON_1, 14 }, // Day 14
-            { TierConfig.Tier.TIER_CRIMSON_2, 21 }, // Day 21
-            { TierConfig.Tier.TIER_CRIMSON_3, 28 }, // Day 28
-
-            // 🟡 Golden Circle
-            { TierConfig.Tier.TIER_GOLD_1, 35 },    // Day 35
-            { TierConfig.Tier.TIER_GOLD_2, 42 },    // Day 42
-            { TierConfig.Tier.TIER_GOLD_3, 50 }     // Day 50
+            // 🟡 Golden Circle - Elite Tier
+            { TierConfig.Tier.TIER_UNDERLORD, 2 },
+            { TierConfig.Tier.TIER_BARON, 2 },
+            { TierConfig.Tier.TIER_KINGPIN, 3 } // Max tier gets 3 random drops per day
         };
 
         /// <summary>
@@ -166,57 +157,45 @@ namespace PaxDrops.Configs
         }
 
         /// <summary>
-        /// Check if a tier is unlocked based on game day
+        /// Check if a tier is unlocked based ONLY on player ERank (rank-based system)
         /// </summary>
-        public static bool IsTierUnlocked(TierConfig.Tier tier, int gameDay)
+        public static bool IsTierUnlocked(TierConfig.Tier tier, ERank playerRank)
         {
-            return TierUnlockDays.TryGetValue(tier, out var unlockDay) && gameDay >= unlockDay;
+            return TierConfig.IsRankSufficient(tier, playerRank);
         }
 
         /// <summary>
-        /// Get the highest unlocked tier for a given day
+        /// Get the player's current tier based on their ERank (1:1 mapping)
         /// </summary>
-        public static TierConfig.Tier GetMaxUnlockedTier(int gameDay)
+        public static TierConfig.Tier GetCurrentPlayerTier()
         {
-            var maxTier = TierConfig.Tier.TIER_CHERRY_1;
-            
-            foreach (var kvp in TierUnlockDays)
-            {
-                if (gameDay >= kvp.Value && kvp.Key > maxTier)
-                {
-                    maxTier = kvp.Key;
-                }
-            }
-            
-            return maxTier;
+            var playerRank = GetCurrentPlayerRank();
+            return TierConfig.GetTierForRank(playerRank);
         }
 
         /// <summary>
-        /// Get all unlocked tiers for a given day
+        /// Get the highest unlocked tier for a player's rank
         /// </summary>
-        public static List<TierConfig.Tier> GetUnlockedTiers(int gameDay)
+        public static TierConfig.Tier GetMaxUnlockedTier(ERank playerRank)
         {
-            var unlockedTiers = new List<TierConfig.Tier>();
-            
-            foreach (var kvp in TierUnlockDays)
-            {
-                if (gameDay >= kvp.Value)
-                {
-                    unlockedTiers.Add(kvp.Key);
-                }
-            }
-            
-            unlockedTiers.Sort();
-            return unlockedTiers;
+            return TierConfig.GetTierForRank(playerRank);
         }
 
         /// <summary>
-        /// Get unlocked organizations for a given day
+        /// Get all unlocked tiers for a player's rank
         /// </summary>
-        public static List<TierConfig.Organization> GetUnlockedOrganizations(int gameDay)
+        public static List<TierConfig.Tier> GetUnlockedTiers(ERank playerRank)
         {
+            return TierConfig.GetTiersUnlockedByRank(playerRank);
+        }
+
+        /// <summary>
+        /// Get unlocked organizations for a player's rank
+        /// </summary>
+        public static List<TierConfig.Organization> GetUnlockedOrganizations(ERank playerRank)
+        {
+            var unlockedTiers = GetUnlockedTiers(playerRank);
             var organizations = new HashSet<TierConfig.Organization>();
-            var unlockedTiers = GetUnlockedTiers(gameDay);
             
             foreach (var tier in unlockedTiers)
             {
@@ -227,25 +206,239 @@ namespace PaxDrops.Configs
         }
 
         /// <summary>
-        /// Check if random drop should be upgraded to next tier
+        /// Check if player should get upgraded random drop
         /// </summary>
         public static bool ShouldUpgradeRandomDrop(TierConfig.Tier currentTier)
         {
-            var chance = GetRandomDropUpgradeChance(currentTier);
+            float chance = GetRandomDropUpgradeChance(currentTier);
             return UnityEngine.Random.Range(0f, 1f) <= chance;
         }
 
         /// <summary>
-        /// Get the next tier (for random drop upgrades)
+        /// Get the next tier for progression (or current if at max)
         /// </summary>
         public static TierConfig.Tier GetNextTier(TierConfig.Tier currentTier)
         {
-            int nextTierValue = (int)currentTier + 1;
-            if (nextTierValue <= (int)TierConfig.GetMaxTier())
+            var nextTier = TierConfig.GetNextTier(currentTier);
+            return nextTier ?? currentTier; // Return current tier if at max
+        }
+
+        /// <summary>
+        /// Validate that the player is properly initialized
+        /// </summary>
+        private static bool IsPlayerValid(Player player)
+        {
+            try
             {
-                return (TierConfig.Tier)nextTierValue;
+                // Basic validation checks
+                return player != null && 
+                       player.gameObject != null && 
+                       player.gameObject.activeInHierarchy &&
+                       player.Avatar != null;
             }
-            return currentTier; // Already at max
+            catch (Exception ex)
+            {
+                Logger.Error($"[DropConfig] Player validation failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Get current player ERank safely with multiple fallback methods
+        /// </summary>
+        public static ERank GetCurrentPlayerRank()
+        {
+            try
+            {
+                // Method 1: Try accessing LevelManager through Player.Local
+                try
+                {
+                    var localPlayer = Player.Local;
+                    Logger.LogDebug("[DropConfig] Local Player: " + localPlayer);
+                    if (localPlayer != null && IsPlayerValid(localPlayer))
+                    {
+                        Logger.LogDebug($"[DropConfig] Found local player: {localPlayer.PlayerName}");
+                        
+                        // Try to find a LevelManager component on the player
+                        var playerGameObject = localPlayer.gameObject;
+                        if (playerGameObject != null)
+                        {
+                            var playerLevelManager = playerGameObject.GetComponent<Il2CppScheduleOne.Levelling.LevelManager>();
+                            if (playerLevelManager != null)
+                            {
+                                var playerRank = playerLevelManager.Rank;
+                                var playerTotalXP = playerLevelManager.TotalXP;
+                                var playerTier = playerLevelManager.Tier;
+                                Logger.LogDebug($"[DropConfig] Player LevelManager: Rank={playerRank}, TotalXP={playerTotalXP}, Tier={playerTier}");
+                                
+                                if (playerRank != ERank.Street_Rat || playerTotalXP > 0 || playerTier > 1)
+                                {
+                                    return playerRank;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug($"[DropConfig] Player.Local method failed: {ex.Message}");
+                }
+
+                // Method 2: Try LevelManager.Instance (original approach)
+                var levelManager = Il2CppScheduleOne.Levelling.LevelManager.Instance;
+                if (levelManager == null)
+                {
+                    Logger.LogDebug("[DropConfig] LevelManager.Instance is null, using fallback");
+                    return ERank.Street_Rat;
+                }
+
+                // Method 2a: Try GetFullRank() which might have more accurate data
+                try
+                {
+                    var fullRank = levelManager.GetFullRank();
+                    Logger.LogDebug($"[DropConfig] GetFullRank() returned: Rank={fullRank.Rank}, Tier={fullRank.Tier}");
+                    if (fullRank.Rank != ERank.Street_Rat || fullRank.Tier > 1)
+                    {
+                        return fullRank.Rank;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug($"[DropConfig] GetFullRank() failed: {ex.Message}");
+                }
+
+                // Method 2b: Try direct Rank property
+                var directRank = levelManager.Rank;
+                Logger.LogDebug($"[DropConfig] Direct Rank property: {directRank}");
+                
+                // Method 2c: Try TotalXP calculation fallback
+                try
+                {
+                    var totalXp = levelManager.TotalXP;
+                    var tier = levelManager.Tier;
+                    Logger.LogDebug($"[DropConfig] TotalXP: {totalXp}, Tier: {tier}");
+                    
+                    // If we have significant XP or tier > 1, the direct rank might be wrong
+                    if (totalXp > 1000 || tier > 1)
+                    {
+                        // Calculate rank based on total XP using GetFullRank(totalXp)
+                        var calculatedFullRank = levelManager.GetFullRank(totalXp);
+                        Logger.LogDebug($"[DropConfig] Calculated from XP: Rank={calculatedFullRank.Rank}, Tier={calculatedFullRank.Tier}");
+                        return calculatedFullRank.Rank;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug($"[DropConfig] XP calculation failed: {ex.Message}");
+                }
+
+                // Method 3: Try finding all LevelManager instances and pick the right one
+                try
+                {
+                    var allLevelManagers = UnityEngine.GameObject.FindObjectsOfType<Il2CppScheduleOne.Levelling.LevelManager>();
+                    Logger.LogDebug($"[DropConfig] Found {allLevelManagers?.Length ?? 0} LevelManager instances");
+                    
+                    if (allLevelManagers != null && allLevelManagers.Length > 0)
+                    {
+                        foreach (var lm in allLevelManagers)
+                        {
+                            if (lm != null)
+                            {
+                                var rank = lm.Rank;
+                                var xp = lm.TotalXP;
+                                var tier = lm.Tier;
+                                Logger.LogDebug($"[DropConfig] LevelManager instance: Rank={rank}, TotalXP={xp}, Tier={tier}");
+                                
+                                // If this instance has meaningful data (not default Street_Rat with 0 XP), use it
+                                if (rank != ERank.Street_Rat || xp > 0 || tier > 1)
+                                {
+                                    Logger.LogDebug($"[DropConfig] Using LevelManager instance with data: {rank}");
+                                    return rank;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogDebug($"[DropConfig] FindObjectsOfType failed: {ex.Message}");
+                }
+
+                Logger.LogDebug($"[DropConfig] Using fallback rank: {directRank}");
+                return directRank;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[DropConfig] All rank detection methods failed: {ex.Message}");
+                return ERank.Street_Rat; // Safe fallback
+            }
+        }
+
+        /// <summary>
+        /// Get current game day safely
+        /// </summary>
+        public static int GetCurrentGameDay()
+        {
+            try
+            {
+                var timeManager = TimeManager.Instance;
+                return timeManager?.ElapsedDays ?? 1;
+            }
+            catch
+            {
+                return 1; // Safe fallback
+            }
+        }
+
+        /// <summary>
+        /// Get current player's maximum unlocked tier
+        /// </summary>
+        public static TierConfig.Tier GetCurrentMaxUnlockedTier()
+        {
+            var playerRank = GetCurrentPlayerRank();
+            return GetMaxUnlockedTier(playerRank);
+        }
+
+        /// <summary>
+        /// Get current player's unlocked tiers
+        /// </summary>
+        public static List<TierConfig.Tier> GetCurrentlyUnlockedTiers()
+        {
+            var playerRank = GetCurrentPlayerRank();
+            return GetUnlockedTiers(playerRank);
+        }
+
+        /// <summary>
+        /// Get current player's unlocked organizations
+        /// </summary>
+        public static List<TierConfig.Organization> GetCurrentlyUnlockedOrganizations()
+        {
+            var playerRank = GetCurrentPlayerRank();
+            return GetUnlockedOrganizations(playerRank);
+        }
+
+        /// <summary>
+        /// Check if player can order drops (once per day limit)
+        /// </summary>
+        public static bool CanPlayerOrderToday(int currentDay)
+        {
+            var playerTier = GetCurrentPlayerTier();
+            var dailyLimit = GetDailyOrderLimit(playerTier);
+            var ordersToday = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
+            
+            return ordersToday < dailyLimit;
+        }
+
+        /// <summary>
+        /// Get player's remaining orders for today
+        /// </summary>
+        public static int GetRemainingOrdersToday(int currentDay)
+        {
+            var playerTier = GetCurrentPlayerTier();
+            var dailyLimit = GetDailyOrderLimit(playerTier);
+            var ordersToday = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
+            
+            return Math.Max(0, dailyLimit - ordersToday);
         }
     }
 } 

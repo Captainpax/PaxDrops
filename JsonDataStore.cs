@@ -10,6 +10,7 @@ namespace PaxDrops
     /// <summary>
     /// Manages persistent storage of scheduled drops using JSON files.
     /// IL2CPP port using simple JSON serialization for maximum compatibility.
+    /// Enhanced with tier-based daily order tracking.
     /// </summary>
     public static class JsonDataStore
     {
@@ -40,8 +41,8 @@ namespace PaxDrops
 
         public static readonly Dictionary<int, DropRecord> PendingDrops = new Dictionary<int, DropRecord>();
         
-        // Track Mrs. Stacks daily orders to prevent multiple orders per day
-        public static readonly Dictionary<int, bool> MrsStacksOrdersToday = new Dictionary<int, bool>();
+        // Track Mrs. Stacks daily orders count (supports tier-based daily limits)
+        public static readonly Dictionary<int, int> MrsStacksOrdersToday = new Dictionary<int, int>();
 
         public static void Init()
         {
@@ -62,38 +63,19 @@ namespace PaxDrops
         {
             try
             {
-                if (items == null)
+                if (PendingDrops.ContainsKey(day))
                 {
-                    Logger.Error("[JsonDataStore] ❌ Items list is null. Cannot save drop.");
-                    return;
-                }
-
-                string now = DateTime.UtcNow.ToString("s");
-                string dropTime = TimeSpan.FromMinutes(hour).ToString(@"hh\:mm");
-                
-                // Get organization name from the load manager
-                string org = "Unknown";
-                try
-                {
-                    var loadManager = Il2CppScheduleOne.Persistence.LoadManager.Instance;
-                    if (loadManager?.ActiveSaveInfo != null)
-                    {
-                        org = loadManager.ActiveSaveInfo.OrganisationName ?? "Unknown";
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"[JsonDataStore] ⚠️ Could not get organization name: {ex.Message}");
+                    Logger.Warn($"[JsonDataStore] ⚠️ Drop already scheduled for Day {day}, overwriting...");
                 }
 
                 var record = new DropRecord
                 {
                     Day = day,
-                    Items = new List<string>(items),
+                    Items = items,
                     DropHour = hour,
-                    DropTime = dropTime,
-                    Org = org,
-                    CreatedTime = now,
+                    DropTime = $"{hour:D2}:00",
+                    Org = "PaxDrops",
+                    CreatedTime = DateTime.Now.ToString("s"),
                     Type = meta,
                     Location = ""
                 };
@@ -101,27 +83,52 @@ namespace PaxDrops
                 PendingDrops[day] = record;
                 SaveToFile();
 
-                Logger.Msg($"[JsonDataStore] 💾 Drop saved for day {day} @ {hour} with {items.Count} items ({meta})");
+                Logger.Msg($"[JsonDataStore] 💾 Drop saved for Day {day} with {items.Count} items");
             }
             catch (Exception ex)
             {
-                Logger.Error("[JsonDataStore] ❌ Failed to save drop.");
+                Logger.Error($"[JsonDataStore] ❌ Failed to save drop for Day {day}");
                 Logger.Exception(ex);
             }
         }
 
-        private static void SaveToFile()
+        public static void RemoveDrop(int day)
         {
             try
             {
-                var json = JsonConvert.SerializeObject(PendingDrops, Formatting.Indented);
-                File.WriteAllText(DropsFile, json);
-                Logger.Msg($"[JsonDataStore] 📁 Saved {PendingDrops.Count} pending drops to file.");
+                if (PendingDrops.Remove(day))
+                {
+                    SaveToFile();
+                    Logger.Msg($"[JsonDataStore] 🗑️ Removed drop for Day {day}");
+                }
+                else
+                {
+                    Logger.Warn($"[JsonDataStore] ⚠️ No drop found for Day {day}");
+                }
             }
             catch (Exception ex)
             {
-                Logger.Error("[JsonDataStore] ❌ Failed to save to file.");
+                Logger.Error($"[JsonDataStore] ❌ Failed to remove drop for Day {day}");
                 Logger.Exception(ex);
+            }
+        }
+
+        public static List<DropRecord> GetAllDrops()
+        {
+            try
+            {
+                var drops = new List<DropRecord>();
+                foreach (var kvp in PendingDrops)
+                {
+                    drops.Add(kvp.Value);
+                }
+                return drops;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("[JsonDataStore] ❌ Failed to get all drops");
+                Logger.Exception(ex);
+                return new List<DropRecord>();
             }
         }
 
@@ -131,32 +138,51 @@ namespace PaxDrops
             {
                 if (!File.Exists(DropsFile))
                 {
-                    Logger.Msg("[JsonDataStore] 📂 No existing drops file found. Starting fresh.");
+                    Logger.Msg("[JsonDataStore] 📁 No existing drops file found, starting fresh.");
                     return;
                 }
 
-                var json = File.ReadAllText(DropsFile);
+                string json = File.ReadAllText(DropsFile);
                 if (string.IsNullOrWhiteSpace(json))
                 {
-                    Logger.Msg("[JsonDataStore] 📂 Empty drops file. Starting fresh.");
+                    Logger.Msg("[JsonDataStore] 📁 Empty drops file, starting fresh.");
                     return;
                 }
 
-                var loadedDrops = JsonConvert.DeserializeObject<Dictionary<int, DropRecord>>(json);
-                if (loadedDrops != null)
+                var drops = JsonConvert.DeserializeObject<List<DropRecord>>(json) ?? new List<DropRecord>();
+
+                foreach (var drop in drops)
                 {
-                    PendingDrops.Clear();
-                    foreach (var kvp in loadedDrops)
-                    {
-                        PendingDrops[kvp.Key] = kvp.Value;
-                    }
+                    PendingDrops[drop.Day] = drop;
                 }
 
-                Logger.Msg($"[JsonDataStore] 📦 Loaded {PendingDrops.Count} pending drops from file.");
+                Logger.Msg($"[JsonDataStore] 📂 Loaded {drops.Count} pending drops");
             }
             catch (Exception ex)
             {
-                Logger.Error("[JsonDataStore] ❌ Failed to load pending drops.");
+                Logger.Error("[JsonDataStore] ❌ Failed to load pending drops");
+                Logger.Exception(ex);
+            }
+        }
+
+        private static void SaveToFile()
+        {
+            try
+            {
+                var dropsList = new List<DropRecord>();
+                foreach (var kvp in PendingDrops)
+                {
+                    dropsList.Add(kvp.Value);
+                }
+
+                string json = JsonConvert.SerializeObject(dropsList, Formatting.Indented);
+                File.WriteAllText(DropsFile, json);
+
+                Logger.Msg($"[JsonDataStore] 💾 Saved {dropsList.Count} drops to file");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("[JsonDataStore] ❌ Failed to save to file");
                 Logger.Exception(ex);
             }
         }
@@ -176,19 +202,55 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Check if Mrs. Stacks has already received an order today
+        /// Check if Mrs. Stacks has already received an order today (legacy method)
         /// </summary>
         public static bool HasMrsStacksOrderToday(int day)
         {
-            return MrsStacksOrdersToday.ContainsKey(day);
+            return MrsStacksOrdersToday.ContainsKey(day) && MrsStacksOrdersToday[day] > 0;
         }
 
         /// <summary>
-        /// Mark that Mrs. Stacks received an order today
+        /// Get the number of Mrs. Stacks orders for a specific day
+        /// </summary>
+        public static int GetMrsStacksOrdersToday(int day)
+        {
+            return MrsStacksOrdersToday.TryGetValue(day, out var count) ? count : 0;
+        }
+
+        /// <summary>
+        /// Mark that Mrs. Stacks received an order today (increments counter)
         /// </summary>
         public static void MarkMrsStacksOrderToday(int day)
         {
-            MrsStacksOrdersToday[day] = true;
+            if (MrsStacksOrdersToday.ContainsKey(day))
+            {
+                MrsStacksOrdersToday[day]++;
+            }
+            else
+            {
+                MrsStacksOrdersToday[day] = 1;
+            }
+            Logger.Msg($"[JsonDataStore] 📝 Mrs. Stacks orders for day {day}: {MrsStacksOrdersToday[day]}");
+        }
+
+        /// <summary>
+        /// Reset Mrs. Stacks orders for a specific day (for testing/debugging)
+        /// </summary>
+        public static void ResetMrsStacksOrdersToday(int day)
+        {
+            if (MrsStacksOrdersToday.ContainsKey(day))
+            {
+                MrsStacksOrdersToday.Remove(day);
+                Logger.Msg($"[JsonDataStore] 🔄 Reset Mrs. Stacks orders for day {day}");
+            }
+        }
+
+        /// <summary>
+        /// Get summary of Mrs. Stacks order activity
+        /// </summary>
+        public static Dictionary<int, int> GetMrsStacksOrderSummary()
+        {
+            return new Dictionary<int, int>(MrsStacksOrdersToday);
         }
     }
 } 

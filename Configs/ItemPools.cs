@@ -19,45 +19,49 @@ namespace PaxDrops.Configs
         }
 
         /// <summary>
-        /// Valuable items per tier (1-2 per drop)
+        /// Valuable items per tier (1-2 per drop) - Now supports all 11 tiers
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, List<string>> ValuableItems = new Dictionary<TierConfig.Tier, List<string>>
         {
-            // 🍒 Cherry Green Gang
-            [TierConfig.Tier.TIER_CHERRY_1] = new List<string> { "meth", "baggie", "babyblue" },
-            [TierConfig.Tier.TIER_CHERRY_2] = new List<string> { "meth", "liquidmeth", "bikercrank", "cheapskateboard", "combatboots" },
-            [TierConfig.Tier.TIER_CHERRY_3] = new List<string> { "meth", "liquidmeth", "highqualitypseudo", "packagingstation", "trimmers" },
+            // 🍒 Cherry Green Gang - Street Level (Tiers 1-4)
+            [TierConfig.Tier.TIER_STREET_RAT] = new List<string> { "meth", "baggie", "babyblue" },
+            [TierConfig.Tier.TIER_HOODLUM] = new List<string> { "meth", "liquidmeth", "bikercrank", "cheapskateboard" },
+            [TierConfig.Tier.TIER_PEDDLER] = new List<string> { "meth", "liquidmeth", "highqualitypseudo", "combatboots", "trimmers" },
+            [TierConfig.Tier.TIER_HUSTLER] = new List<string> { "liquidmeth", "highqualitypseudo", "packagingstation", "dryingrack", "mixingstation" },
 
-            // 🔴 Crimson Vultures
-            [TierConfig.Tier.TIER_CRIMSON_1] = new List<string> { "cocaine", "pgr", "sourdiesel", "m1911", "m1911mag" },
-            [TierConfig.Tier.TIER_CRIMSON_2] = new List<string> { "cocainebase", "mixingstationmk2", "growtent", "ledgrowlight", "phosphorus" },
-            [TierConfig.Tier.TIER_CRIMSON_3] = new List<string> { "cocainebase", "goldbar", "launderingstation", "laboven", "grandfatherclock" },
+            // 🔴 Crimson Vultures - Mid Tier (Tiers 5-8)
+            [TierConfig.Tier.TIER_BAGMAN] = new List<string> { "cocaine", "pgr", "sourdiesel", "m1911", "m1911mag" },
+            [TierConfig.Tier.TIER_ENFORCER] = new List<string> { "cocainebase", "mixingstationmk2", "growtent", "ledgrowlight", "tacticalvest" },
+            [TierConfig.Tier.TIER_SHOT_CALLER] = new List<string> { "cocainebase", "phosphorus", "launderingstation", "laboven", "silverwatch" },
+            [TierConfig.Tier.TIER_BLOCK_BOSS] = new List<string> { "cocainebase", "goldbar", "launderingstation", "grandfatherclock", "brickpress" },
 
-            // 🟡 Golden Circle
-            [TierConfig.Tier.TIER_GOLD_1] = new List<string> { "goldchain", "silverwatch", "ledgrowlight", "fullspectrumgrowlight", "liquidglass", "sourdiesel", "pgr" },
-            [TierConfig.Tier.TIER_GOLD_2] = new List<string> { "goldwatch", "brickpress", "grandfatherclock", "brick", "testweed", "granddaddypurpleseed" },
-            [TierConfig.Tier.TIER_GOLD_3] = new List<string> { "goldentoilet", "goldwatch", "goldbar", "mixingstationmk2", "cocainebase", "granddaddypurple", "goldenskateboard" }
+            // 🟡 Golden Circle - Elite Tier (Tiers 9-11)
+            [TierConfig.Tier.TIER_UNDERLORD] = new List<string> { "goldchain", "silverwatch", "fullspectrumgrowlight", "liquidglass", "granddaddypurpleseed" },
+            [TierConfig.Tier.TIER_BARON] = new List<string> { "goldwatch", "brickpress", "grandfatherclock", "testweed", "granddaddypurple" },
+            [TierConfig.Tier.TIER_KINGPIN] = new List<string> { "goldentoilet", "goldwatch", "goldbar", "mixingstationmk2", "cocainebase", "granddaddypurple", "goldenskateboard" }
         };
 
         /// <summary>
-        /// Filler items per tier (2-3 per drop)
+        /// Filler items per tier (2-3 per drop) - Now supports all 11 tiers
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, List<string>> FillerItems = new Dictionary<TierConfig.Tier, List<string>>
         {
-            // 🍒 Cherry Green Gang
-            [TierConfig.Tier.TIER_CHERRY_1] = new List<string> { "apron", "cap", "tshirt", "sneakers", "cuke", "chili" },
-            [TierConfig.Tier.TIER_CHERRY_2] = new List<string> { "buttonup", "jeans", "mixingstation", "flashlight", "mouthwash" },
-            [TierConfig.Tier.TIER_CHERRY_3] = new List<string> { "saucepan", "flatcap", "cargopants", "dryingrack" },
+            // 🍒 Cherry Green Gang - Street Level (Tiers 1-4)
+            [TierConfig.Tier.TIER_STREET_RAT] = new List<string> { "apron", "cap", "tshirt", "sneakers", "cuke", "chili" },
+            [TierConfig.Tier.TIER_HOODLUM] = new List<string> { "buttonup", "jeans", "flashlight", "mouthwash", "paracetamol" },
+            [TierConfig.Tier.TIER_PEDDLER] = new List<string> { "saucepan", "flatcap", "cargopants", "gloves", "fertilizer" },
+            [TierConfig.Tier.TIER_HUSTLER] = new List<string> { "overalls", "belt", "buckethat", "jar", "soil" },
 
-            // 🔴 Crimson Vultures
-            [TierConfig.Tier.TIER_CRIMSON_1] = new List<string> { "fingerlessgloves", "paracetamol", "moisturepreservingpot", "soilpourer" },
-            [TierConfig.Tier.TIER_CRIMSON_2] = new List<string> { "longskirt", "vest", "cowboyhat", "electrictrimmers" },
-            [TierConfig.Tier.TIER_CRIMSON_3] = new List<string> { "safe", "managementclipboard", "wallclock", "moisturepreservingpot" },
+            // 🔴 Crimson Vultures - Mid Tier (Tiers 5-8)
+            [TierConfig.Tier.TIER_BAGMAN] = new List<string> { "fingerlessgloves", "moisturepreservingpot", "soilpourer", "plasticpot" },
+            [TierConfig.Tier.TIER_ENFORCER] = new List<string> { "longskirt", "vest", "cowboyhat", "electrictrimmers", "wateringcan" },
+            [TierConfig.Tier.TIER_SHOT_CALLER] = new List<string> { "safe", "managementclipboard", "wallclock", "filingcabinet" },
+            [TierConfig.Tier.TIER_BLOCK_BOSS] = new List<string> { "tacticalvest", "modernwalllamp", "metalframetable", "displaycabinet" },
 
-            // 🟡 Golden Circle
-            [TierConfig.Tier.TIER_GOLD_1] = new List<string> { "dressshoes", "lightweightskateboard", "wallmountedshelf", "granddaddypurple" },
-            [TierConfig.Tier.TIER_GOLD_2] = new List<string> { "flats", "rolledbuttonup", "jukebox", "extralonglifesoil" },
-            [TierConfig.Tier.TIER_GOLD_3] = new List<string> { "TV", "artworkmenace", "artworkoffer", "woodensign", "porkpiehat" }
+            // 🟡 Golden Circle - Elite Tier (Tiers 9-11)
+            [TierConfig.Tier.TIER_UNDERLORD] = new List<string> { "dressshoes", "lightweightskateboard", "wallmountedshelf", "extralonglifesoil" },
+            [TierConfig.Tier.TIER_BARON] = new List<string> { "flats", "rolledbuttonup", "jukebox", "artworkbeachday" },
+            [TierConfig.Tier.TIER_KINGPIN] = new List<string> { "TV", "artworkmenace", "artworkoffer", "woodensign", "porkpiehat" }
         };
 
         /// <summary>
