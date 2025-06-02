@@ -183,7 +183,36 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Mark a drop as collected
+        /// Mark a specific drop as collected (instead of all drops for a day)
+        /// </summary>
+        public static void MarkSpecificDropCollected(int day, string location)
+        {
+            try
+            {
+                if (PendingDrops.ContainsKey(day))
+                {
+                    foreach (var drop in PendingDrops[day])
+                    {
+                        if (drop.Location == location && !drop.IsCollected)
+                        {
+                            drop.IsCollected = true;
+                            SaveToFile();
+                            Logger.Msg($"[JsonDataStore] ✅ Drop at {location} on day {day} marked as collected");
+                            return;
+                        }
+                    }
+                }
+                Logger.Warn($"[JsonDataStore] ⚠️ No matching drop found at {location} on day {day}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[JsonDataStore] ❌ Failed to mark specific drop collected: {ex.Message}");
+                Logger.Exception(ex);
+            }
+        }
+
+        /// <summary>
+        /// Mark a drop as collected (legacy method - now marks all drops for day)
         /// </summary>
         public static void MarkDropCollected(int day)
         {

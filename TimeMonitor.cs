@@ -193,6 +193,7 @@ namespace PaxDrops
 
                 int successCount = 0;
                 int failCount = 0;
+                var readyDrops = new List<(JsonDataStore.DropRecord drop, string location)>();
 
                 foreach (var drop in deliveriesToProcess)
                 {
@@ -203,10 +204,10 @@ namespace PaxDrops
                     
                     if (!string.IsNullOrEmpty(location))
                     {
-                        // Send ready message if it's from Mrs. Stacks
+                        // Add to ready drops list for consolidated messaging
                         if (drop.Org.Contains("Mrs. Stacks"))
                         {
-                            SendReadyMessage(drop, location);
+                            readyDrops.Add((drop, location));
                         }
                         
                         successCount++;
@@ -217,6 +218,12 @@ namespace PaxDrops
                         failCount++;
                         Logger.Error($"[TimeMonitor] ❌ Delivery #{failCount} failed: {drop.Org}");
                     }
+                }
+
+                // Send consolidated ready message for all Mrs. Stacks drops
+                if (readyDrops.Count > 0)
+                {
+                    SendConsolidatedReadyMessage(readyDrops);
                 }
 
                 if (deliveriesToProcess.Count > 0)
@@ -236,27 +243,49 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Send ready message for delivered drop
+        /// Send consolidated ready message for multiple drops delivered at the same time
         /// </summary>
-        private static void SendReadyMessage(JsonDataStore.DropRecord drop, string location)
+        private static void SendConsolidatedReadyMessage(List<(JsonDataStore.DropRecord drop, string location)> readyDrops)
         {
             try
             {
                 var npc = MrsStacksMessaging.FindMrsStacksNPC();
                 if (npc == null) return;
 
-                var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
-                string expiryText = expiryDay != -1 ? $" (Expires day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)})" : "";
+                if (readyDrops.Count == 1)
+                {
+                    // Single drop - use original format
+                    var drop = readyDrops[0].drop;
+                    var location = readyDrops[0].location;
+                    var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
+                    string expiryText = expiryDay != -1 ? $" (Expires day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)})" : "";
 
-                MrsStacksMessaging.SendMessage(npc, 
-                    $"Package ready! Your {drop.Org} delivery is waiting at {location}. " +
-                    $"Retrieve when safe. Quality guaranteed as always.{expiryText}");
+                    MrsStacksMessaging.SendMessage(npc, 
+                        $"Package ready! Your {drop.Org} delivery is waiting at {location}. " +
+                        $"Retrieve when safe. Quality guaranteed as always.{expiryText}");
+                }
+                else
+                {
+                    // Multiple drops - consolidated format
+                    var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(readyDrops[0].drop.ExpiryTime);
+                    string expiryText = expiryDay != -1 ? $" (All expire day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)})" : "";
+                    
+                    var message = $"Multiple packages ready! Your {readyDrops.Count} deliveries:\n";
+                    for (int i = 0; i < readyDrops.Count; i++)
+                    {
+                        var (drop, location) = readyDrops[i];
+                        message += $"• {drop.Org} at {location}\n";
+                    }
+                    message += $"Retrieve when safe. Quality guaranteed as always.{expiryText}";
 
-                Logger.Msg("[TimeMonitor] 📱 Ready message sent");
+                    MrsStacksMessaging.SendMessage(npc, message);
+                }
+
+                Logger.Msg($"[TimeMonitor] 📱 Consolidated ready message sent for {readyDrops.Count} drops");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TimeMonitor] ❌ Ready message failed: {ex.Message}");
+                Logger.Error($"[TimeMonitor] ❌ Consolidated ready message failed: {ex.Message}");
             }
         }
 
@@ -297,7 +326,7 @@ namespace PaxDrops
                         if (currentItemCount <= (drop.InitialItemCount * 0.5f))
                         {
                             Logger.Msg($"[TimeMonitor] ✅ Drop at {drop.Location} appears to have been collected ({currentItemCount}/{drop.InitialItemCount} items remaining)");
-                            JsonDataStore.MarkDropCollected(drop.Day);
+                            JsonDataStore.MarkSpecificDropCollected(drop.Day, drop.Location);
                         }
                     }
                 }
@@ -394,19 +423,37 @@ namespace PaxDrops
 
                 if (uncollectedDrops.Count > 0)
                 {
-                    Logger.Msg($"[TimeMonitor] 📱 Sending evening reminders for {uncollectedDrops.Count} uncollected drops");
+                    Logger.Msg($"[TimeMonitor] 📱 Sending evening reminder for {uncollectedDrops.Count} uncollected drops");
 
                     var npc = MrsStacksMessaging.FindMrsStacksNPC();
                     if (npc != null)
                     {
-                        foreach (var drop in uncollectedDrops)
+                        if (uncollectedDrops.Count == 1)
                         {
+                            // Single drop - use original format
+                            var drop = uncollectedDrops[0];
                             var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
                             string expiryText = expiryDay != -1 ? $" (expires day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)})" : "";
 
                             MrsStacksMessaging.SendMessage(npc, 
                                 $"Evening reminder: Your {drop.Org} package is still waiting at {drop.Location}{expiryText}. " +
                                 $"Don't forget to collect it when safe!");
+                        }
+                        else
+                        {
+                            // Multiple drops - consolidated format
+                            var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(uncollectedDrops[0].ExpiryTime);
+                            string expiryText = expiryDay != -1 ? $" (all expire day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)})" : "";
+
+                            var message = $"Evening reminder: You have {uncollectedDrops.Count} uncollected packages:\n";
+                            for (int i = 0; i < uncollectedDrops.Count; i++)
+                            {
+                                var drop = uncollectedDrops[i];
+                                message += $"• {drop.Org} at {drop.Location}\n";
+                            }
+                            message += $"Don't forget to collect them when safe!{expiryText}";
+
+                            MrsStacksMessaging.SendMessage(npc, message);
                         }
                     }
                 }
