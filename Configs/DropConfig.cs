@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Il2CppScheduleOne.Levelling;
 using Il2CppScheduleOne.GameTime;
-using Il2CppScheduleOne.PlayerScripts;
 
 namespace PaxDrops.Configs
 {
@@ -10,6 +9,7 @@ namespace PaxDrops.Configs
     /// Static configuration for drop mechanics, cash ranges, daily limits, and progression.
     /// Now uses pure rank-based unlocking with 1:1 ERank mapping to 11 tiers.
     /// No time restrictions - only player rank determines available tiers.
+    /// Uses centralized PlayerDetection system for rank data.
     /// </summary>
     public static class DropConfig
     {
@@ -18,13 +18,13 @@ namespace PaxDrops.Configs
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, (int min, int max)> CashRanges = new Dictionary<TierConfig.Tier, (int, int)>
         {
-            // 🍒 Cherry Green Gang - Street Level (Tiers 1-4)
+            // 🍒 Cherry Green Gang - Entry Level (Tiers 1-3)
             { TierConfig.Tier.TIER_STREET_RAT, (250, 350) },
             { TierConfig.Tier.TIER_HOODLUM, (300, 400) },
             { TierConfig.Tier.TIER_PEDDLER, (350, 450) },
-            { TierConfig.Tier.TIER_HUSTLER, (400, 500) },
 
-            // 🔴 Crimson Vultures - Mid Tier (Tiers 5-8)
+            // 🔴 Crimson Vultures - Mid Tier (Tiers 4-8)
+            { TierConfig.Tier.TIER_HUSTLER, (400, 500) },
             { TierConfig.Tier.TIER_BAGMAN, (450, 550) },
             { TierConfig.Tier.TIER_ENFORCER, (500, 600) },
             { TierConfig.Tier.TIER_SHOT_CALLER, (550, 650) },
@@ -38,17 +38,17 @@ namespace PaxDrops.Configs
 
         /// <summary>
         /// Daily order limits based on tier progression
-        /// Street level: 1 order/day → Mid tier: 2 orders/day → Elite: 3+ orders/day
+        /// Entry level: 1 order/day → Mid tier: 2 orders/day → Elite: 3+ orders/day
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, int> DailyOrderLimits = new Dictionary<TierConfig.Tier, int>
         {
-            // 🍒 Cherry Green Gang - Street Level
+            // 🍒 Cherry Green Gang - Entry Level
             { TierConfig.Tier.TIER_STREET_RAT, 1 },
             { TierConfig.Tier.TIER_HOODLUM, 1 },
             { TierConfig.Tier.TIER_PEDDLER, 1 },
-            { TierConfig.Tier.TIER_HUSTLER, 1 },
 
             // 🔴 Crimson Vultures - Mid Tier
+            { TierConfig.Tier.TIER_HUSTLER, 2 },
             { TierConfig.Tier.TIER_BAGMAN, 2 },
             { TierConfig.Tier.TIER_ENFORCER, 2 },
             { TierConfig.Tier.TIER_SHOT_CALLER, 2 },
@@ -66,13 +66,13 @@ namespace PaxDrops.Configs
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, float> RandomDropUpgradeChance = new Dictionary<TierConfig.Tier, float>
         {
-            // 🍒 Cherry Green Gang - Street Level
+            // 🍒 Cherry Green Gang - Entry Level
             { TierConfig.Tier.TIER_STREET_RAT, 0.60f },
             { TierConfig.Tier.TIER_HOODLUM, 0.65f },
             { TierConfig.Tier.TIER_PEDDLER, 0.70f },
-            { TierConfig.Tier.TIER_HUSTLER, 0.75f },
 
             // 🔴 Crimson Vultures - Mid Tier
+            { TierConfig.Tier.TIER_HUSTLER, 0.75f },
             { TierConfig.Tier.TIER_BAGMAN, 0.80f },
             { TierConfig.Tier.TIER_ENFORCER, 0.85f },
             { TierConfig.Tier.TIER_SHOT_CALLER, 0.90f },
@@ -94,13 +94,13 @@ namespace PaxDrops.Configs
         /// </summary>
         public static readonly Dictionary<TierConfig.Tier, int> DailyRandomDrops = new Dictionary<TierConfig.Tier, int>
         {
-            // 🍒 Cherry Green Gang - Street Level
+            // 🍒 Cherry Green Gang - Entry Level
             { TierConfig.Tier.TIER_STREET_RAT, 1 },
             { TierConfig.Tier.TIER_HOODLUM, 1 },
             { TierConfig.Tier.TIER_PEDDLER, 1 },
-            { TierConfig.Tier.TIER_HUSTLER, 1 },
 
             // 🔴 Crimson Vultures - Mid Tier
+            { TierConfig.Tier.TIER_HUSTLER, 1 },
             { TierConfig.Tier.TIER_BAGMAN, 1 },
             { TierConfig.Tier.TIER_ENFORCER, 1 },
             { TierConfig.Tier.TIER_SHOT_CALLER, 2 },
@@ -170,7 +170,18 @@ namespace PaxDrops.Configs
         public static TierConfig.Tier GetCurrentPlayerTier()
         {
             var playerRank = GetCurrentPlayerRank();
-            return TierConfig.GetTierForRank(playerRank);
+            var tier = TierConfig.GetTierForRank(playerRank);
+            
+            // Debug logging to trace the mapping
+            Logger.Msg($"[DropConfig] 🔍 Player rank detection: ERank={playerRank} (int={(int)playerRank}) → Tier={tier} (int={(int)tier})");
+            
+            var org = TierConfig.GetOrganization(tier);
+            var tierName = TierConfig.GetTierName(tier);
+            var orgName = TierConfig.GetOrganizationName(org);
+            
+            Logger.Msg($"[DropConfig] 🏢 Organization mapping: {tierName} → {orgName}");
+            
+            return tier;
         }
 
         /// <summary>
@@ -224,154 +235,19 @@ namespace PaxDrops.Configs
         }
 
         /// <summary>
-        /// Validate that the player is properly initialized
-        /// </summary>
-        private static bool IsPlayerValid(Player player)
-        {
-            try
-            {
-                // Basic validation checks
-                return player != null && 
-                       player.gameObject != null && 
-                       player.gameObject.activeInHierarchy &&
-                       player.Avatar != null;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"[DropConfig] Player validation failed: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Get current player ERank safely with multiple fallback methods
+        /// Get current player ERank using the centralized PlayerDetection system
         /// </summary>
         public static ERank GetCurrentPlayerRank()
         {
-            try
+            // Use the centralized player detection system
+            if (PlayerDetection.IsRankDetected)
             {
-                // Method 1: Try accessing LevelManager through Player.Local
-                try
-                {
-                    var localPlayer = Player.Local;
-                    Logger.LogDebug("[DropConfig] Local Player: " + localPlayer);
-                    if (localPlayer != null && IsPlayerValid(localPlayer))
-                    {
-                        Logger.LogDebug($"[DropConfig] Found local player: {localPlayer.PlayerName}");
-                        
-                        // Try to find a LevelManager component on the player
-                        var playerGameObject = localPlayer.gameObject;
-                        if (playerGameObject != null)
-                        {
-                            var playerLevelManager = playerGameObject.GetComponent<Il2CppScheduleOne.Levelling.LevelManager>();
-                            if (playerLevelManager != null)
-                            {
-                                var playerRank = playerLevelManager.Rank;
-                                var playerTotalXP = playerLevelManager.TotalXP;
-                                var playerTier = playerLevelManager.Tier;
-                                Logger.LogDebug($"[DropConfig] Player LevelManager: Rank={playerRank}, TotalXP={playerTotalXP}, Tier={playerTier}");
-                                
-                                if (playerRank != ERank.Street_Rat || playerTotalXP > 0 || playerTier > 1)
-                                {
-                                    return playerRank;
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug($"[DropConfig] Player.Local method failed: {ex.Message}");
-                }
-
-                // Method 2: Try LevelManager.Instance (original approach)
-                var levelManager = Il2CppScheduleOne.Levelling.LevelManager.Instance;
-                if (levelManager == null)
-                {
-                    Logger.LogDebug("[DropConfig] LevelManager.Instance is null, using fallback");
-                    return ERank.Street_Rat;
-                }
-
-                // Method 2a: Try GetFullRank() which might have more accurate data
-                try
-                {
-                    var fullRank = levelManager.GetFullRank();
-                    Logger.LogDebug($"[DropConfig] GetFullRank() returned: Rank={fullRank.Rank}, Tier={fullRank.Tier}");
-                    if (fullRank.Rank != ERank.Street_Rat || fullRank.Tier > 1)
-                    {
-                        return fullRank.Rank;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug($"[DropConfig] GetFullRank() failed: {ex.Message}");
-                }
-
-                // Method 2b: Try direct Rank property
-                var directRank = levelManager.Rank;
-                Logger.LogDebug($"[DropConfig] Direct Rank property: {directRank}");
-                
-                // Method 2c: Try TotalXP calculation fallback
-                try
-                {
-                    var totalXp = levelManager.TotalXP;
-                    var tier = levelManager.Tier;
-                    Logger.LogDebug($"[DropConfig] TotalXP: {totalXp}, Tier: {tier}");
-                    
-                    // If we have significant XP or tier > 1, the direct rank might be wrong
-                    if (totalXp > 1000 || tier > 1)
-                    {
-                        // Calculate rank based on total XP using GetFullRank(totalXp)
-                        var calculatedFullRank = levelManager.GetFullRank(totalXp);
-                        Logger.LogDebug($"[DropConfig] Calculated from XP: Rank={calculatedFullRank.Rank}, Tier={calculatedFullRank.Tier}");
-                        return calculatedFullRank.Rank;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug($"[DropConfig] XP calculation failed: {ex.Message}");
-                }
-
-                // Method 3: Try finding all LevelManager instances and pick the right one
-                try
-                {
-                    var allLevelManagers = UnityEngine.GameObject.FindObjectsOfType<Il2CppScheduleOne.Levelling.LevelManager>();
-                    Logger.LogDebug($"[DropConfig] Found {allLevelManagers?.Length ?? 0} LevelManager instances");
-                    
-                    if (allLevelManagers != null && allLevelManagers.Length > 0)
-                    {
-                        foreach (var lm in allLevelManagers)
-                        {
-                            if (lm != null)
-                            {
-                                var rank = lm.Rank;
-                                var xp = lm.TotalXP;
-                                var tier = lm.Tier;
-                                Logger.LogDebug($"[DropConfig] LevelManager instance: Rank={rank}, TotalXP={xp}, Tier={tier}");
-                                
-                                // If this instance has meaningful data (not default Street_Rat with 0 XP), use it
-                                if (rank != ERank.Street_Rat || xp > 0 || tier > 1)
-                                {
-                                    Logger.LogDebug($"[DropConfig] Using LevelManager instance with data: {rank}");
-                                    return rank;
-                                }
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug($"[DropConfig] FindObjectsOfType failed: {ex.Message}");
-                }
-
-                Logger.LogDebug($"[DropConfig] Using fallback rank: {directRank}");
-                return directRank;
+                return PlayerDetection.CurrentRank;
             }
-            catch (Exception ex)
-            {
-                Logger.Error($"[DropConfig] All rank detection methods failed: {ex.Message}");
-                return ERank.Street_Rat; // Safe fallback
-            }
+            
+            // Fallback: try to get it directly if PlayerDetection hasn't finished yet
+            Logger.LogDebug("[DropConfig] PlayerDetection not ready, using fallback");
+            return ERank.Street_Rat;
         }
 
         /// <summary>
@@ -439,6 +315,17 @@ namespace PaxDrops.Configs
             var ordersToday = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
             
             return Math.Max(0, dailyLimit - ordersToday);
+        }
+
+        /// <summary>
+        /// Get player detection status for debugging
+        /// </summary>
+        public static string GetPlayerDetectionStatus()
+        {
+            return $"Player: {(PlayerDetection.IsPlayerDetected ? "✅" : "❌")} | " +
+                   $"Rank: {(PlayerDetection.IsRankDetected ? "✅" : "❌")} | " +
+                   $"Current: {PlayerDetection.CurrentRank} | " +
+                   $"Info: {PlayerDetection.GetPlayerInfo()}";
         }
     }
 } 

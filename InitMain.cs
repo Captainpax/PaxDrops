@@ -1,6 +1,8 @@
 using UnityEngine;
 using MelonLoader;
 using PaxDrops.MrStacks;
+using Il2CppScheduleOne.PlayerScripts;
+using Il2CppScheduleOne.Levelling;
 
 [assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "CaptainPax")]
 [assembly: MelonGame("Cortez", "Schedule 1")]
@@ -10,10 +12,12 @@ namespace PaxDrops
     /// <summary>
     /// Entry point and lifecycle manager for the PaxDrops mod.
     /// Handles system initialization, persistence, and shutdown.
+    /// Now uses event-driven initialization based on player detection.
     /// </summary>
     public class InitMain : MelonMod
     {
         private static bool _initialized = false;
+        private static bool _playerDependentSystemsInitialized = false;
 
         public override void OnInitializeMelon()
         {
@@ -33,14 +37,18 @@ namespace PaxDrops
             {
                 MelonLogger.Msg("🎬 Main scene loaded. Bootstrapping PaxDrops...");
                 
-                // Initialize database first
-                JsonDataStore.Init();
-                
-                // Initialize all other systems
-                InitSystems();
+                // Initialize core systems first (player-independent)
+                InitCoreSystems();
+
+                // Start player detection
+                PlayerDetection.StartDetection();
+
+                // Subscribe to player detection events
+                PlayerDetection.OnPlayerLoaded += OnPlayerDetected;
+                PlayerDetection.OnPlayerRankLoaded += OnPlayerRankDetected;
 
                 _initialized = true;
-                MelonLogger.Msg("🎮 PaxDrops fully initialized!");
+                MelonLogger.Msg("🎮 PaxDrops core systems initialized! Waiting for player detection...");
             }
         }
 
@@ -49,6 +57,10 @@ namespace PaxDrops
             MelonLogger.Msg("🧼 PaxDrops shutting down...");
             try
             {
+                // Unsubscribe from events
+                PlayerDetection.OnPlayerLoaded -= OnPlayerDetected;
+                PlayerDetection.OnPlayerRankLoaded -= OnPlayerRankDetected;
+
                 MrsStacksNPC.Shutdown();
                 TimeMonitor.Shutdown();
                 CommandHandler.Shutdown();
@@ -63,47 +75,70 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Initializes all modular systems in startup order.
+        /// Initialize core systems that don't depend on player detection
         /// </summary>
-        private static void InitSystems()
+        private static void InitCoreSystems()
         {
-            Logger.Msg("[InitMain] 🔧 Initializing PaxDrops systems...");
+            Logger.Msg("[InitMain] 🔧 Initializing core PaxDrops systems...");
             
             try
             {
-                Logger.Msg("🚀 [InitMain] Starting PaxDrops IL2CPP initialization...");
+                // Initialize data storage and basic systems first
+                JsonDataStore.Init();      // 💾 JSON persistence layer
+                DeadDrop.Init();           // ⚰️ Dead drop spawning system
+                TierDropSystem.Init();     // 🎯 Tier-based drop system (basic init)
+                CommandHandler.Init();     // 🎮 Console command system
+                TimeMonitor.Init();        // ⏰ Time monitoring for drops
 
-                // Initialize core systems first
-                DeadDrop.Init();        // ⚰️ Dead drop spawning system
-                TierDropSystem.Init();   // 🎯 New tier-based drop system with ERank integration
-                DailyDropOrdering.Init(); // 📅 Daily drop ordering system (rank-based)
-
-                // Initialize data storage
-                JsonDataStore.Init();   // 💾 JSON persistence layer
-                
-                // Initialize specific features
-                CommandHandler.Init();  // 🎮 Console command system
-                MrsStacksNPC.Init();    // 👤 Mrs. Stacks NPC integration
-                TimeMonitor.Init();     // ⏰ Time monitoring for drops
-
-                Logger.Msg("✅ [InitMain] PaxDrops IL2CPP initialization complete!");
-                Logger.Msg("🎯 [InitMain] New rank-based tier system active (11 tiers mapped 1:1 with ERank)");
-                Logger.Msg("📅 [InitMain] Daily ordering system enabled - tier rewards based on player rank");
+                Logger.Msg("✅ [InitMain] Core systems initialized successfully!");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"❌ [InitMain] PaxDrops IL2CPP initialization error: {ex.Message}");
+                Logger.Error($"[InitMain] ❌ Core system initialization failed: {ex.Message}");
+                Logger.Exception(ex);
             }
-            
-            // Log tier system status
-            var currentRank = PaxDrops.Configs.DropConfig.GetCurrentPlayerRank();
-            var currentDay = PaxDrops.Configs.DropConfig.GetCurrentGameDay();
-            var maxTier = PaxDrops.Configs.DropConfig.GetCurrentMaxUnlockedTier();
-            var unlockedOrgs = TierDropSystem.GetPlayerUnlockedOrganizations();
-            
-            Logger.Msg($"[InitMain] 📊 Player Status: Day {currentDay}, Rank {currentRank}");
-            Logger.Msg($"[InitMain] 🏆 Max Unlocked Tier: {PaxDrops.Configs.TierConfig.GetTierName(maxTier)}");
-            Logger.Msg($"[InitMain] 🏢 Unlocked Organizations: {string.Join(", ", unlockedOrgs)}");
+        }
+
+        /// <summary>
+        /// Called when the player is first detected
+        /// </summary>
+        private static void OnPlayerDetected(Player player)
+        {
+            Logger.Msg($"[InitMain] 👤 Player detected: {player.PlayerName}");
+            Logger.Msg("[InitMain] Waiting for rank data...");
+        }
+
+        /// <summary>
+        /// Called when player rank data becomes available
+        /// </summary>
+        private static void OnPlayerRankDetected(Player player, ERank rank)
+        {
+            if (_playerDependentSystemsInitialized) return; // Prevent double initialization
+
+            Logger.Msg($"[InitMain] 🎯 Player rank detected: {rank}");
+            Logger.Msg("[InitMain] 🚀 Initializing player-dependent systems...");
+
+            try
+            {
+                // Initialize systems that depend on player data
+                DailyDropOrdering.Init();  // 📅 Daily drop ordering system (rank-based)
+                MrsStacksNPC.Init();       // 👤 Mrs. Stacks NPC integration
+
+                _playerDependentSystemsInitialized = true;
+
+                Logger.Msg("✅ [InitMain] Player-dependent systems initialized!");
+                Logger.Msg("🎯 [InitMain] New rank-based tier system active (11 tiers mapped 1:1 with ERank)");
+                Logger.Msg("📅 [InitMain] Daily ordering system enabled - tier rewards based on player rank");
+                Logger.Msg($"🎮 [InitMain] PaxDrops fully initialized for {player.PlayerName} (Rank: {rank})!");
+
+                // Log player detection status
+                Logger.Msg($"[InitMain] Player Status: {PaxDrops.Configs.DropConfig.GetPlayerDetectionStatus()}");
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Error($"[InitMain] ❌ Player-dependent system initialization failed: {ex.Message}");
+                Logger.Exception(ex);
+            }
         }
     }
 } 

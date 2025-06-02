@@ -17,13 +17,13 @@ namespace PaxDrops.Configs
         /// </summary>
         public enum Tier
         {
-            // 🍒 Cherry Green Gang (1-4) - Street Level
+            // 🍒 Cherry Green Gang (1-3) - Entry Level
             TIER_STREET_RAT = 1,      // ERank.Street_Rat
             TIER_HOODLUM = 2,         // ERank.Hoodlum  
             TIER_PEDDLER = 3,         // ERank.Peddler
-            TIER_HUSTLER = 4,         // ERank.Hustler
 
-            // 🔴 Crimson Vultures (5-8) - Mid Tier
+            // 🔴 Crimson Vultures (4-8) - Mid Tier
+            TIER_HUSTLER = 4,         // ERank.Hustler
             TIER_BAGMAN = 5,          // ERank.Bagman
             TIER_ENFORCER = 6,        // ERank.Enforcer
             TIER_SHOT_CALLER = 7,     // ERank.Shot_Caller
@@ -83,23 +83,23 @@ namespace PaxDrops.Configs
         /// </summary>
         public static readonly Dictionary<Organization, string> OrganizationDescriptions = new Dictionary<Organization, string>
         {
-            { Organization.CherryGreen, "Street-level operations, basic gear and starter drugs" },
-            { Organization.CrimsonVultures, "Mid-tier crime syndicate, weapons and quality narcotics" },
-            { Organization.GoldenCircle, "High-end criminal enterprise, luxury items and pure profit" }
+            { Organization.CherryGreen, "Entry-level street operations, basic supplies and starter gear" },
+            { Organization.CrimsonVultures, "Professional crime syndicate, quality gear and mid-tier narcotics" },
+            { Organization.GoldenCircle, "Elite criminal enterprise, luxury items and high-end operations" }
         };
 
         /// <summary>
-        /// Tier to organization mapping
+        /// Tier to organization mapping - Reorganized for better progression
         /// </summary>
         public static readonly Dictionary<Tier, Organization> TierOrganizations = new Dictionary<Tier, Organization>
         {
-            // Cherry Green Gang - Street Level (Tiers 1-4)
+            // Cherry Green Gang - Entry Level (Tiers 1-3)
             { Tier.TIER_STREET_RAT, Organization.CherryGreen },
             { Tier.TIER_HOODLUM, Organization.CherryGreen },
             { Tier.TIER_PEDDLER, Organization.CherryGreen },
-            { Tier.TIER_HUSTLER, Organization.CherryGreen },
 
-            // Crimson Vultures - Mid Tier (Tiers 5-8)
+            // Crimson Vultures - Mid Tier (Tiers 4-8)
+            { Tier.TIER_HUSTLER, Organization.CrimsonVultures },
             { Tier.TIER_BAGMAN, Organization.CrimsonVultures },
             { Tier.TIER_ENFORCER, Organization.CrimsonVultures },
             { Tier.TIER_SHOT_CALLER, Organization.CrimsonVultures },
@@ -232,7 +232,23 @@ namespace PaxDrops.Configs
         /// </summary>
         public static Tier GetTierForRank(ERank playerRank)
         {
-            return RankToTierMapping.TryGetValue(playerRank, out var tier) ? tier : Tier.TIER_STREET_RAT;
+            Logger.LogDebug($"[TierConfig] 🔍 GetTierForRank called with: {playerRank} (int={(int)playerRank})");
+            
+            if (RankToTierMapping.TryGetValue(playerRank, out var tier))
+            {
+                Logger.LogDebug($"[TierConfig] ✅ Found mapping: {playerRank} → {tier} (int={(int)tier})");
+                return tier;
+            }
+            else
+            {
+                Logger.Warn($"[TierConfig] ⚠️ No mapping found for rank {playerRank}, defaulting to TIER_STREET_RAT");
+                Logger.LogDebug($"[TierConfig] Available mappings:");
+                foreach (var kvp in RankToTierMapping)
+                {
+                    Logger.LogDebug($"[TierConfig]   {kvp.Key} (int={(int)kvp.Key}) → {kvp.Value} (int={(int)kvp.Value})");
+                }
+                return Tier.TIER_STREET_RAT;
+            }
         }
 
         /// <summary>

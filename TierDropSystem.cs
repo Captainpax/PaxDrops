@@ -112,7 +112,7 @@ namespace PaxDrops
             foreach (var itemId in itemIds)
             {
                 bool isValuable = ItemPools.IsValuableItem(tier, itemId);
-                int quantity = GetItemQuantity(tier, isValuable);
+                int quantity = CalculateItemQuantity(tier, isValuable, false);
                 
                 package.Items.Add(new DropItem(itemId, quantity, isValuable));
             }
@@ -152,7 +152,7 @@ namespace PaxDrops
             for (int i = 0; i < valuableCount && i < valuableItems.Count; i++)
             {
                 var itemId = valuableItems[UnityEngine.Random.Range(0, valuableItems.Count)];
-                int quantity = GetItemQuantity(tier, true, true); // Premium quantities
+                int quantity = CalculateItemQuantity(tier, true, true); // Premium quantities
                 package.Items.Add(new DropItem(itemId, quantity, true));
                 valuableItems.Remove(itemId); // No duplicates
             }
@@ -162,7 +162,7 @@ namespace PaxDrops
             for (int i = 0; i < fillerCount && i < fillerItems.Count; i++)
             {
                 var itemId = fillerItems[UnityEngine.Random.Range(0, fillerItems.Count)];
-                int quantity = GetItemQuantity(tier, false, true); // Premium quantities
+                int quantity = CalculateItemQuantity(tier, false, true); // Premium quantities
                 package.Items.Add(new DropItem(itemId, quantity, false));
                 fillerItems.Remove(itemId); // No duplicates
             }
@@ -198,9 +198,9 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Get appropriate quantity for an item based on tier and type
+        /// Calculate item quantity based on tier level and type
         /// </summary>
-        private static int GetItemQuantity(TierConfig.Tier tier, bool isValuable, bool isPremium = false)
+        private static int CalculateItemQuantity(TierConfig.Tier tier, bool isValuable, bool isPremium)
         {
             int tierLevel = (int)tier;
             int baseQuantity;
@@ -208,14 +208,14 @@ namespace PaxDrops
             if (isValuable)
             {
                 // Valuable items: lower quantities but higher value
-                if (tierLevel >= 7) baseQuantity = UnityEngine.Random.Range(2, 4); // Golden Circle: 2-3
+                if (tierLevel >= 9) baseQuantity = UnityEngine.Random.Range(2, 4); // Golden Circle: 2-3
                 else if (tierLevel >= 4) baseQuantity = UnityEngine.Random.Range(2, 3); // Crimson Vultures: 2-2
                 else baseQuantity = UnityEngine.Random.Range(1, 3); // Cherry Green: 1-2
             }
             else
             {
                 // Filler items: higher quantities but lower value
-                if (tierLevel >= 7) baseQuantity = UnityEngine.Random.Range(3, 6); // Golden Circle: 3-5
+                if (tierLevel >= 9) baseQuantity = UnityEngine.Random.Range(3, 6); // Golden Circle: 3-5
                 else if (tierLevel >= 4) baseQuantity = UnityEngine.Random.Range(2, 5); // Crimson Vultures: 2-4
                 else baseQuantity = UnityEngine.Random.Range(2, 4); // Cherry Green: 2-3
             }
