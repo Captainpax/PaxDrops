@@ -386,8 +386,8 @@ namespace PaxDrops
                         }
                     }
 
-                    // Remove from pending drops
-                    JsonDataStore.RemoveDrop(drop.Day);
+                    // Remove from pending drops - use specific location removal
+                    JsonDataStore.RemoveSpecificDrop(drop.Day, drop.Location);
                 }
 
                 if (expiredDrops.Count > 0)

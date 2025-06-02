@@ -521,5 +521,47 @@ namespace PaxDrops
             if (_lastMrsStacksOrderDay == -1) return -1; // Never ordered
             return currentDay - _lastMrsStacksOrderDay;
         }
+
+        /// <summary>
+        /// Remove a specific drop by location instead of all drops for a day
+        /// </summary>
+        public static void RemoveSpecificDrop(int day, string location)
+        {
+            try
+            {
+                if (PendingDrops.ContainsKey(day))
+                {
+                    var dropsForDay = PendingDrops[day];
+                    var dropToRemove = dropsForDay.Find(d => d.Location == location);
+                    
+                    if (dropToRemove != null)
+                    {
+                        dropsForDay.Remove(dropToRemove);
+                        
+                        // If no more drops for this day, remove the day entry
+                        if (dropsForDay.Count == 0)
+                        {
+                            PendingDrops.Remove(day);
+                        }
+                        
+                        SaveToFile();
+                        Logger.Msg($"[JsonDataStore] 🗑️ Removed specific drop at {location} for Day {day}");
+                    }
+                    else
+                    {
+                        Logger.Warn($"[JsonDataStore] ⚠️ No drop found at {location} for Day {day}");
+                    }
+                }
+                else
+                {
+                    Logger.Warn($"[JsonDataStore] ⚠️ No drops found for Day {day}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[JsonDataStore] ❌ Failed to remove specific drop at {location} for Day {day}");
+                Logger.Exception(ex);
+            }
+        }
     }
 } 
