@@ -191,9 +191,12 @@ namespace PaxDrops
 
                 Logger.Msg($"[TimeMonitor] 📦 Found {deliveriesToProcess.Count} drops ready for delivery");
 
+                int successCount = 0;
+                int failCount = 0;
+
                 foreach (var drop in deliveriesToProcess)
                 {
-                    Logger.Msg($"[TimeMonitor] 📦 Processing delivery: {drop.Org} scheduled for day {drop.Day} at {DropConfig.FormatGameTime(drop.DropHour)}");
+                    Logger.Msg($"[TimeMonitor] 📦 Processing delivery #{successCount + failCount + 1}: {drop.Org} scheduled for day {drop.Day} at {DropConfig.FormatGameTime(drop.DropHour)}");
                     
                     // Spawn the drop at a location
                     string? location = DeadDrop.SpawnImmediateDrop(drop);
@@ -206,17 +209,19 @@ namespace PaxDrops
                             SendReadyMessage(drop, location);
                         }
                         
-                        Logger.Msg($"[TimeMonitor] ✅ Delivery completed: {drop.Org} at {location}");
+                        successCount++;
+                        Logger.Msg($"[TimeMonitor] ✅ Delivery #{successCount} completed: {drop.Org} at {location}");
                     }
                     else
                     {
-                        Logger.Error($"[TimeMonitor] ❌ Failed to deliver: {drop.Org}");
+                        failCount++;
+                        Logger.Error($"[TimeMonitor] ❌ Delivery #{failCount} failed: {drop.Org}");
                     }
                 }
 
                 if (deliveriesToProcess.Count > 0)
                 {
-                    Logger.Msg($"[TimeMonitor] 📬 Processed {deliveriesToProcess.Count} deliveries");
+                    Logger.Msg($"[TimeMonitor] 📬 Processed {deliveriesToProcess.Count} deliveries: {successCount} success, {failCount} failed");
                 }
                 else
                 {
@@ -421,26 +426,26 @@ namespace PaxDrops
             try
             {
                 int removedCount = 0;
-                var keysToRemove = new List<int>();
+                var daysToRemove = new List<int>();
 
                 foreach (var kvp in JsonDataStore.PendingDrops)
                 {
                     // Remove drops that are more than 2 days old (extra safety buffer)
                     if (kvp.Key < currentDay - 2)
                     {
-                        keysToRemove.Add(kvp.Key);
+                        removedCount += kvp.Value.Count;
+                        daysToRemove.Add(kvp.Key);
                     }
                 }
 
-                foreach (var key in keysToRemove)
+                foreach (var day in daysToRemove)
                 {
-                    JsonDataStore.PendingDrops.Remove(key);
-                    removedCount++;
+                    JsonDataStore.PendingDrops.Remove(day);
                 }
 
                 if (removedCount > 0)
                 {
-                    Logger.Msg($"[TimeMonitor] 🗑️ Cleaned up {removedCount} old drop records");
+                    Logger.Msg($"[TimeMonitor] 🗑️ Cleaned up {removedCount} old drop records from {daysToRemove.Count} days");
                 }
             }
             catch (Exception ex)

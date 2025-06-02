@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Newtonsoft.Json;
 using Il2CppScheduleOne.Persistence;
 using Il2CppScheduleOne.GameTime;
-using System.Linq;
+using MelonLoader;
 
 namespace PaxDrops
 {
@@ -49,7 +50,11 @@ namespace PaxDrops
             }
         }
 
-        public static readonly Dictionary<int, DropRecord> PendingDrops = new Dictionary<int, DropRecord>();
+        /// <summary>
+        /// Dictionary to track pending drops by day (supports multiple drops per day)
+        /// Key: Day number, Value: List of drop records for that day
+        /// </summary>
+        public static readonly Dictionary<int, List<DropRecord>> PendingDrops = new Dictionary<int, List<DropRecord>>();
         
         // Track Mrs. Stacks daily orders count per order day (not delivery day)
         public static readonly Dictionary<int, int> MrsStacksOrdersToday = new Dictionary<int, int>();
@@ -62,7 +67,7 @@ namespace PaxDrops
             try
             {
                 Directory.CreateDirectory(DataDir);
-                LoadPendingDrops();
+                LoadFromFile();
                 LoadDailyOrders();
                 Logger.Msg("[JsonDataStore] ✅ Initialized and loaded.");
             }
@@ -98,7 +103,11 @@ namespace PaxDrops
                     InitialItemCount = items.Count
                 };
 
-                PendingDrops[day] = record;
+                if (!PendingDrops.ContainsKey(day))
+                {
+                    PendingDrops[day] = new List<DropRecord>();
+                }
+                PendingDrops[day].Add(record);
                 SaveToFile();
 
                 Logger.Msg($"[JsonDataStore] 💾 Drop saved for Day {day} with {items.Count} items");
@@ -117,7 +126,11 @@ namespace PaxDrops
         {
             try
             {
-                PendingDrops[record.Day] = record;
+                if (!PendingDrops.ContainsKey(record.Day))
+                {
+                    PendingDrops[record.Day] = new List<DropRecord>();
+                }
+                PendingDrops[record.Day].Add(record);
                 SaveToFile();
                 Logger.Msg($"[JsonDataStore] 💾 Drop record saved for Day {record.Day}");
             }
@@ -132,19 +145,20 @@ namespace PaxDrops
         {
             try
             {
-                if (PendingDrops.Remove(day))
+                if (PendingDrops.ContainsKey(day))
                 {
+                    PendingDrops[day].Clear();
                     SaveToFile();
-                    Logger.Msg($"[JsonDataStore] 🗑️ Removed drop for Day {day}");
+                    Logger.Msg($"[JsonDataStore] 🗑️ Removed all drops for Day {day}");
                 }
                 else
                 {
-                    Logger.Warn($"[JsonDataStore] ⚠️ No drop found for Day {day}");
+                    Logger.Warn($"[JsonDataStore] ⚠️ No drops found for Day {day}");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[JsonDataStore] ❌ Failed to remove drop for Day {day}");
+                Logger.Error($"[JsonDataStore] ❌ Failed to remove drops for Day {day}");
                 Logger.Exception(ex);
             }
         }
@@ -156,7 +170,7 @@ namespace PaxDrops
                 var drops = new List<DropRecord>();
                 foreach (var kvp in PendingDrops)
                 {
-                    drops.Add(kvp.Value);
+                    drops.AddRange(kvp.Value);
                 }
                 return drops;
             }
@@ -175,54 +189,119 @@ namespace PaxDrops
         {
             try
             {
-                if (PendingDrops.TryGetValue(day, out var drop))
+                if (PendingDrops.ContainsKey(day))
                 {
-                    drop.IsCollected = true;
+                    foreach (var drop in PendingDrops[day])
+                    {
+                        drop.IsCollected = true;
+                    }
                     SaveToFile();
-                    Logger.Msg($"[JsonDataStore] ✅ Drop for Day {day} marked as collected");
+                    Logger.Msg($"[JsonDataStore] ✅ All drops for Day {day} marked as collected");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[JsonDataStore] ❌ Failed to mark drop collected for Day {day}");
+                Logger.Error($"[JsonDataStore] ❌ Failed to mark drops collected for Day {day}");
                 Logger.Exception(ex);
             }
         }
 
-        private static void LoadPendingDrops()
+        /// <summary>
+        /// Load pending drops from JSON file
+        /// </summary>
+        private static void LoadFromFile()
         {
             try
             {
                 if (!File.Exists(DropsFile))
                 {
-                    Logger.Msg("[JsonDataStore] 📁 No existing drops file found, starting fresh.");
+                    Logger.Msg("[JsonDataStore] 📁 No existing file found, starting fresh.");
                     return;
                 }
 
                 string json = File.ReadAllText(DropsFile);
                 if (string.IsNullOrWhiteSpace(json))
                 {
-                    Logger.Msg("[JsonDataStore] 📁 Empty drops file, starting fresh.");
+                    Logger.Msg("[JsonDataStore] 📁 Empty file, starting fresh.");
                     return;
                 }
 
-                var drops = JsonConvert.DeserializeObject<List<DropRecord>>(json) ?? new List<DropRecord>();
-
-                foreach (var drop in drops)
+                // Load the standard format: Dictionary<int, List<DropRecord>>
+                var loadedData = JsonConvert.DeserializeObject<Dictionary<int, List<DropRecord>>>(json);
+                if (loadedData != null)
                 {
-                    // Ensure new fields have default values for old records
-                    if (drop.OrderDay == 0) drop.OrderDay = drop.Day;
-                    if (drop.InitialItemCount == 0) drop.InitialItemCount = drop.Items?.Count ?? 0;
+                    PendingDrops.Clear();
+                    foreach (var kvp in loadedData)
+                    {
+                        PendingDrops[kvp.Key] = kvp.Value ?? new List<DropRecord>();
+                        
+                        // Ensure all fields are properly initialized
+                        foreach (var drop in PendingDrops[kvp.Key])
+                        {
+                            if (drop.InitialItemCount == 0) 
+                                drop.InitialItemCount = drop.Items?.Count ?? 0;
+                            if (drop.OrderDay == 0) 
+                                drop.OrderDay = drop.Day; // Fallback for legacy records
+                        }
+                    }
                     
-                    PendingDrops[drop.Day] = drop;
+                    int totalDrops = PendingDrops.Values.Sum(list => list.Count);
+                    Logger.Msg($"[JsonDataStore] 📂 Loaded {totalDrops} pending drops from {PendingDrops.Count} days");
+                    return;
                 }
 
-                Logger.Msg($"[JsonDataStore] 📂 Loaded {drops.Count} pending drops");
+                // If loading failed, the file is in an incompatible format
+                Logger.Warn("[JsonDataStore] ⚠️ File format incompatible with current version");
+                BackupIncompatibleFile();
+                Logger.Msg("[JsonDataStore] 📁 Starting fresh after backing up incompatible file");
             }
             catch (Exception ex)
             {
-                Logger.Error("[JsonDataStore] ❌ Failed to load pending drops");
+                Logger.Error($"[JsonDataStore] ❌ Failed to load data: {ex.Message}");
+                BackupIncompatibleFile();
+                Logger.Msg("[JsonDataStore] 📁 Starting fresh after backup");
+            }
+        }
+
+        /// <summary>
+        /// Save pending drops to JSON file in standard format
+        /// </summary>
+        private static void SaveToFile()
+        {
+            try
+            {
+                // Always save in the standard format: Dictionary<int, List<DropRecord>>
+                string json = JsonConvert.SerializeObject(PendingDrops, Formatting.Indented);
+                File.WriteAllText(DropsFile, json);
+
+                int totalDrops = PendingDrops.Values.Sum(list => list.Count);
+                Logger.Msg($"[JsonDataStore] 💾 Saved {totalDrops} drops to file ({PendingDrops.Count} days)");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[JsonDataStore] ❌ Failed to save to file: {ex.Message}");
                 Logger.Exception(ex);
+            }
+        }
+
+        /// <summary>
+        /// Backup incompatible file before starting fresh
+        /// </summary>
+        private static void BackupIncompatibleFile()
+        {
+            try
+            {
+                if (File.Exists(DropsFile))
+                {
+                    string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    string backupPath = $"{DropsFile}.backup_{timestamp}";
+                    File.Copy(DropsFile, backupPath);
+                    Logger.Msg($"[JsonDataStore] 📋 Backed up incompatible file to: {backupPath}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[JsonDataStore] ⚠️ Failed to backup file: {ex.Message}");
             }
         }
 
@@ -296,28 +375,6 @@ namespace PaxDrops
             catch (Exception ex)
             {
                 Logger.Error("[JsonDataStore] ❌ Failed to load daily orders");
-                Logger.Exception(ex);
-            }
-        }
-
-        private static void SaveToFile()
-        {
-            try
-            {
-                var dropsList = new List<DropRecord>();
-                foreach (var kvp in PendingDrops)
-                {
-                    dropsList.Add(kvp.Value);
-                }
-
-                string json = JsonConvert.SerializeObject(dropsList, Formatting.Indented);
-                File.WriteAllText(DropsFile, json);
-
-                Logger.Msg($"[JsonDataStore] 💾 Saved {dropsList.Count} drops to file");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("[JsonDataStore] ❌ Failed to save to file");
                 Logger.Exception(ex);
             }
         }

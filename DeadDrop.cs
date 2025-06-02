@@ -67,16 +67,38 @@ namespace PaxDrops
 
                 Logger.Msg($"[DeadDrop] ⏰ Time check - Day: {currentDay}, Hour: {currentHour}");
 
-                if (!JsonDataStore.PendingDrops.TryGetValue(currentDay, out var drop))
+                if (!JsonDataStore.PendingDrops.TryGetValue(currentDay, out var dropsForDay) || 
+                    dropsForDay == null || dropsForDay.Count == 0)
                 {
-                    return; // No drop scheduled for today
+                    return; // No drops scheduled for today
                 }
 
-                if (currentHour >= drop.DropHour)
+                var dropsToSpawn = new List<JsonDataStore.DropRecord>();
+                foreach (var drop in dropsForDay)
                 {
-                    Logger.Msg($"[DeadDrop] 🎯 Spawning scheduled drop for Day {currentDay}");
-                    SpawnDrop(drop);
-                    JsonDataStore.PendingDrops.Remove(currentDay);
+                    if (currentHour >= drop.DropHour && string.IsNullOrEmpty(drop.Location))
+                    {
+                        dropsToSpawn.Add(drop);
+                    }
+                }
+
+                if (dropsToSpawn.Count > 0)
+                {
+                    Logger.Msg($"[DeadDrop] 🎯 Spawning {dropsToSpawn.Count} scheduled drops for Day {currentDay}");
+                    
+                    foreach (var drop in dropsToSpawn)
+                    {
+                        SpawnDrop(drop);
+                    }
+                    
+                    // Remove spawned drops from pending list
+                    dropsForDay.RemoveAll(drop => dropsToSpawn.Contains(drop));
+                    
+                    // If no more drops for this day, remove the day entry
+                    if (dropsForDay.Count == 0)
+                    {
+                        JsonDataStore.PendingDrops.Remove(currentDay);
+                    }
                 }
             }
             catch (Exception ex)
