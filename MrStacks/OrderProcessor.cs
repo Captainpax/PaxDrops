@@ -54,7 +54,7 @@ namespace PaxDrops.MrStacks
                 if (organization == "Mrs. Stacks")
                 {
                     int dailyLimit = DropConfig.GetDailyOrderLimit(maxTier);
-                    int ordersToday = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
+                    int ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
                     
                     if (ordersToday >= dailyLimit)
                     {
@@ -64,7 +64,7 @@ namespace PaxDrops.MrStacks
                     }
 
                     // Mark order for today (this tracks ORDER DAY, not delivery day)
-                    JsonDataStore.MarkMrsStacksOrderToday(currentDay);
+                    SaveFileJsonDataStore.MarkMrsStacksOrderToday(currentDay);
                 }
 
                 // Calculate delivery day - always next game day
@@ -130,8 +130,8 @@ namespace PaxDrops.MrStacks
                     SendConfirmationMessage(organization, orderType, deliveryDay, deliveryHour, items.Count, cashAmount, tierInfo);
                 }
 
-                // Create drop record for delivery day (NOT order day)
-                var dropRecord = new JsonDataStore.DropRecord
+                // Create drop record
+                var dropRecord = new SaveFileJsonDataStore.DropRecord
                 {
                     Day = deliveryDay,           // When drop becomes available (next game day)
                     Items = items,
@@ -148,7 +148,7 @@ namespace PaxDrops.MrStacks
                 };
 
                 // Schedule the drop for delivery
-                JsonDataStore.SaveDropRecord(dropRecord);
+                SaveFileJsonDataStore.SaveDropRecord(dropRecord);
 
                 // Send immediate preparation message with location assignment
                 if (sendMessages && organization == "Mrs. Stacks")

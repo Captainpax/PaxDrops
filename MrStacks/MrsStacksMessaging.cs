@@ -8,17 +8,16 @@ using Il2CppScheduleOne.Messaging;
 using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.Economy;
 using Il2CppScheduleOne.GameTime;
+using System.Linq;
 
 namespace PaxDrops.MrStacks
 {
     /// <summary>
     /// Handles messaging functionality for Mrs. Stacks NPC.
-    /// Includes simple JSON-based conversation persistence.
+    /// Now includes save-file-aware conversation persistence using SaveFileJsonDataStore system.
     /// </summary>
     public static class MrsStacksMessaging
     {
-        private const string ConversationFile = "Mods/PaxDrops/Data/mrs_stacks_conversation.json";
-
         /// <summary>
         /// Conversation message record for JSON storage
         /// </summary>
@@ -42,9 +41,95 @@ namespace PaxDrops.MrStacks
             public List<MessageRecord> Messages { get; set; } = new List<MessageRecord>();
             public string ContactName { get; set; } = "Mrs. Stacks";
             public string LastSaved { get; set; } = "";
+            public string SaveId { get; set; } = "";
         }
 
+        // Per-save conversation history (loaded/unloaded with save data)
         private static ConversationHistory _conversationHistory = new ConversationHistory();
+        private static bool _isConversationLoaded = false;
+
+        /// <summary>
+        /// Load conversation history for the current save file
+        /// </summary>
+        public static void LoadConversationForCurrentSave()
+        {
+            try
+            {
+                if (!_isConversationLoaded)
+                {
+                    var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
+                    if (isLoaded && !string.IsNullOrEmpty(saveId))
+                    {
+                        LoadConversationHistory(saveId);
+                        _isConversationLoaded = true;
+                        Logger.Msg($"[MrsStacksMessaging] 📂 Loaded conversation for save: {saveName} (ID: {saveId}, Steam: {steamId})");
+                    }
+                    else
+                    {
+                        // Fallback to default conversation if no save loaded
+                        _conversationHistory = new ConversationHistory();
+                        Logger.Warn("[MrsStacksMessaging] ⚠️ No save loaded - using default conversation");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[MrsStacksMessaging] ❌ Failed to load conversation for current save: {ex.Message}");
+                _conversationHistory = new ConversationHistory();
+            }
+        }
+
+        /// <summary>
+        /// Unload conversation history when exiting save
+        /// </summary>
+        public static void UnloadConversationForCurrentSave()
+        {
+            try
+            {
+                if (_isConversationLoaded)
+                {
+                    var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
+                    Logger.Msg($"[MrsStacksMessaging] 📤 Unloading conversation for save: {saveName} (ID: {saveId}, Steam: {steamId})");
+                    
+                    _conversationHistory = new ConversationHistory();
+                    _isConversationLoaded = false;
+                    
+                    Logger.Msg("[MrsStacksMessaging] ✅ Conversation unloaded");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[MrsStacksMessaging] ❌ Failed to unload conversation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Get the conversation file path for a specific save ID
+        /// </summary>
+        private static string GetConversationFilePath(string saveId)
+        {
+            try
+            {
+                var (currentSaveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
+                if (!isLoaded || string.IsNullOrEmpty(steamId) || string.IsNullOrEmpty(currentSaveId))
+                {
+                    // Fallback to legacy location if save system not available
+                    string legacyBaseDir = "Mods/PaxDrops/SaveFiles";
+                    return Path.Combine(legacyBaseDir, "unknown", saveId, "conversation.json");
+                }
+
+                // Use enhanced save structure: SaveFiles/SteamID/SaveID/conversation.json
+                string baseDataDir = "Mods/PaxDrops/SaveFiles";
+                string steamUserDir = Path.Combine(baseDataDir, steamId);
+                string saveDir = Path.Combine(steamUserDir, currentSaveId);
+                return Path.Combine(saveDir, "conversation.json");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[MrsStacksMessaging] ❌ Failed to get conversation file path: {ex.Message}");
+                return Path.Combine("Mods/PaxDrops/SaveFiles", "fallback", saveId, "conversation.json");
+            }
+        }
 
         /// <summary>
         /// Find the Mrs. Stacks NPC using the proper GetNPC method
@@ -71,12 +156,15 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Send a message from Mrs. Stacks to the player and save to JSON
+        /// Send a message from Mrs. Stacks to the player and save to current save's conversation
         /// </summary>
         public static void SendMessage(NPC npc, string messageText)
         {
             try
             {
+                // Ensure conversation is loaded for current save
+                LoadConversationForCurrentSave();
+
                 var conversation = MessagingManager.Instance?.GetConversation(npc);
                 if (conversation == null)
                 {
@@ -87,7 +175,7 @@ namespace PaxDrops.MrStacks
                 var message = new Message(messageText, Message.ESenderType.Other, true);
                 conversation.SendMessage(message, true, true);
                 
-                // Save to our JSON storage
+                // Save to our save-aware JSON storage
                 SaveMessageToHistory(messageText, false);
                 
                 Logger.Msg($"[MrsStacksMessaging] 📱 Message sent and saved: {messageText}");
@@ -99,7 +187,7 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Setup conversation and send welcome message, then load conversation history
+        /// Setup conversation and send welcome message, then load conversation history for current save
         /// </summary>
         public static void SetupConversation(NPC npc)
         {
@@ -110,13 +198,13 @@ namespace PaxDrops.MrStacks
                 {
                     conversation.contactName = "Mrs. Stacks";
                     
-                    // Load existing conversation history first
-                    LoadConversationHistory();
+                    // Load existing conversation history for current save
+                    LoadConversationForCurrentSave();
                     
                     // Restore previous messages to the conversation
                     RestoreConversationHistory(conversation);
                     
-                    // Send welcome message only if this is the first time
+                    // Send welcome message only if this is the first time for this save
                     if (_conversationHistory.Messages.Count == 0)
                     {
                         var player = Player.Local;
@@ -126,11 +214,11 @@ namespace PaxDrops.MrStacks
                                            "No catalogs, just quality surprise packages. Order and I'll text the pickup location.";
 
                         SendMessage(npc, welcomeMessage);
-                        Logger.Msg("[MrsStacksMessaging] 📱 Welcome sent for new conversation");
+                        Logger.Msg("[MrsStacksMessaging] 📱 Welcome sent for new save conversation");
                     }
                     else
                     {
-                        Logger.Msg($"[MrsStacksMessaging] 📱 Restored {_conversationHistory.Messages.Count} previous messages");
+                        Logger.Msg($"[MrsStacksMessaging] 📱 Restored {_conversationHistory.Messages.Count} previous messages for current save");
                     }
                 }
             }
@@ -141,13 +229,21 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Save a message to our JSON conversation history
+        /// Save a message to conversation history (queued for next game save)
         /// </summary>
-        private static void SaveMessageToHistory(string messageText, bool isFromPlayer)
+        public static void SaveMessageToHistory(string messageText, bool isFromPlayer = false)
         {
             try
             {
+                // Ensure conversation is loaded for current save
+                if (!_isConversationLoaded)
+                {
+                    LoadConversationForCurrentSave();
+                }
+
                 var timeManager = TimeManager.Instance;
+                var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
+                
                 var messageRecord = new MessageRecord
                 {
                     Text = messageText,
@@ -160,9 +256,11 @@ namespace PaxDrops.MrStacks
 
                 _conversationHistory.Messages.Add(messageRecord);
                 _conversationHistory.LastSaved = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                _conversationHistory.SaveId = saveId ?? "unknown";
 
-                SaveConversationHistory();
-                Logger.Msg($"[MrsStacksMessaging] 💾 Message saved to JSON: {messageRecord.MessageId}");
+                // Don't save immediately - only save when game saves
+                // SaveConversationHistory(); // REMOVED - only save when game saves
+                Logger.Msg($"[MrsStacksMessaging] 📝 Message queued for save: {messageRecord.MessageId} (Save: {saveName}, Steam: {steamId}) - will save on next game save");
             }
             catch (Exception ex)
             {
@@ -171,47 +269,64 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Load conversation history from JSON file
+        /// Load conversation history from JSON file for specific save ID
         /// </summary>
-        private static void LoadConversationHistory()
+        private static void LoadConversationHistory(string saveId)
         {
             try
             {
-                if (File.Exists(ConversationFile))
+                string conversationFile = GetConversationFilePath(saveId);
+                
+                if (File.Exists(conversationFile))
                 {
-                    string json = File.ReadAllText(ConversationFile);
+                    string json = File.ReadAllText(conversationFile);
                     var loaded = JsonConvert.DeserializeObject<ConversationHistory>(json);
                     if (loaded != null)
                     {
                         _conversationHistory = loaded;
-                        Logger.Msg($"[MrsStacksMessaging] 📂 Loaded {_conversationHistory.Messages.Count} messages from JSON");
+                        _conversationHistory.SaveId = saveId; // Ensure save ID is set
+                        Logger.Msg($"[MrsStacksMessaging] 📂 Loaded {_conversationHistory.Messages.Count} messages from save-aware JSON (Save ID: {saveId})");
                         return;
                     }
                 }
                 
-                Logger.Msg("[MrsStacksMessaging] 📂 No existing conversation history found - starting fresh");
-                _conversationHistory = new ConversationHistory();
+                Logger.Msg($"[MrsStacksMessaging] 📂 No existing conversation history found for save ID: {saveId} - starting fresh (no file created until save)");
+                _conversationHistory = new ConversationHistory { SaveId = saveId };
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksMessaging] ❌ Failed to load conversation history: {ex.Message}");
-                _conversationHistory = new ConversationHistory();
+                Logger.Error($"[MrsStacksMessaging] ❌ Failed to load conversation history for save ID {saveId}: {ex.Message}");
+                _conversationHistory = new ConversationHistory { SaveId = saveId };
             }
         }
 
         /// <summary>
-        /// Save conversation history to JSON file
+        /// Save conversation history to JSON file for current save
         /// </summary>
         private static void SaveConversationHistory()
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(ConversationFile) ?? "");
+                var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
+                if (!isLoaded || string.IsNullOrEmpty(saveId))
+                {
+                    Logger.Warn("[MrsStacksMessaging] ⚠️ No save loaded - cannot save conversation");
+                    return;
+                }
+
+                string conversationFile = GetConversationFilePath(saveId);
+                
+                // Ensure directory exists only when we're actually saving
+                string? saveDir = Path.GetDirectoryName(conversationFile);
+                if (!string.IsNullOrEmpty(saveDir))
+                {
+                    Directory.CreateDirectory(saveDir);
+                }
                 
                 string json = JsonConvert.SerializeObject(_conversationHistory, Formatting.Indented);
-                File.WriteAllText(ConversationFile, json);
+                File.WriteAllText(conversationFile, json);
                 
-                Logger.Msg($"[MrsStacksMessaging] 💾 Conversation history saved ({_conversationHistory.Messages.Count} messages)");
+                Logger.Msg($"[MrsStacksMessaging] 💾 Conversation history saved to save-aware location ({_conversationHistory.Messages.Count} messages, Save: {saveName}, Steam: {steamId})");
             }
             catch (Exception ex)
             {
@@ -248,7 +363,7 @@ namespace PaxDrops.MrStacks
                     }
                 }
 
-                Logger.Msg($"[MrsStacksMessaging] ✅ Restored {_conversationHistory.Messages.Count} messages to conversation");
+                Logger.Msg($"[MrsStacksMessaging] ✅ Restored {_conversationHistory.Messages.Count} messages to conversation for current save");
             }
             catch (Exception ex)
             {
@@ -263,11 +378,15 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                Logger.Msg($"[MrsStacksMessaging] 📊 Conversation History (JSON Storage):");
+                var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
+                
+                Logger.Msg($"[MrsStacksMessaging] 📊 Conversation History (Save-Aware JSON Storage):");
+                Logger.Msg($"[MrsStacksMessaging] 💾 Current Save: {saveName} (ID: {saveId}, Steam: {steamId})");
                 Logger.Msg($"[MrsStacksMessaging] 📝 Contact: {_conversationHistory.ContactName}");
                 Logger.Msg($"[MrsStacksMessaging] 🔢 Messages: {_conversationHistory.Messages.Count}");
                 Logger.Msg($"[MrsStacksMessaging] 💾 Last Saved: {_conversationHistory.LastSaved}");
-                Logger.Msg($"[MrsStacksMessaging] 📄 File: {ConversationFile}");
+                Logger.Msg($"[MrsStacksMessaging] 📄 File: {(isLoaded ? GetConversationFilePath(saveId ?? "") : "No save loaded")}");
+                Logger.Msg($"[MrsStacksMessaging] 📁 Loaded: {_isConversationLoaded}");
 
                 if (_conversationHistory.Messages.Count > 0)
                 {
@@ -294,7 +413,7 @@ namespace PaxDrops.MrStacks
             try
             {
                 SaveConversationHistory();
-                Logger.Msg("[MrsStacksMessaging] ✅ Force save completed");
+                Logger.Msg("[MrsStacksMessaging] ✅ Force save completed for current save");
             }
             catch (Exception ex)
             {
@@ -303,32 +422,24 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Clear conversation history (for testing/reset)
+        /// Clear conversation history for current save
         /// </summary>
         public static void ClearConversationHistory()
         {
             try
             {
-                _conversationHistory = new ConversationHistory();
-                SaveConversationHistory();
+                var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
                 
-                // Also clear the in-game conversation
-                var npc = FindMrsStacksNPC();
-                if (npc != null)
-                {
-                    var conversation = MessagingManager.Instance?.GetConversation(npc);
-                    if (conversation?.messageHistory != null)
-                    {
-                        conversation.messageHistory.Clear();
-                        Logger.Msg("[MrsStacksMessaging] 🧹 In-game conversation cleared");
-                    }
-                }
+                _conversationHistory.Messages.Clear();
+                _conversationHistory.LastSaved = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                 
-                Logger.Msg("[MrsStacksMessaging] 🧹 Conversation history cleared");
+                // Don't save immediately - only save when game saves
+                // SaveConversationHistory(); // REMOVED - only save when game saves
+                Logger.Msg($"[MrsStacksMessaging] 🗑️ Conversation history cleared for save: {saveName} (Steam: {steamId}) - will save on next game save");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksMessaging] ❌ Clear history failed: {ex.Message}");
+                Logger.Error($"[MrsStacksMessaging] ❌ Failed to clear conversation history: {ex.Message}");
             }
         }
 

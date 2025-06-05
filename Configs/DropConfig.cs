@@ -340,27 +340,43 @@ namespace PaxDrops.Configs
         }
 
         /// <summary>
-        /// Check if player can order drops (once per day limit based on order day, not delivery day)
+        /// Check if player can order today based on daily limits and current orders
         /// </summary>
         public static bool CanPlayerOrderToday(int currentDay)
         {
-            var playerTier = GetCurrentPlayerTier();
-            var dailyLimit = GetDailyOrderLimit(playerTier);
-            var ordersToday = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
-            
-            return ordersToday < dailyLimit;
+            try
+            {
+                var currentTier = GetCurrentPlayerTier();
+                var dailyLimit = GetDailyOrderLimit(currentTier);
+                var ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
+                
+                return ordersToday < dailyLimit;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[DropConfig] ❌ Error checking order availability: {ex.Message}");
+                return false;
+            }
         }
 
         /// <summary>
-        /// Get player's remaining orders for today (based on order day, not delivery day)
+        /// Get remaining orders available today
         /// </summary>
         public static int GetRemainingOrdersToday(int currentDay)
         {
-            var playerTier = GetCurrentPlayerTier();
-            var dailyLimit = GetDailyOrderLimit(playerTier);
-            var ordersToday = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
-            
-            return Math.Max(0, dailyLimit - ordersToday);
+            try
+            {
+                var currentTier = GetCurrentPlayerTier();
+                var dailyLimit = GetDailyOrderLimit(currentTier);
+                var ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
+                
+                return Math.Max(0, dailyLimit - ordersToday);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[DropConfig] ❌ Error getting remaining orders: {ex.Message}");
+                return 0;
+            }
         }
 
         /// <summary>

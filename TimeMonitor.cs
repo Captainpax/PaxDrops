@@ -164,10 +164,10 @@ namespace PaxDrops
         {
             try
             {
-                var allDrops = JsonDataStore.GetAllDrops();
+                var allDrops = SaveFileJsonDataStore.GetAllDrops();
                 Logger.Msg($"[TimeMonitor] 🔍 Checking {allDrops.Count} total drops for delivery at day {currentDay}, hour {currentHour}");
 
-                var deliveriesToProcess = new List<JsonDataStore.DropRecord>();
+                var deliveriesToProcess = new List<SaveFileJsonDataStore.DropRecord>();
 
                 foreach (var drop in allDrops)
                 {
@@ -193,7 +193,7 @@ namespace PaxDrops
 
                 int successCount = 0;
                 int failCount = 0;
-                var readyDrops = new List<(JsonDataStore.DropRecord drop, string location)>();
+                var readyDrops = new List<(SaveFileJsonDataStore.DropRecord drop, string location)>();
 
                 foreach (var drop in deliveriesToProcess)
                 {
@@ -245,7 +245,7 @@ namespace PaxDrops
         /// <summary>
         /// Send consolidated ready message for multiple drops delivered at the same time
         /// </summary>
-        private static void SendConsolidatedReadyMessage(List<(JsonDataStore.DropRecord drop, string location)> readyDrops)
+        private static void SendConsolidatedReadyMessage(List<(SaveFileJsonDataStore.DropRecord drop, string location)> readyDrops)
         {
             try
             {
@@ -296,7 +296,7 @@ namespace PaxDrops
         {
             try
             {
-                var pendingDrops = JsonDataStore.GetAllDrops();
+                var pendingDrops = SaveFileJsonDataStore.GetAllDrops();
                 var deadDrops = UnityEngine.Object.FindObjectsOfType<Il2CppScheduleOne.Economy.DeadDrop>();
 
                 foreach (var drop in pendingDrops)
@@ -326,7 +326,7 @@ namespace PaxDrops
                         if (currentItemCount <= (drop.InitialItemCount * 0.5f))
                         {
                             Logger.Msg($"[TimeMonitor] ✅ Drop at {drop.Location} appears to have been collected ({currentItemCount}/{drop.InitialItemCount} items remaining)");
-                            JsonDataStore.MarkSpecificDropCollected(drop.Day, drop.Location);
+                            SaveFileJsonDataStore.MarkSpecificDropCollected(drop.Day, drop.Location);
                         }
                     }
                 }
@@ -345,8 +345,8 @@ namespace PaxDrops
         {
             try
             {
-                var allDrops = JsonDataStore.GetAllDrops();
-                var expiredDrops = new List<JsonDataStore.DropRecord>();
+                var allDrops = SaveFileJsonDataStore.GetAllDrops();
+                var expiredDrops = new List<SaveFileJsonDataStore.DropRecord>();
 
                 // Find expired drops using game time
                 foreach (var drop in allDrops)
@@ -387,7 +387,7 @@ namespace PaxDrops
                     }
 
                     // Remove from pending drops - use specific location removal
-                    JsonDataStore.RemoveSpecificDrop(drop.Day, drop.Location);
+                    SaveFileJsonDataStore.RemoveSpecificDrop(drop.Day, drop.Location);
                 }
 
                 if (expiredDrops.Count > 0)
@@ -409,8 +409,8 @@ namespace PaxDrops
         {
             try
             {
-                var pendingDrops = JsonDataStore.GetAllDrops();
-                var uncollectedDrops = new List<JsonDataStore.DropRecord>();
+                var pendingDrops = SaveFileJsonDataStore.GetAllDrops();
+                var uncollectedDrops = new List<SaveFileJsonDataStore.DropRecord>();
 
                 foreach (var drop in pendingDrops)
                 {
@@ -475,7 +475,7 @@ namespace PaxDrops
                 int removedCount = 0;
                 var daysToRemove = new List<int>();
 
-                foreach (var kvp in JsonDataStore.PendingDrops)
+                foreach (var kvp in SaveFileJsonDataStore.PendingDrops)
                 {
                     // Remove drops that are more than 2 days old (extra safety buffer)
                     if (kvp.Key < currentDay - 2)
@@ -487,7 +487,7 @@ namespace PaxDrops
 
                 foreach (var day in daysToRemove)
                 {
-                    JsonDataStore.PendingDrops.Remove(day);
+                    SaveFileJsonDataStore.PendingDrops.Remove(day);
                 }
 
                 if (removedCount > 0)

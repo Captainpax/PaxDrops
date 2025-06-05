@@ -67,13 +67,13 @@ namespace PaxDrops
 
                 Logger.Msg($"[DeadDrop] ⏰ Time check - Day: {currentDay}, Hour: {currentHour}");
 
-                if (!JsonDataStore.PendingDrops.TryGetValue(currentDay, out var dropsForDay) || 
+                if (!SaveFileJsonDataStore.PendingDrops.TryGetValue(currentDay, out var dropsForDay) || 
                     dropsForDay == null || dropsForDay.Count == 0)
                 {
                     return; // No drops scheduled for today
                 }
 
-                var dropsToSpawn = new List<JsonDataStore.DropRecord>();
+                var dropsToSpawn = new List<SaveFileJsonDataStore.DropRecord>();
                 foreach (var drop in dropsForDay)
                 {
                     if (currentHour >= drop.DropHour && string.IsNullOrEmpty(drop.Location))
@@ -97,7 +97,7 @@ namespace PaxDrops
                     // If no more drops for this day, remove the day entry
                     if (dropsForDay.Count == 0)
                     {
-                        JsonDataStore.PendingDrops.Remove(currentDay);
+                        SaveFileJsonDataStore.PendingDrops.Remove(currentDay);
                     }
                 }
             }
@@ -123,7 +123,7 @@ namespace PaxDrops
                 string playerName = player?.PlayerName ?? "Unknown";
                 string orgName = type == "immediate_test" ? "Mrs. Stacks (Test)" : "DevCommand";
 
-                var record = new JsonDataStore.DropRecord
+                var record = new SaveFileJsonDataStore.DropRecord
                 {
                     Day = day,
                     Items = packet,
@@ -149,7 +149,7 @@ namespace PaxDrops
         /// <summary>
         /// Spawn a drop immediately from a drop record and return location
         /// </summary>
-        public static string? SpawnImmediateDrop(JsonDataStore.DropRecord drop)
+        public static string? SpawnImmediateDrop(SaveFileJsonDataStore.DropRecord drop)
         {
             try
             {
@@ -166,7 +166,7 @@ namespace PaxDrops
                 drop.Location = targetDeadDrop.DeadDropName;
 
                 // Save the complete drop record with location
-                JsonDataStore.SaveDropRecord(drop);
+                SaveFileJsonDataStore.SaveDropRecord(drop);
 
                 // Consolidate items and cash
                 var consolidatedItems = new Dictionary<string, int>();
@@ -253,7 +253,7 @@ namespace PaxDrops
         /// <summary>
         /// Main method to spawn drops into game dead drop locations
         /// </summary>
-        private static void SpawnDrop(JsonDataStore.DropRecord drop)
+        private static void SpawnDrop(SaveFileJsonDataStore.DropRecord drop)
         {
             try
             {
@@ -375,7 +375,7 @@ namespace PaxDrops
 
                 // Get currently assigned drop locations to avoid conflicts
                 var assignedLocations = new HashSet<string>();
-                var allDrops = JsonDataStore.GetAllDrops();
+                var allDrops = SaveFileJsonDataStore.GetAllDrops();
                 foreach (var drop in allDrops)
                 {
                     if (!string.IsNullOrEmpty(drop.Location) && !drop.IsCollected)

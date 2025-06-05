@@ -83,9 +83,9 @@ namespace PaxDrops.Commands
             try
             {
                 // Check if already ordered today
-                if (JsonDataStore.HasMrsStacksOrderToday(currentDay))
+                if (SaveFileJsonDataStore.HasMrsStacksOrderToday(currentDay))
                 {
-                    Il2CppScheduleOne.Console.LogError("[Stacks] ❌ You already placed an order today. Mrs. Stacks only does one drop per customer per day.");
+                    Il2CppScheduleOne.Console.Log($"⚠️ You've already ordered from Mrs. Stacks today (Day {currentDay})");
                     return;
                 }
 
@@ -98,7 +98,8 @@ namespace PaxDrops.Commands
             }
             catch (Exception ex)
             {
-                Il2CppScheduleOne.Console.LogError($"[Stacks] Order failed: {ex.Message}");
+                Il2CppScheduleOne.Console.Log($"❌ Order command failed: {ex.Message}");
+                Logger.Exception(ex);
             }
         }
 
@@ -109,7 +110,7 @@ namespace PaxDrops.Commands
         {
             try
             {
-                bool orderedToday = JsonDataStore.HasMrsStacksOrderToday(currentDay);
+                bool orderedToday = SaveFileJsonDataStore.HasMrsStacksOrderToday(currentDay);
                 string status = orderedToday ? "✅ Ordered today" : "⏳ Available to order";
                 
                 Il2CppScheduleOne.Console.Log("=== Mrs. Stacks Status ===");
@@ -120,7 +121,8 @@ namespace PaxDrops.Commands
             }
             catch (Exception ex)
             {
-                Il2CppScheduleOne.Console.LogError($"[Stacks] Status check failed: {ex.Message}");
+                Il2CppScheduleOne.Console.Log($"❌ Status command failed: {ex.Message}");
+                Logger.Exception(ex);
             }
         }
 
@@ -131,12 +133,13 @@ namespace PaxDrops.Commands
         {
             try
             {
-                JsonDataStore.MrsStacksOrdersToday.Remove(currentDay);
-                Il2CppScheduleOne.Console.Log("[Stacks] 🔄 Daily order limit reset");
+                SaveFileJsonDataStore.MrsStacksOrdersToday.Remove(currentDay);
+                Il2CppScheduleOne.Console.Log($"🔄 Reset Mrs. Stacks orders for Day {currentDay}");
             }
             catch (Exception ex)
             {
-                Il2CppScheduleOne.Console.LogError($"[Stacks] Reset failed: {ex.Message}");
+                Il2CppScheduleOne.Console.Log($"❌ Reset command failed: {ex.Message}");
+                Logger.Exception(ex);
             }
         }
 

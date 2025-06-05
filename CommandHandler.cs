@@ -97,23 +97,30 @@ namespace PaxDrops
             Logger.Msg($"Organization: {TierConfig.GetOrganizationName(TierConfig.GetOrganization(currentTier))}");
             
             // Daily Order Status
-            var ordersToday = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
+            var ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
             var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
             var remaining = DropConfig.GetRemainingOrdersToday(currentDay);
             
             Logger.Msg($"Orders Today: {ordersToday}/{dailyLimit} (Remaining: {remaining})");
             
             // Active Drops
-            var pendingDrops = JsonDataStore.GetAllDrops();
+            var pendingDrops = SaveFileJsonDataStore.GetAllDrops();
             var activeDrops = pendingDrops.FindAll(d => !d.IsCollected);
             var collectedDrops = pendingDrops.FindAll(d => d.IsCollected);
             
             Logger.Msg($"Active Drops: {activeDrops.Count}");
             Logger.Msg($"Collected Drops: {collectedDrops.Count}");
             
-            // Expired Drops
-            var expiredDrops = JsonDataStore.GetExpiredDrops();
-            Logger.Msg($"Expired Drops: {expiredDrops.Count}");
+            // Show save file info
+            var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
+            if (isLoaded)
+            {
+                Logger.Msg($"Save File: {saveName} (ID: {saveId}, Steam: {steamId})");
+            }
+            else
+            {
+                Logger.Msg("Save File: No save loaded");
+            }
             
             Logger.Msg("═══════════════════════════════════════════");
             
@@ -122,12 +129,8 @@ namespace PaxDrops
                 Logger.Msg("Active Drop Details:");
                 foreach (var drop in activeDrops)
                 {
-                    DateTime expiryTime;
-                    string expiryText = "Unknown";
-                    if (DateTime.TryParse(drop.ExpiryTime, out expiryTime))
-                    {
-                        expiryText = expiryTime.ToString("yyyy-MM-dd HH:mm");
-                    }
+                    var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
+                    string expiryText = expiryDay != -1 ? $"Day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)}" : "Unknown";
                     
                     Logger.Msg($"  Day {drop.Day}: {drop.Org} at {drop.Location} (expires {expiryText})");
                 }
@@ -141,7 +144,7 @@ namespace PaxDrops
         {
             Logger.Msg("[CommandHandler] 🔍 Testing collection detection...");
             
-            var pendingDrops = JsonDataStore.GetAllDrops();
+            var pendingDrops = SaveFileJsonDataStore.GetAllDrops();
             var deadDrops = UnityEngine.Object.FindObjectsOfType<Il2CppScheduleOne.Economy.DeadDrop>();
             
             Logger.Msg($"Found {pendingDrops.Count} pending drops and {deadDrops.Length} dead drop locations");
@@ -187,18 +190,28 @@ namespace PaxDrops
         {
             Logger.Msg("[CommandHandler] 🗑️ Testing expiry cleanup...");
             
-            var expiredDrops = JsonDataStore.GetExpiredDrops();
+            var timeManager = Il2CppScheduleOne.GameTime.TimeManager.Instance;
+            int currentDay = timeManager?.ElapsedDays ?? 0;
+            int currentHour = timeManager?.CurrentTime ?? 0;
+            
+            var allDrops = SaveFileJsonDataStore.GetAllDrops();
+            var expiredDrops = new List<SaveFileJsonDataStore.DropRecord>();
+            
+            foreach (var drop in allDrops)
+            {
+                if (!string.IsNullOrEmpty(drop.ExpiryTime) && 
+                    DropConfig.IsDropExpired(drop.ExpiryTime, currentDay, currentHour))
+                {
+                    expiredDrops.Add(drop);
+                }
+            }
+            
             Logger.Msg($"Found {expiredDrops.Count} expired drops");
             
             foreach (var drop in expiredDrops)
             {
-                DateTime expiryTime;
-                string expiryText = "Unknown";
-                if (DateTime.TryParse(drop.ExpiryTime, out expiryTime))
-                {
-                    var hoursExpired = (DateTime.Now - expiryTime).TotalHours;
-                    expiryText = $"{expiryTime:yyyy-MM-dd HH:mm} ({hoursExpired:F1}h ago)";
-                }
+                var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
+                string expiryText = expiryDay != -1 ? $"Day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)}" : "Unknown";
                 
                 Logger.Msg($"Expired: {drop.Org} at {drop.Location} (expired {expiryText})");
             }
@@ -215,7 +228,7 @@ namespace PaxDrops
         private static void ResetDailyOrders()
         {
             var currentDay = DropConfig.GetCurrentGameDay();
-            JsonDataStore.ResetMrsStacksOrdersToday(currentDay);
+            SaveFileJsonDataStore.ResetMrsStacksOrdersToday(currentDay);
             Logger.Msg($"[CommandHandler] 🔄 Reset daily orders for day {currentDay}");
         }
 
@@ -226,7 +239,7 @@ namespace PaxDrops
         {
             Logger.Msg("[CommandHandler] 📋 Order History:");
             
-            var orderSummary = JsonDataStore.GetMrsStacksOrderSummary();
+            var orderSummary = SaveFileJsonDataStore.GetMrsStacksOrderSummary();
             if (orderSummary.Count == 0)
             {
                 Logger.Msg("No orders recorded yet.");
@@ -249,7 +262,22 @@ namespace PaxDrops
         {
             Logger.Msg("[CommandHandler] 🗑️ Manually cleaning up expired drops...");
             
-            var expiredDrops = JsonDataStore.GetExpiredDrops();
+            var timeManager = Il2CppScheduleOne.GameTime.TimeManager.Instance;
+            int currentDay = timeManager?.ElapsedDays ?? 0;
+            int currentHour = timeManager?.CurrentTime ?? 0;
+            
+            var allDrops = SaveFileJsonDataStore.GetAllDrops();
+            var expiredDrops = new List<SaveFileJsonDataStore.DropRecord>();
+            
+            foreach (var drop in allDrops)
+            {
+                if (!string.IsNullOrEmpty(drop.ExpiryTime) && 
+                    DropConfig.IsDropExpired(drop.ExpiryTime, currentDay, currentHour))
+                {
+                    expiredDrops.Add(drop);
+                }
+            }
+            
             if (expiredDrops.Count == 0)
             {
                 Logger.Msg("No expired drops to clean up.");
@@ -283,7 +311,7 @@ namespace PaxDrops
                 }
 
                 // Remove from pending drops
-                JsonDataStore.RemoveDrop(drop.Day);
+                SaveFileJsonDataStore.RemoveSpecificDrop(drop.Day, drop.Location);
             }
 
             Logger.Msg($"[CommandHandler] ✅ Cleaned up {cleanedCount}/{expiredDrops.Count} expired drops");

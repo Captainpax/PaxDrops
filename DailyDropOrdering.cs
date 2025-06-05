@@ -79,7 +79,7 @@ namespace PaxDrops
                 int currentDay = timeManager.ElapsedDays;
                 var currentTier = DropConfig.GetCurrentPlayerTier();
                 var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
-                var ordersToday = JsonDataStore.GetMrsStacksOrdersToday(currentDay);
+                var ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
                 int remaining = dailyLimit - ordersToday;
 
                 return $"Day {currentDay}: {ordersToday}/{dailyLimit} orders used, {remaining} remaining";
@@ -178,7 +178,7 @@ namespace PaxDrops
                 if (timeManager == null) return;
 
                 int currentDay = timeManager.ElapsedDays;
-                int daysSinceLastOrder = JsonDataStore.GetDaysSinceLastMrsStacksOrder(currentDay);
+                int daysSinceLastOrder = SaveFileJsonDataStore.GetDaysSinceLastMrsStacksOrder(currentDay);
                 
                 // Send reminder if 4+ days since last order (or never ordered and it's been 4+ days since start)
                 bool shouldSendReminder = false;

@@ -5,6 +5,7 @@ using MelonLoader;
 using Il2CppScheduleOne.NPCs;
 using Il2CppScheduleOne.Economy;
 using Il2CppScheduleOne.GameTime;
+using System.Linq;
 
 namespace PaxDrops.MrStacks
 {
@@ -15,6 +16,7 @@ namespace PaxDrops.MrStacks
     public static class MrsStacksNPC
     {
         private static Supplier? _mrsStacks;
+        private static bool _initialized = false;
 
         /// <summary>
         /// Initialize Mrs. Stacks NPC creation
@@ -24,6 +26,7 @@ namespace PaxDrops.MrStacks
             Logger.Msg("[MrsStacksNPC] 🏗️ Initializing Mrs. Stacks NPC...");
             MrsStacksPatches.Init();
             MelonCoroutines.Start(FindAndCreateMrsStacks());
+            _initialized = true;
         }
 
         /// <summary>
@@ -32,29 +35,38 @@ namespace PaxDrops.MrStacks
         public static Supplier? GetMrsStacksSupplier() => _mrsStacks;
 
         /// <summary>
-        /// Called when a new day starts - check for inactivity reminders
+        /// Handle new day events for Mrs. Stacks
         /// </summary>
         public static void OnNewDay()
         {
             try
             {
-                var timeManager = TimeManager.Instance;
-                int currentDay = timeManager?.ElapsedDays ?? 0;
-                
-                Logger.Msg($"[MrsStacksNPC] 🌅 New day {currentDay} - checking Mrs. Stacks availability");
+                if (!_initialized) return;
 
-                // Check if Mrs. Stacks is available
-                if (_mrsStacks != null)
+                var timeManager = TimeManager.Instance;
+                if (timeManager == null) return;
+
+                int currentDay = timeManager.ElapsedDays;
+                Logger.Msg($"[MrsStacksNPC] 🌅 New day {currentDay} - checking for business opportunities");
+
+                // Check order history for inactivity reminders
+                var ordersToday = SaveFileJsonDataStore.MrsStacksOrdersToday;
+                bool hasOrderedRecently = ordersToday.Values.Any(count => count > 0);
+
+                if (!hasOrderedRecently)
                 {
-                    Logger.Msg("[MrsStacksNPC] 🌅 New day business hours started!");
-                    
-                    // Send inactivity reminder if player hasn't ordered in 4+ days
+                    Logger.Msg("[MrsStacksNPC] 📱 No recent orders - checking for inactivity reminder");
                     DailyDropOrdering.SendInactivityReminderIfNeeded();
+                }
+                else
+                {
+                    Logger.Msg($"[MrsStacksNPC] ✅ Player has recent order activity ({ordersToday.Count} days with orders)");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ OnNewDay error: {ex.Message}");
+                Logger.Error($"[MrsStacksNPC] ❌ New day processing error: {ex.Message}");
+                Logger.Exception(ex);
             }
         }
 
@@ -71,7 +83,7 @@ namespace PaxDrops.MrStacks
                 Logger.Msg($"[MrsStacksNPC] 📅 Day changed to {currentDay} - performing daily maintenance");
 
                 // Reset Mrs. Stacks availability for new day
-                // Note: JsonDataStore tracks daily orders, no reset needed here
+                // Note: SaveFileJsonDataStore tracks daily orders, no reset needed here
                 
                 // Check for any pending Mrs. Stacks orders that need attention
                 if (_mrsStacks != null)
@@ -117,7 +129,7 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                var ordersToday = JsonDataStore.MrsStacksOrdersToday;
+                var ordersToday = SaveFileJsonDataStore.MrsStacksOrdersToday;
                 var keysToRemove = new List<int>();
 
                 foreach (var kvp in ordersToday)
@@ -365,7 +377,7 @@ namespace PaxDrops.MrStacks
             try
             {
                 // Only send welcome if player hasn't ordered before
-                int lastOrderDay = JsonDataStore.GetLastMrsStacksOrderDay();
+                int lastOrderDay = SaveFileJsonDataStore.GetLastMrsStacksOrderDay();
                 if (lastOrderDay == -1) // Never ordered before
                 {
                     DailyDropOrdering.SendWelcomeMessage();
@@ -374,6 +386,34 @@ namespace PaxDrops.MrStacks
             catch (Exception ex)
             {
                 Logger.Error($"[MrsStacksNPC] ❌ Delayed welcome message failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Check if Mrs. Stacks should send a business reminder
+        /// </summary>
+        private static bool ShouldSendBusinessReminder()
+        {
+            try
+            {
+                var timeManager = TimeManager.Instance;
+                if (timeManager == null) return false;
+
+                int currentDay = timeManager.ElapsedDays;
+                int lastOrderDay = SaveFileJsonDataStore.GetLastMrsStacksOrderDay();
+                
+                // Send reminder if it's been 3+ days since last order
+                if (lastOrderDay == -1) // Never ordered
+                {
+                    return currentDay >= 3; // After 3 days of game time
+                }
+                
+                return (currentDay - lastOrderDay) >= 3;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[MrsStacksNPC] ❌ Business reminder check failed: {ex.Message}");
+                return false;
             }
         }
     }
