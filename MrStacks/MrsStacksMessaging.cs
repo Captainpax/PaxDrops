@@ -522,5 +522,41 @@ namespace PaxDrops.MrStacks
                 return false;
             }
         }
+
+        /// <summary>
+        /// Shutdown the messaging system and force save any pending data
+        /// </summary>
+        public static void Shutdown()
+        {
+            try
+            {
+                Logger.Msg("[MrsStacksMessaging] 🧼 Shutting down messaging system...");
+                
+                // // Force save any pending conversation data before shutdown
+                // if (_isConversationLoaded && _conversationHistory.Messages.Count > 0)
+                // {
+                //     SaveConversationHistory();
+                //     Logger.Msg("[MrsStacksMessaging] 💾 Force saved conversation data on shutdown");
+                // }
+                
+                // Unload conversation data
+                UnloadConversationForCurrentSave();
+                
+                // Reset state
+                _conversationHistory = new ConversationHistory();
+                _isConversationLoaded = false;
+                
+                Logger.Msg("[MrsStacksMessaging] ✅ Messaging system shutdown complete");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[MrsStacksMessaging] ❌ Shutdown error: {ex.Message}");
+                Logger.Exception(ex);
+                
+                // Force reset state even if shutdown failed
+                _conversationHistory = new ConversationHistory();
+                _isConversationLoaded = false;
+            }
+        }
     }
 } 

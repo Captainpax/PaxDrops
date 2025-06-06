@@ -354,17 +354,95 @@ namespace PaxDrops.MrStacks
             Logger.Msg($"[MrsStacksNPC] 📋 Mrs. Stacks: {status}");
         }
 
-
         /// <summary>
-        /// Shutdown Mrs. Stacks NPC
+        /// Shutdown Mrs. Stacks NPC and clean up all resources
         /// </summary>
         public static void Shutdown()
         {
-            if (_mrsStacks == null) return;
-            Logger.Msg("[MrsStacksNPC] 🧼 Shutting down Mrs. Stacks NPC...");
-            _mrsStacks.DeliveriesEnabled = false;
-            _mrsStacks.ChangeDebt(-_mrsStacks.Debt);
-            MrsStacksPatches.Shutdown();
+            try
+            {
+                Logger.Msg("[MrsStacksNPC] 🧼 Shutting down Mrs. Stacks NPC...");
+                
+                if (_mrsStacks != null)
+                {
+                    // Disable deliveries and clear debt
+                    _mrsStacks.DeliveriesEnabled = false;
+                    try
+                    {
+                        _mrsStacks.ChangeDebt(-_mrsStacks.Debt);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"[MrsStacksNPC] ⚠️ Could not clear debt on shutdown: {ex.Message}");
+                    }
+                    
+                    // Try to remove from NPCManager registry
+                    try
+                    {
+                        var registry = NPCManager.NPCRegistry;
+                        if (registry != null && registry.Contains(_mrsStacks))
+                        {
+                            registry.Remove(_mrsStacks);
+                            Logger.Msg("[MrsStacksNPC] 🗑️ Removed Mrs. Stacks from NPC registry");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"[MrsStacksNPC] ⚠️ Could not remove from registry: {ex.Message}");
+                    }
+                    
+                    // Destroy the GameObject if it exists
+                    try
+                    {
+                        if (_mrsStacks.gameObject != null)
+                        {
+                            UnityEngine.Object.Destroy(_mrsStacks.gameObject);
+                            Logger.Msg("[MrsStacksNPC] 🗑️ Destroyed Mrs. Stacks GameObject");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"[MrsStacksNPC] ⚠️ Could not destroy GameObject: {ex.Message}");
+                    }
+                }
+                
+                // Clean up messaging system
+                try
+                {
+                    MrsStacksMessaging.Shutdown();
+                    Logger.Msg("[MrsStacksNPC] 📤 Messaging system shutdown");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"[MrsStacksNPC] ⚠️ Messaging shutdown error: {ex.Message}");
+                }
+                
+                // Shutdown patches
+                try
+                {
+                    MrsStacksPatches.Shutdown();
+                    Logger.Msg("[MrsStacksNPC] 🔌 Patches shutdown");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"[MrsStacksNPC] ⚠️ Patch shutdown error: {ex.Message}");
+                }
+                
+                // Reset state
+                _mrsStacks = null;
+                _initialized = false;
+                
+                Logger.Msg("[MrsStacksNPC] ✅ Mrs. Stacks NPC shutdown complete");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[MrsStacksNPC] ❌ Shutdown error: {ex.Message}");
+                Logger.Exception(ex);
+                
+                // Force reset state even if shutdown failed
+                _mrsStacks = null;
+                _initialized = false;
+            }
         }
 
         /// <summary>
