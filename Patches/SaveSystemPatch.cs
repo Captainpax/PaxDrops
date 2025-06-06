@@ -3,6 +3,7 @@ using System.IO;
 using HarmonyLib;
 using Il2CppScheduleOne.Persistence;
 using MelonLoader;
+using System.Collections.Generic;
 
 namespace PaxDrops.Patches
 {
@@ -21,6 +22,10 @@ namespace PaxDrops.Patches
         private static string? _lastSavePath;
         private static string? _lastSaveName;
         private const int SAVE_COOLDOWN_MS = 1000; // 1 second cooldown between saves
+
+        // Cache the last full save path captured from actual save operations
+        private static string? _lastCapturedFullPath = null;
+        private static DateTime _lastPathCaptureTime = DateTime.MinValue;
 
         /// <summary>
         /// Initialize the save system patches
@@ -81,6 +86,9 @@ namespace PaxDrops.Patches
                 {
                     Logger.Error("❌ Could not find SaveManager.Save(string) method", "SaveSystemPatch");
                 }
+
+                // Add file system hooks to capture actual save paths
+                ApplyFileSystemHooks();
             }
             catch (Exception ex)
             {
@@ -270,6 +278,132 @@ namespace PaxDrops.Patches
             _lastSaveName = null;
             
             Logger.Info("🔌 Save system patches shutdown", "SaveSystemPatch");
+        }
+
+        /// <summary>
+        /// Get the last captured full save path from actual save operations
+        /// </summary>
+        public static string? GetLastCapturedSavePath()
+        {
+            // Only return if captured recently (within last 30 seconds)
+            if (DateTime.Now - _lastPathCaptureTime < TimeSpan.FromSeconds(30))
+            {
+                return _lastCapturedFullPath;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Apply file system hooks to capture actual save paths
+        /// </summary>
+        private static void ApplyFileSystemHooks()
+        {
+            try
+            {
+                // Hook File.WriteAllText to capture save file paths
+                var fileWriteAllTextMethod = typeof(File).GetMethod("WriteAllText", new[] { typeof(string), typeof(string) });
+                if (fileWriteAllTextMethod != null)
+                {
+                    var hookMethod = typeof(SaveSystemPatch).GetMethod(nameof(FileWriteAllTextPrefix), 
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+                    _harmony?.Patch(fileWriteAllTextMethod, prefix: new HarmonyMethod(hookMethod));
+                    Logger.Debug("⚙️ File.WriteAllText hook applied", "SaveSystemPatch");
+                }
+
+                // Hook Directory.CreateDirectory to capture directory creation
+                var dirCreateMethod = typeof(Directory).GetMethod("CreateDirectory", new[] { typeof(string) });
+                if (dirCreateMethod != null)
+                {
+                    var hookMethod = typeof(SaveSystemPatch).GetMethod(nameof(DirectoryCreatePrefix), 
+                        System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+                    _harmony?.Patch(dirCreateMethod, prefix: new HarmonyMethod(hookMethod));
+                    Logger.Debug("⚙️ Directory.CreateDirectory hook applied", "SaveSystemPatch");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"⚠️ File system hooks failed (non-critical): {ex.Message}", "SaveSystemPatch");
+            }
+        }
+
+        /// <summary>
+        /// Hook File.WriteAllText to capture save file paths
+        /// </summary>
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(File), "WriteAllText", new Type[] { typeof(string), typeof(string) })]
+        private static bool FileWriteAllTextPrefix(string path, string contents)
+        {
+            try
+            {
+                // Check if this is a game save file operation
+                if (path.Contains("SaveGame_") || path.Contains("Saves") || path.Contains(".s1"))
+                {
+                    Logger.Debug($"🔍 File save detected: {path}", "SaveSystemPatch");
+                    
+                    // Extract Steam ID from the actual save path
+                    if (path.Contains("/") || path.Contains("\\"))
+                    {
+                        var pathParts = path.Replace('\\', '/').Split('/');
+                        foreach (var part in pathParts)
+                        {
+                            if (part.Length == 17 && long.TryParse(part, out _))
+                            {
+                                _lastCapturedFullPath = path;
+                                _lastPathCaptureTime = DateTime.Now;
+                                Logger.Info($"🎯 Steam ID captured from file operation: {part} (path: {path})", "SaveSystemPatch");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"🔍 File hook error (non-critical): {ex.Message}", "SaveSystemPatch");
+            }
+            
+            // Always allow the original file operation to proceed
+            return true;
+        }
+
+        /// <summary>
+        /// Hook Directory.CreateDirectory to capture save directory creation
+        /// </summary>
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(Directory), "CreateDirectory", new Type[] { typeof(string) })]
+        private static bool DirectoryCreatePrefix(string path)
+        {
+            try
+            {
+                // Check if this is a save directory creation
+                if (path.Contains("SaveGame_") || path.Contains("Saves"))
+                {
+                    Logger.Debug($"🔍 Directory creation detected: {path}", "SaveSystemPatch");
+                    
+                    // Extract Steam ID from the directory path
+                    if (path.Contains("/") || path.Contains("\\"))
+                    {
+                        var pathParts = path.Replace('\\', '/').Split('/');
+                        foreach (var part in pathParts)
+                        {
+                            if (part.Length == 17 && long.TryParse(part, out _))
+                            {
+                                _lastCapturedFullPath = path;
+                                _lastPathCaptureTime = DateTime.Now;
+                                Logger.Info($"🎯 Steam ID captured from directory operation: {part} (path: {path})", "SaveSystemPatch");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"🔍 Directory hook error (non-critical): {ex.Message}", "SaveSystemPatch");
+            }
+            
+            // Always allow the original directory operation to proceed
+            return true;
         }
     }
 } 

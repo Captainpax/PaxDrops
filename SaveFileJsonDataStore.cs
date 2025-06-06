@@ -8,6 +8,7 @@ using Newtonsoft.Json;
 using Il2CppScheduleOne.Persistence;
 using Il2CppScheduleOne.GameTime;
 using MelonLoader;
+using System.Text.RegularExpressions;
 
 namespace PaxDrops
 {
@@ -305,47 +306,430 @@ namespace PaxDrops
             try
             {
                 if (string.IsNullOrEmpty(savePath))
-                    return "local";
+                {
+                    Logger.Debug("🔍 Save path is empty, trying advanced Steam ID detection", "SaveFileJsonDataStore");
+                    return TryAdvancedSteamIdDetection();
+                }
 
-                // Common Steam ID patterns in save paths:
-                // C:/Users/Username/AppData/LocalLow/TVGS/Schedule I/Saves/76561198123456789/SaveGame_1
-                // Or path could contain Steam ID in various places
-                
+                Logger.Debug($"🔍 Analyzing path for Steam ID: {savePath}", "SaveFileJsonDataStore");
+
+                // Method 1: Look for any 17-digit number in the path - that's the Steam ID
                 var pathParts = savePath.Replace('\\', '/').Split('/');
                 
                 foreach (var part in pathParts)
                 {
-                    // Steam IDs are typically 17 digits starting with 7656119
-                    if (part.Length == 17 && part.StartsWith("7656119") && long.TryParse(part, out _))
+                    // Steam IDs are exactly 17 digits
+                    if (part.Length == 17 && long.TryParse(part, out _))
                     {
-                        Logger.Debug($"🔍 Extracted Steam ID from path: {part}", "SaveFileJsonDataStore");
+                        Logger.Info($"🎯 Found Steam ID in path: {part}", "SaveFileJsonDataStore");
                         return part;
                     }
                 }
 
-                // Try to extract from filename or other numeric patterns
-                foreach (var part in pathParts)
+                // Method 2: If base path only (like /Saves), try advanced detection
+                if (savePath.EndsWith("Saves", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (part.Length >= 10 && long.TryParse(part, out var numericPart) && numericPart > 1000000000)
+                    Logger.Debug("🔍 Base path detected, trying advanced Steam ID detection", "SaveFileJsonDataStore");
+                    string advancedResult = TryAdvancedSteamIdDetection();
+                    if (!advancedResult.StartsWith("user_"))
                     {
-                        Logger.Debug($"🔍 Found potential user ID in path: {part}", "SaveFileJsonDataStore");
-                        return part;
+                        return advancedResult;
                     }
                 }
 
-                // Fallback: use a hash of the save path to create a consistent user identifier
+                // Method 3: Check if there are Steam ID subdirectories
+                string steamIdFromDir = TryFindSteamIdInDirectory(savePath);
+                if (!steamIdFromDir.StartsWith("user_"))
+                {
+                    return steamIdFromDir;
+                }
+
+                // Fallback: Generate consistent user ID from path
+                Logger.Debug("🔍 No Steam ID found in path, using fallback generation", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId(savePath);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"❌ Steam ID extraction failed: {ex.Message}", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId(savePath ?? "error");
+            }
+        }
+
+        /// <summary>
+        /// Try advanced Steam ID detection using reflection and save hooks
+        /// </summary>
+        private static string TryAdvancedSteamIdDetection()
+        {
+            // Method 1: Check captured paths from save operations
+            string capturedResult = TryGetSteamIdFromCapturedPaths();
+            if (!capturedResult.StartsWith("user_"))
+            {
+                Logger.Info($"🎯 Steam ID found via captured save operations: {capturedResult}", "SaveFileJsonDataStore");
+                return capturedResult;
+            }
+
+            // Method 2: Try reflection on SaveManager
+            string reflectionResult = TryGetSteamIdFromReflection();
+            if (!reflectionResult.StartsWith("user_"))
+            {
+                Logger.Info($"🎯 Steam ID found via reflection: {reflectionResult}", "SaveFileJsonDataStore");
+                return reflectionResult;
+            }
+
+            // Method 3: Try Steam environment/process detection
+            string envResult = TryGetSteamIdFromEnvironment();
+            if (!envResult.StartsWith("user_"))
+            {
+                Logger.Info($"🎯 Steam ID found via environment: {envResult}", "SaveFileJsonDataStore");
+                return envResult;
+            }
+
+            // Method 4: Try checking actual file system for active saves
+            string fileSystemResult = TryGetSteamIdFromFileSystem();
+            if (!fileSystemResult.StartsWith("user_"))
+            {
+                Logger.Info($"🎯 Steam ID found via file system: {fileSystemResult}", "SaveFileJsonDataStore");
+                return fileSystemResult;
+            }
+
+            Logger.Debug("🔍 Advanced detection failed, will use fallback", "SaveFileJsonDataStore");
+            return GenerateFallbackUserId("advanced_detection_failed");
+        }
+
+        /// <summary>
+        /// Try to get Steam ID from captured save operation paths
+        /// </summary>
+        private static string TryGetSteamIdFromCapturedPaths()
+        {
+            try
+            {
+                // Check if SaveSystemPatch has captured any recent save paths
+                var capturedPath = Patches.SaveSystemPatch.GetLastCapturedSavePath();
+                if (!string.IsNullOrEmpty(capturedPath))
+                {
+                    Logger.Debug($"🔍 Checking captured save path: {capturedPath}", "SaveFileJsonDataStore");
+                    
+                    string steamIdFromCaptured = ExtractSteamIdFromString(capturedPath);
+                    if (!steamIdFromCaptured.StartsWith("user_"))
+                    {
+                        Logger.Info($"🎯 Steam ID found in captured path: {steamIdFromCaptured}", "SaveFileJsonDataStore");
+                        return steamIdFromCaptured;
+                    }
+                }
+                else
+                {
+                    Logger.Debug("🔍 No recent captured save paths available", "SaveFileJsonDataStore");
+                }
+
+                return GenerateFallbackUserId("no_captured_paths");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"⚠️ Captured path Steam ID detection failed: {ex.Message}", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId("captured_path_error");
+            }
+        }
+
+        /// <summary>
+        /// Try to get Steam ID using reflection on SaveManager internal fields
+        /// </summary>
+        private static string TryGetSteamIdFromReflection()
+        {
+            try
+            {
+                var saveManager = SaveManager.Instance;
+                if (saveManager == null)
+                {
+                    Logger.Debug("🔍 SaveManager.Instance is null", "SaveFileJsonDataStore");
+                    return GenerateFallbackUserId("null_savemanager");
+                }
+
+                var saveManagerType = saveManager.GetType();
+                Logger.Debug($"🔍 Reflecting on SaveManager type: {saveManagerType.Name}", "SaveFileJsonDataStore");
+
+                // Get all private and public fields
+                var allFields = saveManagerType.GetFields(
+                    System.Reflection.BindingFlags.NonPublic | 
+                    System.Reflection.BindingFlags.Public | 
+                    System.Reflection.BindingFlags.Instance);
+
+                Logger.Debug($"🔍 Found {allFields.Length} fields in SaveManager", "SaveFileJsonDataStore");
+
+                foreach (var field in allFields)
+                {
+                    try
+                    {
+                        var value = field.GetValue(saveManager);
+                        if (value == null) continue;
+
+                        string fieldValue = value.ToString() ?? "";
+                        Logger.Debug($"🔍 Field '{field.Name}': {fieldValue}", "SaveFileJsonDataStore");
+
+                        // Check if this field contains a path with Steam ID
+                        if (fieldValue.Contains("/") || fieldValue.Contains("\\"))
+                        {
+                            string steamIdFromField = ExtractSteamIdFromString(fieldValue);
+                            if (!steamIdFromField.StartsWith("user_"))
+                            {
+                                Logger.Info($"🎯 Steam ID found in field '{field.Name}': {steamIdFromField}", "SaveFileJsonDataStore");
+                                return steamIdFromField;
+                            }
+                        }
+
+                        // Check if this field directly contains a Steam ID (17 digits)
+                        if (fieldValue.Length == 17 && long.TryParse(fieldValue, out _))
+                        {
+                            Logger.Info($"🎯 Steam ID found directly in field '{field.Name}': {fieldValue}", "SaveFileJsonDataStore");
+                            return fieldValue;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"🔍 Could not access field '{field.Name}': {ex.Message}", "SaveFileJsonDataStore");
+                    }
+                }
+
+                // Try properties as well
+                var allProperties = saveManagerType.GetProperties(
+                    System.Reflection.BindingFlags.NonPublic | 
+                    System.Reflection.BindingFlags.Public | 
+                    System.Reflection.BindingFlags.Instance);
+
+                Logger.Debug($"🔍 Found {allProperties.Length} properties in SaveManager", "SaveFileJsonDataStore");
+
+                foreach (var prop in allProperties)
+                {
+                    try
+                    {
+                        if (!prop.CanRead) continue;
+
+                        var value = prop.GetValue(saveManager);
+                        if (value == null) continue;
+
+                        string propValue = value.ToString() ?? "";
+                        Logger.Debug($"🔍 Property '{prop.Name}': {propValue}", "SaveFileJsonDataStore");
+
+                        // Check if this property contains a path with Steam ID
+                        if (propValue.Contains("/") || propValue.Contains("\\"))
+                        {
+                            string steamIdFromProp = ExtractSteamIdFromString(propValue);
+                            if (!steamIdFromProp.StartsWith("user_"))
+                            {
+                                Logger.Info($"🎯 Steam ID found in property '{prop.Name}': {steamIdFromProp}", "SaveFileJsonDataStore");
+                                return steamIdFromProp;
+                            }
+                        }
+
+                        // Check if this property directly contains a Steam ID
+                        if (propValue.Length == 17 && long.TryParse(propValue, out _))
+                        {
+                            Logger.Info($"🎯 Steam ID found directly in property '{prop.Name}': {propValue}", "SaveFileJsonDataStore");
+                            return propValue;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"🔍 Could not access property '{prop.Name}': {ex.Message}", "SaveFileJsonDataStore");
+                    }
+                }
+
+                Logger.Debug("🔍 No Steam ID found via reflection", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId("reflection_failed");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"⚠️ Reflection Steam ID detection failed: {ex.Message}", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId("reflection_error");
+            }
+        }
+
+        /// <summary>
+        /// Try to get Steam ID from environment variables or process info
+        /// </summary>
+        private static string TryGetSteamIdFromEnvironment()
+        {
+            try
+            {
+                Logger.Debug("🔍 Checking environment variables for Steam ID", "SaveFileJsonDataStore");
+
+                // Common Steam environment variables
+                string[] steamEnvVars = {
+                    "STEAM_USERID", "STEAM_USER", "SteamGameId", "SteamAppId", 
+                    "STEAMID", "STEAM_ID", "STEAM_CLIENT_USER"
+                };
+
+                foreach (var envVar in steamEnvVars)
+                {
+                    string? envValue = Environment.GetEnvironmentVariable(envVar);
+                    if (!string.IsNullOrEmpty(envValue))
+                    {
+                        Logger.Debug($"🔍 Environment variable '{envVar}': {envValue}", "SaveFileJsonDataStore");
+                        
+                        string steamIdFromEnv = ExtractSteamIdFromString(envValue);
+                        if (!steamIdFromEnv.StartsWith("user_"))
+                        {
+                            Logger.Info($"🎯 Steam ID found in environment variable '{envVar}': {steamIdFromEnv}", "SaveFileJsonDataStore");
+                            return steamIdFromEnv;
+                        }
+                    }
+                }
+
+                // Check command line arguments
+                Logger.Debug("🔍 Checking command line arguments for Steam ID", "SaveFileJsonDataStore");
+                var args = Environment.GetCommandLineArgs();
+                foreach (var arg in args)
+                {
+                    Logger.Debug($"🔍 Command line arg: {arg}", "SaveFileJsonDataStore");
+                    
+                    string steamIdFromArg = ExtractSteamIdFromString(arg);
+                    if (!steamIdFromArg.StartsWith("user_"))
+                    {
+                        Logger.Info($"🎯 Steam ID found in command line: {steamIdFromArg}", "SaveFileJsonDataStore");
+                        return steamIdFromArg;
+                    }
+                }
+
+                Logger.Debug("🔍 No Steam ID found in environment", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId("environment_failed");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"⚠️ Environment Steam ID detection failed: {ex.Message}", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId("environment_error");
+            }
+        }
+
+        /// <summary>
+        /// Try to find Steam ID by checking active save directories
+        /// </summary>
+        private static string TryGetSteamIdFromFileSystem()
+        {
+            try
+            {
+                var saveManager = SaveManager.Instance;
+                if (saveManager?.PlayersSavePath == null)
+                {
+                    Logger.Debug("🔍 No SaveManager path available for file system check", "SaveFileJsonDataStore");
+                    return GenerateFallbackUserId("no_path_available");
+                }
+
+                string baseSavePath = saveManager.PlayersSavePath;
+                Logger.Debug($"🔍 Checking file system at: {baseSavePath}", "SaveFileJsonDataStore");
+
+                if (Directory.Exists(baseSavePath))
+                {
+                    var subdirs = Directory.GetDirectories(baseSavePath);
+                    Logger.Debug($"🔍 Found {subdirs.Length} subdirectories in saves path", "SaveFileJsonDataStore");
+
+                    var steamIds = new List<(string steamId, DateTime lastWrite)>();
+
+                    foreach (var subdir in subdirs)
+                    {
+                        string dirName = Path.GetFileName(subdir);
+                        Logger.Debug($"🔍 Checking subdirectory: {dirName}", "SaveFileJsonDataStore");
+
+                        // Check if directory name is a Steam ID (17 digits)
+                        if (dirName.Length == 17 && long.TryParse(dirName, out _))
+                        {
+                            var lastWrite = Directory.GetLastWriteTime(subdir);
+                            steamIds.Add((dirName, lastWrite));
+                            Logger.Debug($"🔍 Found Steam ID directory: {dirName} (last write: {lastWrite})", "SaveFileJsonDataStore");
+                        }
+                    }
+
+                    if (steamIds.Count > 0)
+                    {
+                        // Return the most recently used Steam ID
+                        var mostRecent = steamIds.OrderByDescending(x => x.lastWrite).First();
+                        Logger.Info($"🎯 Steam ID found via file system (most recent): {mostRecent.steamId}", "SaveFileJsonDataStore");
+                        return mostRecent.steamId;
+                    }
+                }
+                else
+                {
+                    Logger.Debug($"🔍 Save path doesn't exist: {baseSavePath}", "SaveFileJsonDataStore");
+                }
+
+                Logger.Debug("🔍 No Steam ID found via file system", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId("filesystem_failed");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"⚠️ File system Steam ID detection failed: {ex.Message}", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId("filesystem_error");
+            }
+        }
+
+        /// <summary>
+        /// Extract Steam ID from any string (helper method)
+        /// </summary>
+        private static string ExtractSteamIdFromString(string input)
+        {
+            if (string.IsNullOrEmpty(input)) 
+                return GenerateFallbackUserId("empty_string");
+
+            // Look for 17-digit numbers in the string
+            var matches = Regex.Matches(input, @"\b\d{17}\b");
+            foreach (Match match in matches)
+            {
+                return match.Value;
+            }
+
+            return GenerateFallbackUserId(input);
+        }
+
+        /// <summary>
+        /// Try to find Steam ID in save directory structure
+        /// </summary>
+        private static string TryFindSteamIdInDirectory(string savePath)
+        {
+            try
+            {
+                if (Directory.Exists(savePath))
+                {
+                    var subdirs = Directory.GetDirectories(savePath);
+                    
+                    foreach (var subdir in subdirs)
+                    {
+                        string dirName = Path.GetFileName(subdir);
+                        
+                        // Check if directory name is a Steam ID (17 digits)
+                        if (dirName.Length == 17 && long.TryParse(dirName, out _))
+                        {
+                            Logger.Info($"🎯 Found Steam ID in directory structure: {dirName}", "SaveFileJsonDataStore");
+                            return dirName;
+                        }
+                    }
+                }
+
+                return GenerateFallbackUserId("no_steamid_dirs");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"⚠️ Directory Steam ID search failed: {ex.Message}", "SaveFileJsonDataStore");
+                return GenerateFallbackUserId("directory_error");
+            }
+        }
+
+        /// <summary>
+        /// Generate a consistent fallback user ID
+        /// </summary>
+        private static string GenerateFallbackUserId(string input)
+        {
+            try
+            {
                 using (var sha256 = SHA256.Create())
                 {
-                    byte[] hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(savePath));
+                    byte[] hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(input));
                     string pathHash = Convert.ToBase64String(hashedBytes).Replace('/', '_').Replace('+', '-').Substring(0, 8);
-                    Logger.Debug($"🔍 No Steam ID found, using path hash as user ID: {pathHash}", "SaveFileJsonDataStore");
+                    Logger.Info($"🔑 Generated fallback user ID: user_{pathHash}", "SaveFileJsonDataStore");
                     return $"user_{pathHash}";
                 }
             }
             catch (Exception ex)
             {
-                Logger.Warn($"⚠️ Steam ID extraction failed: {ex.Message}", "SaveFileJsonDataStore");
-                return "unknown";
+                Logger.Error($"❌ Fallback ID generation failed: {ex.Message}", "SaveFileJsonDataStore");
+                return "user_unknown";
             }
         }
 
