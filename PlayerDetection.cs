@@ -54,12 +54,12 @@ namespace PaxDrops
         {
             if (_detectionStarted)
             {
-                Logger.Warn("[PlayerDetection] Detection already started!");
+                Logger.Warn("Detection already started!", "PlayerDetection");
                 return;
             }
 
             _detectionStarted = true;
-            Logger.Msg("[PlayerDetection] 🕵️ Starting event-driven player detection...");
+            Logger.Debug("🕵️ Starting event-driven player detection...", "PlayerDetection");
             
             // Start with an initial check and fallback timer
             MelonCoroutines.Start(InitialDetectionCheck());
@@ -70,7 +70,7 @@ namespace PaxDrops
         /// </summary>
         private static IEnumerator InitialDetectionCheck()
         {
-            Logger.Msg("[PlayerDetection] 🔍 Starting initial detection checks");
+            Logger.Debug("🔍 Starting initial detection checks", "PlayerDetection");
             
             // Wait for scene to settle
             yield return new WaitForSeconds(1f);
@@ -84,13 +84,13 @@ namespace PaxDrops
             {
                 yield return new WaitForSeconds(attempt * 2f); // 2s, 4s, 6s, 8s, 10s
                 
-                Logger.LogDebug($"[PlayerDetection] Detection attempt {attempt}/5");
+                Logger.Debug($"Detection attempt {attempt}/5", "PlayerDetection");
                 if (TryDetectPlayerComplete())
                     yield break;
             }
 
             // If still not found after initial attempts, set up periodic checks (much less frequent)
-            Logger.Msg("[PlayerDetection] 📡 Setting up periodic detection checks");
+            Logger.Debug("📡 Setting up periodic detection checks", "PlayerDetection");
             MelonCoroutines.Start(PeriodicDetectionFallback());
         }
 
@@ -104,14 +104,14 @@ namespace PaxDrops
                 yield return new WaitForSeconds(10f); // Much less frequent polling
                 _checkAttempts++;
                 
-                Logger.LogDebug($"[PlayerDetection] Periodic check {_checkAttempts}/30");
+                Logger.Debug($"Periodic check {_checkAttempts}/30", "PlayerDetection");
                 if (TryDetectPlayerComplete())
                     yield break;
             }
 
             if (!_detectionComplete)
             {
-                Logger.Warn("[PlayerDetection] ⚠️ Player detection failed after all attempts");
+                Logger.Warn("⚠️ Player detection failed after all attempts", "PlayerDetection");
             }
         }
 
@@ -125,23 +125,23 @@ namespace PaxDrops
                 var player = TryDetectPlayer();
                 if (player == null) return false;
 
-                Logger.Msg($"[PlayerDetection] ✅ Player detected: {player.PlayerName}");
+                Logger.Debug($"✅ Player detected: {player.PlayerName}", "PlayerDetection");
                 CurrentPlayer = player;
                 OnPlayerLoaded?.Invoke(player);
 
                 var rank = TryDetectPlayerRank(player);
-                Logger.Msg($"[PlayerDetection] ✅ Player rank detected: {rank}");
+                Logger.Debug($"✅ Player rank detected: {rank}", "PlayerDetection");
                 CurrentRank = rank;
                 IsRankDetected = true;
                 OnPlayerRankLoaded?.Invoke(player, rank);
 
                 _detectionComplete = true;
-                Logger.Msg("[PlayerDetection] 🎯 Player detection complete!");
+                Logger.Debug("🎯 Player detection complete!", "PlayerDetection");
                 return true;
             }
             catch (Exception ex)
             {
-                Logger.LogDebug($"[PlayerDetection] Detection attempt failed: {ex.Message}");
+                Logger.Debug($"Detection attempt failed: {ex.Message}", "PlayerDetection");
                 return false;
             }
         }
@@ -157,13 +157,13 @@ namespace PaxDrops
                 var localPlayer = Player.Local;
                 if (IsPlayerValid(localPlayer))
                 {
-                    Logger.LogDebug($"[PlayerDetection] Found valid Player.Local: {localPlayer.PlayerName}");
+                    Logger.Debug($"Found valid Player.Local: {localPlayer.PlayerName}", "PlayerDetection");
                     return localPlayer;
                 }
             }
             catch (Exception ex)
             {
-                Logger.LogDebug($"[PlayerDetection] Player.Local failed: {ex.Message}");
+                Logger.Debug($"Player.Local failed: {ex.Message}", "PlayerDetection");
             }
 
             // Method 2: FindObjectOfType
@@ -176,7 +176,7 @@ namespace PaxDrops
                     {
                         if (IsPlayerValid(player) && player.IsLocalPlayer)
                         {
-                            Logger.LogDebug($"[PlayerDetection] Found valid local player via FindObjectsOfType: {player.PlayerName}");
+                            Logger.Debug($"Found valid local player via FindObjectsOfType: {player.PlayerName}", "PlayerDetection");
                             return player;
                         }
                     }
@@ -184,7 +184,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.LogDebug($"[PlayerDetection] FindObjectsOfType failed: {ex.Message}");
+                Logger.Debug($"FindObjectsOfType failed: {ex.Message}", "PlayerDetection");
             }
 
             return null;
@@ -207,7 +207,7 @@ namespace PaxDrops
                     var totalXP = playerLevelManager.TotalXP;
                     var tier = playerLevelManager.Tier;
                     
-                    Logger.LogDebug($"[PlayerDetection] Player LevelManager: Rank={rank}, TotalXP={totalXP}, Tier={tier}");
+                    Logger.Debug($"Player LevelManager: Rank={rank}, TotalXP={totalXP}, Tier={tier}", "PlayerDetection");
                     
                     if (rank != ERank.Street_Rat || totalXP > 0 || tier > 1)
                     {
@@ -223,7 +223,7 @@ namespace PaxDrops
                     try
                     {
                         var fullRank = globalLevelManager.GetFullRank();
-                        Logger.LogDebug($"[PlayerDetection] GlobalLM GetFullRank: Rank={fullRank.Rank}, Tier={fullRank.Tier}");
+                        Logger.Debug($"GlobalLM GetFullRank: Rank={fullRank.Rank}, Tier={fullRank.Tier}", "PlayerDetection");
                         
                         if (fullRank.Rank != ERank.Street_Rat || fullRank.Tier > 1)
                         {
@@ -232,7 +232,7 @@ namespace PaxDrops
                     }
                     catch (Exception ex)
                     {
-                        Logger.LogDebug($"[PlayerDetection] GetFullRank failed: {ex.Message}");
+                        Logger.Debug($"GetFullRank failed: {ex.Message}", "PlayerDetection");
                     }
 
                     // Try direct properties
@@ -240,7 +240,7 @@ namespace PaxDrops
                     var totalXP = globalLevelManager.TotalXP;
                     var tier = globalLevelManager.Tier;
                     
-                    Logger.LogDebug($"[PlayerDetection] GlobalLM Direct: Rank={rank}, TotalXP={totalXP}, Tier={tier}");
+                    Logger.Debug($"GlobalLM Direct: Rank={rank}, TotalXP={totalXP}, Tier={tier}", "PlayerDetection");
                     
                     if (totalXP > 1000 || tier > 1)
                     {
@@ -248,12 +248,12 @@ namespace PaxDrops
                         try
                         {
                             var calculatedRank = globalLevelManager.GetFullRank(totalXP);
-                            Logger.LogDebug($"[PlayerDetection] Calculated from XP: Rank={calculatedRank.Rank}");
+                            Logger.Debug($"Calculated from XP: Rank={calculatedRank.Rank}", "PlayerDetection");
                             return calculatedRank.Rank;
                         }
                         catch (Exception ex)
                         {
-                            Logger.LogDebug($"[PlayerDetection] XP calculation failed: {ex.Message}");
+                            Logger.Debug($"XP calculation failed: {ex.Message}", "PlayerDetection");
                         }
                     }
                     
@@ -262,7 +262,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.LogDebug($"[PlayerDetection] Rank detection failed: {ex.Message}");
+                Logger.Debug($"Rank detection failed: {ex.Message}", "PlayerDetection");
             }
 
             return ERank.Street_Rat;
@@ -275,7 +275,7 @@ namespace PaxDrops
         {
             if (_detectionComplete) return;
 
-            Logger.LogDebug("[PlayerDetection] 🔍 Manual player check triggered");
+            Logger.Debug("🔍 Manual player check triggered", "PlayerDetection");
             TryDetectPlayerComplete();
         }
 
@@ -293,7 +293,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.LogDebug($"[PlayerDetection] Player validation failed: {ex.Message}");
+                Logger.Debug($"Player validation failed: {ex.Message}", "PlayerDetection");
                 return false;
             }
         }
@@ -305,23 +305,23 @@ namespace PaxDrops
         {
             if (CurrentPlayer != null)
             {
-                Logger.Msg("[PlayerDetection] 🔄 Refreshing player rank...");
+                Logger.Debug("🔄 Refreshing player rank...", "PlayerDetection");
                 var newRank = TryDetectPlayerRank(CurrentPlayer);
                 
                 if (newRank != CurrentRank)
                 {
-                    Logger.Msg($"[PlayerDetection] 📈 Rank changed: {CurrentRank} → {newRank}");
+                    Logger.Debug($"📈 Rank changed: {CurrentRank} → {newRank}", "PlayerDetection");
                     CurrentRank = newRank;
                     OnPlayerRankLoaded?.Invoke(CurrentPlayer, newRank);
                 }
                 else
                 {
-                    Logger.Msg($"[PlayerDetection] Rank unchanged: {CurrentRank}");
+                    Logger.Debug($"Rank unchanged: {CurrentRank}", "PlayerDetection");
                 }
             }
             else
             {
-                Logger.Warn("[PlayerDetection] ⚠️ Cannot refresh rank - no player detected");
+                Logger.Warn("⚠️ Cannot refresh rank - no player detected", "PlayerDetection");
             }
         }
 
@@ -350,7 +350,7 @@ namespace PaxDrops
         /// </summary>
         public static void Reset()
         {
-            Logger.Msg("[PlayerDetection] 🔄 Resetting detection state");
+            Logger.Debug("🔄 Resetting detection state", "PlayerDetection");
             _detectionStarted = false;
             _detectionComplete = false;
             _checkAttempts = 0;

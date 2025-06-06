@@ -28,12 +28,12 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                Logger.Msg($"[OrderProcessor] 📦 Processing {organization} order: {orderType}");
+                Logger.Debug($"📦 Processing {organization} order: {orderType}", "OrderProcessor");
 
                 var timeManager = TimeManager.Instance;
                 if (timeManager == null)
                 {
-                    Logger.Error("[OrderProcessor] ❌ TimeManager unavailable");
+                    Logger.Error("❌ TimeManager unavailable", "OrderProcessor");
                     if (sendMessages) SendErrorMessage(organization, "Service temporarily unavailable. Try again later.");
                     return;
                 }
@@ -45,7 +45,7 @@ namespace PaxDrops.MrStacks
                 // Check tier access for Mrs. Stacks (DevCommand can bypass)
                 if (organization == "Mrs. Stacks" && tier.HasValue && !TierDropSystem.CanPlayerAccessTier(tier.Value))
                 {
-                    Logger.Msg($"[OrderProcessor] 🚫 {organization} tier {TierConfig.GetTierName(tier.Value)} not unlocked");
+                    Logger.Debug($"🚫 {organization} tier {TierConfig.GetTierName(tier.Value)} not unlocked", "OrderProcessor");
                     if (sendMessages) SendTierNotUnlockedMessage(organization, tier.Value);
                     return;
                 }
@@ -58,7 +58,7 @@ namespace PaxDrops.MrStacks
                     
                     if (ordersToday >= dailyLimit)
                     {
-                        Logger.Msg($"[OrderProcessor] 🚫 {organization} daily order limit reached ({ordersToday}/{dailyLimit})");
+                        Logger.Debug($"🚫 {organization} daily order limit reached ({ordersToday}/{dailyLimit})", "OrderProcessor");
                         if (sendMessages) SendDailyLimitMessage(organization, dailyLimit);
                         return;
                     }
@@ -75,7 +75,7 @@ namespace PaxDrops.MrStacks
                 int expiryDay = deliveryDay + 1;
                 int expiryHour = deliveryHour;
 
-                Logger.Msg($"[OrderProcessor] 📅 Order placed on game day {currentDay}, delivery on game day {deliveryDay} at {deliveryHour}");
+                Logger.Debug($"📅 Order placed on game day {currentDay}, delivery on game day {deliveryDay} at {deliveryHour}", "OrderProcessor");
 
                 // Generate package based on order type
                 List<string> items;
@@ -156,12 +156,12 @@ namespace PaxDrops.MrStacks
                     SendPreparationMessage(organization, deliveryDay, deliveryHour, tierInfo);
                 }
 
-                Logger.Msg($"[OrderProcessor] ✅ {organization} {orderType} order scheduled for game day {deliveryDay} at {DropConfig.FormatGameTime(deliveryHour)} - {items.Count} items, ${cashAmount}, {tierInfo}");
-                Logger.Msg($"[OrderProcessor] 📋 Order tracking: OrderDay={currentDay}, DeliveryDay={deliveryDay}, ExpiryDay={expiryDay}");
+                Logger.Debug($"✅ {organization} {orderType} order scheduled for game day {deliveryDay} at {DropConfig.FormatGameTime(deliveryHour)} - {items.Count} items, ${cashAmount}, {tierInfo}", "OrderProcessor");
+                Logger.Debug($"📋 Order tracking: OrderDay={currentDay}, DeliveryDay={deliveryDay}, ExpiryDay={expiryDay}", "OrderProcessor");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[OrderProcessor] ❌ {organization} order processing failed: {ex.Message}");
+                Logger.Error($"❌ {organization} order processing failed: {ex.Message}", "OrderProcessor");
                 if (sendMessages) SendErrorMessage(organization, "Order failed. Please try again.");
             }
         }
@@ -189,11 +189,11 @@ namespace PaxDrops.MrStacks
                     $"Copy that. Preparing {typeText} from {tierInfo} with {itemCount} items and ${cashAmount} cash. " +
                     $"Delivery tomorrow at {DropConfig.FormatGameTime(deliveryHour)}. I'll message when ready with location.");
 
-                Logger.Msg("[OrderProcessor] 📱 Confirmation sent");
+                Logger.Debug("📱 Confirmation sent", "OrderProcessor");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[OrderProcessor] ❌ Confirmation failed: {ex.Message}");
+                Logger.Error($"❌ Confirmation failed: {ex.Message}", "OrderProcessor");
             }
         }
 
@@ -214,11 +214,11 @@ namespace PaxDrops.MrStacks
                                 $"Tip: {nextTierInfo}";
 
                 MrsStacksMessaging.SendMessage(npc, message);
-                Logger.Msg("[OrderProcessor] 📱 Daily limit message sent");
+                Logger.Debug("📱 Daily limit message sent", "OrderProcessor");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[OrderProcessor] ❌ Daily limit message failed: {ex.Message}");
+                Logger.Error($"❌ Daily limit message failed: {ex.Message}", "OrderProcessor");
             }
         }
 
@@ -239,11 +239,11 @@ namespace PaxDrops.MrStacks
                                 $"{requirements}";
 
                 MrsStacksMessaging.SendMessage(npc, message);
-                Logger.Msg("[OrderProcessor] 📱 Tier locked message sent");
+                Logger.Debug("📱 Tier locked message sent", "OrderProcessor");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[OrderProcessor] ❌ Tier locked message failed: {ex.Message}");
+                Logger.Error($"❌ Tier locked message failed: {ex.Message}", "OrderProcessor");
             }
         }
 
@@ -260,11 +260,11 @@ namespace PaxDrops.MrStacks
                 if (npc == null) return;
 
                 MrsStacksMessaging.SendMessage(npc, errorText);
-                Logger.Msg("[OrderProcessor] 📱 Error message sent");
+                Logger.Debug("📱 Error message sent", "OrderProcessor");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[OrderProcessor] ❌ Error message failed: {ex.Message}");
+                Logger.Error($"❌ Error message failed: {ex.Message}", "OrderProcessor");
             }
         }
 
@@ -284,11 +284,11 @@ namespace PaxDrops.MrStacks
                     $"Package prep underway. Scheduled for day {deliveryDay} at {DropConfig.FormatGameTime(deliveryHour)}. " +
                     $"I'll message you with the actual dead drop location when it's ready. Stay tuned!");
 
-                Logger.Msg($"[OrderProcessor] 📱 Preparation message sent (no preliminary location to avoid confusion)");
+                Logger.Debug("📱 Preparation message sent (no preliminary location to avoid confusion)", "OrderProcessor");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[OrderProcessor] ❌ Preparation message failed: {ex.Message}");
+                Logger.Error($"❌ Preparation message failed: {ex.Message}", "OrderProcessor");
             }
         }
     }

@@ -232,20 +232,20 @@ namespace PaxDrops.Configs
         /// </summary>
         public static Tier GetTierForRank(ERank playerRank)
         {
-            Logger.LogDebug($"[TierConfig] 🔍 GetTierForRank called with: {playerRank} (int={(int)playerRank})");
+            Logger.Debug($"🔍 GetTierForRank called with: {playerRank} (int={(int)playerRank})", "TierConfig");
             
             if (RankToTierMapping.TryGetValue(playerRank, out var tier))
             {
-                Logger.LogDebug($"[TierConfig] ✅ Found mapping: {playerRank} → {tier} (int={(int)tier})");
+                Logger.Debug($"✅ Found mapping: {playerRank} → {tier} (int={(int)tier})", "TierConfig");
                 return tier;
             }
             else
             {
-                Logger.Warn($"[TierConfig] ⚠️ No mapping found for rank {playerRank}, defaulting to TIER_STREET_RAT");
-                Logger.LogDebug($"[TierConfig] Available mappings:");
+                Logger.Warn($"⚠️ No mapping found for rank {playerRank}, defaulting to TIER_STREET_RAT", "TierConfig");
+                Logger.Debug($"Available mappings:", "TierConfig");
                 foreach (var kvp in RankToTierMapping)
                 {
-                    Logger.LogDebug($"[TierConfig]   {kvp.Key} (int={(int)kvp.Key}) → {kvp.Value} (int={(int)kvp.Value})");
+                    Logger.Debug($"   {kvp.Key} (int={(int)kvp.Key}) → {kvp.Value} (int={(int)kvp.Value})", "TierConfig");
                 }
                 return Tier.TIER_STREET_RAT;
             }

@@ -28,14 +28,14 @@ namespace PaxDrops
         {
             if (_initialized) return;
             _initialized = true;
-            Logger.Msg("[DeadDrop] ✅ System initialized");
+            Logger.Info("✅ System initialized", "DeadDrop");
         }
 
         public static void Shutdown()
         {
             if (!_initialized) return;
             _initialized = false;
-            Logger.Msg("[DeadDrop] 🔌 Shutdown complete");
+            Logger.Info("🔌 Shutdown complete", "DeadDrop");
         }
 
         /// <summary>
@@ -65,7 +65,7 @@ namespace PaxDrops
                     currentHour = currentTime;
                 }
 
-                Logger.Msg($"[DeadDrop] ⏰ Time check - Day: {currentDay}, Hour: {currentHour}");
+                Logger.Debug($"⏰ Time check - Day: {currentDay}, Hour: {currentHour}", "DeadDrop");
 
                 if (!SaveFileJsonDataStore.PendingDrops.TryGetValue(currentDay, out var dropsForDay) || 
                     dropsForDay == null || dropsForDay.Count == 0)
@@ -84,7 +84,7 @@ namespace PaxDrops
 
                 if (dropsToSpawn.Count > 0)
                 {
-                    Logger.Msg($"[DeadDrop] 🎯 Spawning {dropsToSpawn.Count} scheduled drops for Day {currentDay}");
+                    Logger.Debug($"🎯 Spawning {dropsToSpawn.Count} scheduled drops for Day {currentDay}", "DeadDrop");
                     
                     foreach (var drop in dropsToSpawn)
                     {
@@ -103,7 +103,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DeadDrop] ❌ Time change error: {ex.Message}");
+                Logger.Error($"❌ Time change error: {ex.Message}", "DeadDrop");
             }
         }
 
@@ -135,13 +135,13 @@ namespace PaxDrops
                     Location = ""
                 };
 
-                Logger.Msg($"[DeadDrop] 🔧 Force spawning {type} drop with {packet.Count} items");
+                Logger.Debug($"🔧 Force spawning {type} drop with {packet.Count} items", "DeadDrop");
                 SpawnDrop(record);
                 return record.Location;
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DeadDrop] ❌ Force spawn failed: {ex.Message}");
+                Logger.Error($"❌ Force spawn failed: {ex.Message}", "DeadDrop");
                 return null;
             }
         }
@@ -153,16 +153,16 @@ namespace PaxDrops
         {
             try
             {
-                Logger.Msg($"[DeadDrop] 📦 Spawning drop: {drop.Items.Count} items from {drop.Org}");
+                Logger.Debug($"📦 Spawning drop: {drop.Items.Count} items from {drop.Org}", "DeadDrop");
 
                 var targetDeadDrop = FindSuitableDeadDrop();
                 if (targetDeadDrop?.Storage == null)
                 {
-                    Logger.Warn("[DeadDrop] ❌ No suitable dead drop found");
+                    Logger.Warn("❌ No suitable dead drop found", "DeadDrop");
                     return null;
                 }
 
-                Logger.Msg($"[DeadDrop] 📍 Target: {targetDeadDrop.DeadDropName}");
+                Logger.Debug($"📍 Target: {targetDeadDrop.DeadDropName}", "DeadDrop");
                 drop.Location = targetDeadDrop.DeadDropName;
 
                 // Save the complete drop record with location
@@ -196,12 +196,12 @@ namespace PaxDrops
                     if (AddCashToStorage(targetDeadDrop.Storage, cashAmount))
                     {
                         success++;
-                        Logger.Msg($"[DeadDrop] ✅ Added ${cashAmount} cash");
+                        Logger.Debug($"✅ Added ${cashAmount} cash", "DeadDrop");
                     }
                     else
                     {
                         fail++;
-                        Logger.Warn($"[DeadDrop] ❌ Failed to add ${cashAmount} cash");
+                        Logger.Warn($"❌ Failed to add ${cashAmount} cash", "DeadDrop");
                     }
                 }
 
@@ -214,7 +214,7 @@ namespace PaxDrops
                     var itemDef = Il2CppScheduleOne.Registry.GetItem(itemId);
                     if (itemDef == null)
                     {
-                        Logger.Warn($"[DeadDrop] ⚠️ Invalid item: {itemId}");
+                        Logger.Warn($"⚠️ Invalid item: {itemId}", "DeadDrop");
                         fail++;
                         continue;
                     }
@@ -225,27 +225,27 @@ namespace PaxDrops
                         if (itemInstance != null && AddItemToStorage(targetDeadDrop.Storage, itemInstance))
                         {
                             success++;
-                            Logger.Msg($"[DeadDrop] ✅ Added {itemId} x{totalAmount}");
+                            Logger.Debug($"✅ Added {itemId} x{totalAmount}", "DeadDrop");
                         }
                         else
                         {
                             fail++;
-                            Logger.Warn($"[DeadDrop] ❌ Failed to add {itemId} x{totalAmount}");
+                            Logger.Warn($"❌ Failed to add {itemId} x{totalAmount}", "DeadDrop");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error($"[DeadDrop] ❌ Error with {itemId}: {ex.Message}");
+                        Logger.Error($"❌ Error with {itemId}: {ex.Message}", "DeadDrop");
                         fail++;
                     }
                 }
 
-                Logger.Msg($"[DeadDrop] ✅ Drop complete: {success} added, {fail} failed at {targetDeadDrop.DeadDropName}");
+                Logger.Debug($"✅ Drop complete: {success} added, {fail} failed at {targetDeadDrop.DeadDropName}", "DeadDrop");
                 return targetDeadDrop.DeadDropName;
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DeadDrop] ❌ Spawn failed: {ex.Message}");
+                Logger.Error($"❌ Spawn failed: {ex.Message}", "DeadDrop");
                 return null;
             }
         }
@@ -257,16 +257,16 @@ namespace PaxDrops
         {
             try
             {
-                Logger.Msg($"[DeadDrop] 📦 Spawning drop: {drop.Items.Count} items from {drop.Org}");
+                Logger.Debug($"📦 Spawning drop: {drop.Items.Count} items from {drop.Org}", "DeadDrop");
 
                 var targetDeadDrop = FindSuitableDeadDrop();
                 if (targetDeadDrop?.Storage == null)
                 {
-                    Logger.Warn("[DeadDrop] ❌ No suitable dead drop found");
+                    Logger.Warn("❌ No suitable dead drop found", "DeadDrop");
                     return;
                 }
 
-                Logger.Msg($"[DeadDrop] 📍 Target: {targetDeadDrop.DeadDropName}");
+                Logger.Debug($"📍 Target: {targetDeadDrop.DeadDropName}", "DeadDrop");
                 drop.Location = targetDeadDrop.DeadDropName;
 
                 // Consolidate items and cash
@@ -297,12 +297,12 @@ namespace PaxDrops
                     if (AddCashToStorage(targetDeadDrop.Storage, cashAmount))
                     {
                         success++;
-                        Logger.Msg($"[DeadDrop] ✅ Added ${cashAmount} cash");
+                        Logger.Debug($"✅ Added ${cashAmount} cash", "DeadDrop");
                     }
                     else
                     {
                         fail++;
-                        Logger.Warn($"[DeadDrop] ❌ Failed to add ${cashAmount} cash");
+                        Logger.Warn($"❌ Failed to add ${cashAmount} cash", "DeadDrop");
                     }
                 }
 
@@ -315,7 +315,7 @@ namespace PaxDrops
                     var itemDef = Il2CppScheduleOne.Registry.GetItem(itemId);
                     if (itemDef == null)
                     {
-                        Logger.Warn($"[DeadDrop] ⚠️ Invalid item: {itemId}");
+                        Logger.Warn($"⚠️ Invalid item: {itemId}", "DeadDrop");
                         fail++;
                         continue;
                     }
@@ -326,26 +326,26 @@ namespace PaxDrops
                         if (itemInstance != null && AddItemToStorage(targetDeadDrop.Storage, itemInstance))
                         {
                             success++;
-                            Logger.Msg($"[DeadDrop] ✅ Added {itemId} x{totalAmount}");
+                            Logger.Debug($"✅ Added {itemId} x{totalAmount}", "DeadDrop");
                         }
                         else
                         {
                             fail++;
-                            Logger.Warn($"[DeadDrop] ❌ Failed to add {itemId} x{totalAmount}");
+                            Logger.Warn($"❌ Failed to add {itemId} x{totalAmount}", "DeadDrop");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error($"[DeadDrop] ❌ Error with {itemId}: {ex.Message}");
+                        Logger.Error($"❌ Error with {itemId}: {ex.Message}", "DeadDrop");
                         fail++;
                     }
                 }
 
-                Logger.Msg($"[DeadDrop] ✅ Drop complete: {success} added, {fail} failed at {targetDeadDrop.DeadDropName}");
+                Logger.Debug($"✅ Drop complete: {success} added, {fail} failed at {targetDeadDrop.DeadDropName}", "DeadDrop");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DeadDrop] ❌ Spawn failed: {ex.Message}");
+                Logger.Error($"❌ Spawn failed: {ex.Message}", "DeadDrop");
             }
         }
 
@@ -359,17 +359,17 @@ namespace PaxDrops
                 var allDeadDrops = Il2CppScheduleOne.Economy.DeadDrop.DeadDrops;
                 if (allDeadDrops == null || allDeadDrops.Count == 0)
                 {
-                    Logger.Warn("[DeadDrop] ⚠️ No dead drops found in game");
+                    Logger.Warn("⚠️ No dead drops found in game", "DeadDrop");
                     return null;
                 }
 
-                Logger.Msg($"[DeadDrop] 🗺️ Found {allDeadDrops.Count} total dead drops in game:");
+                Logger.Debug($"🗺️ Found {allDeadDrops.Count} total dead drops in game:", "DeadDrop");
                 for (int i = 0; i < allDeadDrops.Count; i++)
                 {
                     var deadDrop = allDeadDrops[i];
                     if (deadDrop != null)
                     {
-                        Logger.Msg($"[DeadDrop] 📍 {i + 1}. {deadDrop.DeadDropName} - Available: {IsDeadDropAvailable(deadDrop)}");
+                        Logger.Debug($"📍 {i + 1}. {deadDrop.DeadDropName} - Available: {IsDeadDropAvailable(deadDrop)}", "DeadDrop");
                     }
                 }
 
@@ -384,7 +384,7 @@ namespace PaxDrops
                     }
                 }
 
-                Logger.Msg($"[DeadDrop] 🚫 Currently assigned locations to avoid: {string.Join(", ", assignedLocations)}");
+                Logger.Debug($"🚫 Currently assigned locations to avoid: {string.Join(", ", assignedLocations)}", "DeadDrop");
 
                 // Filter for available drops that aren't already assigned
                 var availableDrops = new List<Il2CppScheduleOne.Economy.DeadDrop>();
@@ -401,7 +401,7 @@ namespace PaxDrops
 
                 if (availableDrops.Count == 0)
                 {
-                    Logger.Warn("[DeadDrop] ⚠️ No available dead drops (all may be assigned or full)");
+                    Logger.Warn("⚠️ No available dead drops (all may be assigned or full)", "DeadDrop");
                     // Fallback: allow reuse if no other options
                     for (int i = 0; i < allDeadDrops.Count; i++)
                     {
@@ -414,12 +414,12 @@ namespace PaxDrops
                     
                     if (availableDrops.Count == 0)
                     {
-                        Logger.Error("[DeadDrop] ❌ No dead drops available at all");
+                        Logger.Error("❌ No dead drops available at all", "DeadDrop");
                         return null;
                     }
                 }
 
-                Logger.Msg($"[DeadDrop] ✅ {availableDrops.Count} dead drops available for assignment");
+                Logger.Debug($"✅ {availableDrops.Count} dead drops available for assignment", "DeadDrop");
 
                 // Prefer game's selection method if available
                 var player = Player.Local;
@@ -432,19 +432,19 @@ namespace PaxDrops
                     if (nearbyDrops.Count > 0)
                     {
                         var selected = nearbyDrops[new System.Random().Next(nearbyDrops.Count)];
-                        Logger.Msg($"[DeadDrop] 🎯 Selected nearby: {selected.DeadDropName}");
+                        Logger.Debug($"🎯 Selected nearby: {selected.DeadDropName}", "DeadDrop");
                         return selected;
                     }
                 }
 
                 // Fallback: manual selection from available drops
                 var finalSelected = availableDrops[new System.Random().Next(availableDrops.Count)];
-                Logger.Msg($"[DeadDrop] 🎲 Selected: {finalSelected.DeadDropName} (avoided {assignedLocations.Count} assigned locations)");
+                Logger.Debug($"🎲 Selected: {finalSelected.DeadDropName} (avoided {assignedLocations.Count} assigned locations)", "DeadDrop");
                 return finalSelected;
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DeadDrop] ❌ Dead drop search failed: {ex.Message}");
+                Logger.Error($"❌ Dead drop search failed: {ex.Message}", "DeadDrop");
                 return null;
             }
         }
@@ -511,12 +511,12 @@ namespace PaxDrops
                     }
                 }
 
-                Logger.Error($"[DeadDrop] ❌ Failed to create instance for: {definition.name}");
+                Logger.Error($"❌ Failed to create instance for: {definition.name}", "DeadDrop");
                 return null;
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DeadDrop] ❌ Instance creation error: {ex.Message}");
+                Logger.Error($"❌ Instance creation error: {ex.Message}", "DeadDrop");
                 return null;
             }
         }
@@ -544,7 +544,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[DeadDrop] ⚠️ Failed to set quantity: {ex.Message}");
+                Logger.Warn($"⚠️ Failed to set quantity: {ex.Message}", "DeadDrop");
             }
         }
 
@@ -565,7 +565,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DeadDrop] ❌ Storage insertion error: {ex.Message}");
+                Logger.Error($"❌ Storage insertion error: {ex.Message}", "DeadDrop");
                 return false;
             }
         }
@@ -584,7 +584,7 @@ namespace PaxDrops
                     var cashInstance = moneyManager.GetCashInstance((float)amount);
                     if (cashInstance != null)
                     {
-                        Logger.Msg($"[DeadDrop] 💰 Using MoneyManager.GetCashInstance for ${amount}");
+                        Logger.Debug($"💰 Using MoneyManager.GetCashInstance for ${amount}", "DeadDrop");
                         return AddItemToStorage(storage, cashInstance);
                     }
                 }
@@ -603,13 +603,13 @@ namespace PaxDrops
                             {
                                 cashInst.SetBalance((float)amount, false);
                             }
-                            Logger.Msg($"[DeadDrop] 💰 Using CashDefinition.GetDefaultInstance for ${amount}");
+                            Logger.Debug($"💰 Using CashDefinition.GetDefaultInstance for ${amount}", "DeadDrop");
                             return AddItemToStorage(storage, cashInst);
                         }
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warn($"[DeadDrop] ⚠️ CashDefinition.GetDefaultInstance failed: {ex.Message}");
+                        Logger.Warn($"⚠️ CashDefinition.GetDefaultInstance failed: {ex.Message}", "DeadDrop");
                     }
                     
                     // Try manual CashInstance creation
@@ -622,13 +622,13 @@ namespace PaxDrops
                             {
                                 cashInstance.SetBalance((float)amount, false);
                             }
-                            Logger.Msg($"[DeadDrop] 💰 Using manual CashInstance for ${amount}");
+                            Logger.Debug($"💰 Using manual CashInstance for ${amount}", "DeadDrop");
                             return AddItemToStorage(storage, cashInstance);
                         }
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warn($"[DeadDrop] ⚠️ Manual CashInstance creation failed: {ex.Message}");
+                        Logger.Warn($"⚠️ Manual CashInstance creation failed: {ex.Message}", "DeadDrop");
                     }
                 }
 
@@ -640,17 +640,17 @@ namespace PaxDrops
                     
                     if (Math.Abs(moneyManager.cashBalance - (currentBalance + amount)) < 0.01f)
                     {
-                        Logger.Msg($"[DeadDrop] 💰 Added ${amount} to player inventory (storage unavailable)");
+                        Logger.Debug($"💰 Added ${amount} to player inventory (storage unavailable)", "DeadDrop");
                         return true;
                     }
                 }
 
-                Logger.Error($"[DeadDrop] ❌ All cash methods failed for ${amount}");
+                Logger.Error($"❌ All cash methods failed for ${amount}", "DeadDrop");
                 return false;
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DeadDrop] ❌ Cash handling error: {ex.Message}");
+                Logger.Error($"❌ Cash handling error: {ex.Message}", "DeadDrop");
                 return false;
             }
         }

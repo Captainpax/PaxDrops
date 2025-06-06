@@ -167,7 +167,7 @@ namespace PaxDrops.Configs
             var tomorrow = now.Date.AddDays(1);
             var deliveryTime = tomorrow.AddHours(DropTargetTime.hour).AddMinutes(DropTargetTime.minute);
             
-            Logger.Msg($"[DropConfig] 📅 Drop scheduled for: {deliveryTime:yyyy-MM-dd HH:mm}");
+            Logger.Debug($"📅 Drop scheduled for: {deliveryTime:yyyy-MM-dd HH:mm}", "DropConfig");
             return deliveryTime;
         }
 
@@ -177,7 +177,7 @@ namespace PaxDrops.Configs
         public static DateTime CalculateDropExpiryTime(DateTime deliveryTime)
         {
             var expiryTime = deliveryTime.AddHours(DropExpiryHours);
-            Logger.Msg($"[DropConfig] ⏰ Drop expires at: {expiryTime:yyyy-MM-dd HH:mm}");
+            Logger.Debug($"⏰ Drop expires at: {expiryTime:yyyy-MM-dd HH:mm}", "DropConfig");
             return expiryTime;
         }
 
@@ -219,13 +219,13 @@ namespace PaxDrops.Configs
             var tier = TierConfig.GetTierForRank(playerRank);
             
             // Debug logging to trace the mapping
-            Logger.Msg($"[DropConfig] 🔍 Player rank detection: ERank={playerRank} (int={(int)playerRank}) → Tier={tier} (int={(int)tier})");
+            Logger.Debug($"🔍 Player rank detection: ERank={playerRank} (int={(int)playerRank}) → Tier={tier} (int={(int)tier})", "DropConfig");
             
             var org = TierConfig.GetOrganization(tier);
             var tierName = TierConfig.GetTierName(tier);
             var orgName = TierConfig.GetOrganizationName(org);
             
-            Logger.Msg($"[DropConfig] 🏢 Organization mapping: {tierName} → {orgName}");
+            Logger.Debug($"🏢 Organization mapping: {tierName} → {orgName}", "DropConfig");
             
             return tier;
         }
@@ -292,7 +292,7 @@ namespace PaxDrops.Configs
             }
             
             // Fallback: try to get it directly if PlayerDetection hasn't finished yet
-            Logger.LogDebug("[DropConfig] PlayerDetection not ready, using fallback");
+            Logger.Debug("PlayerDetection not ready, using fallback", "DropConfig");
             return ERank.Street_Rat;
         }
 
@@ -354,7 +354,7 @@ namespace PaxDrops.Configs
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DropConfig] ❌ Error checking order availability: {ex.Message}");
+                Logger.Error($"❌ Error checking order availability: {ex.Message}", "DropConfig");
                 return false;
             }
         }
@@ -374,7 +374,7 @@ namespace PaxDrops.Configs
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DropConfig] ❌ Error getting remaining orders: {ex.Message}");
+                Logger.Error($"❌ Error getting remaining orders: {ex.Message}", "DropConfig");
                 return 0;
             }
         }

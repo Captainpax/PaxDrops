@@ -78,12 +78,12 @@ namespace PaxDrops
             try
             {
                 Directory.CreateDirectory(BaseDataDir);
-                Logger.Msg("[SaveFileJsonDataStore] ✅ Initialized enhanced save file-aware data store with Steam ID support");
+                Logger.Info("✅ Initialized enhanced save file-aware data store with Steam ID support", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
-                Logger.Error("[SaveFileJsonDataStore] ❌ Failed to initialize save file data store.");
-                Logger.Exception(ex);
+                Logger.Error("❌ Failed to initialize save file data store.", "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
             }
         }
 
@@ -94,22 +94,22 @@ namespace PaxDrops
         {
             try
             {
-                Logger.Msg($"[SaveFileJsonDataStore] 📂 Loading data for save: {saveName}");
-                Logger.Msg($"[SaveFileJsonDataStore] 📁 Save path: {savePath}");
+                Logger.Debug($"📂 Loading data for save: {saveName}", "SaveFileJsonDataStore");
+                Logger.Debug($"📁 Save path: {savePath}", "SaveFileJsonDataStore");
                 
                 // Generate enhanced save identification
                 var saveMetadata = GenerateSaveMetadata(savePath, saveName);
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 🔍 Generated metadata:");
-                Logger.Msg($"[SaveFileJsonDataStore]   Steam ID: '{saveMetadata.SteamId}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Organization: '{saveMetadata.OrganizationName}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Start Date: '{saveMetadata.StartDate}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Save ID: '{saveMetadata.SaveId}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Folder: SaveFiles/{saveMetadata.SteamId}/{saveMetadata.SaveId}/");
+                Logger.Debug($"🔍 Generated metadata:", "SaveFileJsonDataStore");
+                Logger.Debug($"   Steam ID: '{saveMetadata.SteamId}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Organization: '{saveMetadata.OrganizationName}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Start Date: '{saveMetadata.StartDate}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Save ID: '{saveMetadata.SaveId}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Folder: SaveFiles/{saveMetadata.SteamId}/{saveMetadata.SaveId}/", "SaveFileJsonDataStore");
                 
                 if (_currentSaveId == saveMetadata.SaveId && _isLoadedForSave)
                 {
-                    Logger.Msg($"[SaveFileJsonDataStore] ♻️ Data already loaded for save: {saveName} (Steam: {saveMetadata.SteamId})");
+                    Logger.Debug($"♻️ Data already loaded for save: {saveName} (Steam: {saveMetadata.SteamId})", "SaveFileJsonDataStore");
                     return;
                 }
 
@@ -123,7 +123,7 @@ namespace PaxDrops
                 _currentSaveName = saveName;
                 _currentSaveMetadata = saveMetadata;
                 
-                Logger.Msg($"[SaveFileJsonDataStore] ✅ Cached metadata - Steam: {_currentSteamId}, ID: {_currentSaveId}");
+                Logger.Debug($"✅ Cached metadata - Steam: {_currentSteamId}, ID: {_currentSaveId}", "SaveFileJsonDataStore");
                 
                 // Load data for this save
                 LoadDataForCurrentSave();
@@ -133,16 +133,16 @@ namespace PaxDrops
                 // Load conversation data for this save
                 PaxDrops.MrStacks.MrsStacksMessaging.LoadConversationForCurrentSave();
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 📂 Successfully loaded data for save: {saveName}");
-                Logger.Msg($"[SaveFileJsonDataStore] 🆔 Final IDs - Steam: {saveMetadata.SteamId} | Save: {saveMetadata.SaveId}");
+                Logger.Debug($"📂 Successfully loaded data for save: {saveName}", "SaveFileJsonDataStore");
+                Logger.Debug($"🆔 Final IDs - Steam: {saveMetadata.SteamId} | Save: {saveMetadata.SaveId}", "SaveFileJsonDataStore");
                 
                 // Save metadata file for reference
                 SaveMetadataFile();
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to load data for save file: {saveName}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Failed to load data for save file: {saveName}", "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
             }
         }
 
@@ -155,11 +155,11 @@ namespace PaxDrops
             {
                 if (!_isLoadedForSave)
                 {
-                    Logger.Msg("[SaveFileJsonDataStore] ℹ️ No save data loaded to unload");
+                    Logger.Debug("ℹ️ No save data loaded to unload", "SaveFileJsonDataStore");
                     return;
                 }
 
-                Logger.Msg($"[SaveFileJsonDataStore] 📤 Unloading data for save: {_currentSaveName}");
+                Logger.Debug($"📤 Unloading data for save: {_currentSaveName}", "SaveFileJsonDataStore");
                 
                 // Unload conversation data for this save
                 PaxDrops.MrStacks.MrsStacksMessaging.UnloadConversationForCurrentSave();
@@ -172,12 +172,12 @@ namespace PaxDrops
                 _currentSaveMetadata = null;
                 _isLoadedForSave = false;
                 
-                Logger.Msg("[SaveFileJsonDataStore] ✅ Save data and conversation unloaded");
+                Logger.Debug("✅ Save data and conversation unloaded", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
-                Logger.Error("[SaveFileJsonDataStore] ❌ Failed to unload save data");
-                Logger.Exception(ex);
+                Logger.Error("❌ Failed to unload save data", "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
             }
         }
 
@@ -190,23 +190,23 @@ namespace PaxDrops
             {
                 if (!_isLoadedForSave)
                 {
-                    Logger.Warn("[SaveFileJsonDataStore] ⚠️ No save loaded - cannot save PaxDrops data");
+                    Logger.Warn("⚠️ No save loaded - cannot save PaxDrops data", "SaveFileJsonDataStore");
                     return;
                 }
 
-                Logger.Msg($"[SaveFileJsonDataStore] 💾 Starting save for: {saveName}");
-                Logger.Msg($"[SaveFileJsonDataStore] 📁 Current save ID: {_currentSaveId}");
-                Logger.Msg($"[SaveFileJsonDataStore] 👤 Current Steam ID: {_currentSteamId}");
+                Logger.Debug($"💾 Starting save for: {saveName}", "SaveFileJsonDataStore");
+                Logger.Debug($"📁 Current save ID: {_currentSaveId}", "SaveFileJsonDataStore");
+                Logger.Debug($"👤 Current Steam ID: {_currentSteamId}", "SaveFileJsonDataStore");
 
                 // DON'T regenerate metadata - use the existing cached metadata to ensure consistency
                 if (_currentSaveMetadata == null || string.IsNullOrEmpty(_currentSaveId))
                 {
-                    Logger.Error("[SaveFileJsonDataStore] ❌ Missing cached metadata - this shouldn't happen!");
+                    Logger.Error("❌ Missing cached metadata - this shouldn't happen!", "SaveFileJsonDataStore");
                     
                     // Emergency fallback: regenerate metadata but log the discrepancy
                     var emergencyMetadata = GenerateSaveMetadata(savePath, saveName);
-                    Logger.Warn($"[SaveFileJsonDataStore] 🚨 Emergency metadata generation - ID: {emergencyMetadata.SaveId}");
-                    Logger.Warn($"[SaveFileJsonDataStore] 🚨 This indicates a bug in the initialization process!");
+                    Logger.Warn($"🚨 Emergency metadata generation - ID: {emergencyMetadata.SaveId}", "SaveFileJsonDataStore");
+                    Logger.Warn($"🚨 This indicates a bug in the initialization process!", "SaveFileJsonDataStore");
                     
                     _currentSaveId = emergencyMetadata.SaveId;
                     _currentSteamId = emergencyMetadata.SteamId;
@@ -216,7 +216,7 @@ namespace PaxDrops
                 {
                     // Just update the access time in existing metadata
                     _currentSaveMetadata.LastAccessed = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                    Logger.Msg($"[SaveFileJsonDataStore] ✅ Using cached metadata - ID: {_currentSaveId}");
+                    Logger.Debug($"✅ Using cached metadata - ID: {_currentSaveId}", "SaveFileJsonDataStore");
                 }
 
                 SaveDataForCurrentSave();
@@ -225,12 +225,12 @@ namespace PaxDrops
                 // Also save conversation data when game saves
                 PaxDrops.MrStacks.MrsStacksMessaging.ForceSaveConversation();
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 💾 Saved PaxDrops data for: {saveName} (Steam: {_currentSteamId}, ID: {_currentSaveId})");
+                Logger.Debug($"💾 Saved PaxDrops data for: {saveName} (Steam: {_currentSteamId}, ID: {_currentSaveId})", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to save data for current save file");
-                Logger.Exception(ex);
+                Logger.Error("❌ Failed to save data for current save file", "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
             }
         }
 
@@ -241,7 +241,7 @@ namespace PaxDrops
         {
             if (savePath == null || saveName == null)
             {
-                Logger.Error("[SaveFileJsonDataStore] ❌ Failed to generate save metadata: savePath or saveName is null");
+                Logger.Error("❌ Failed to generate save metadata: savePath or saveName is null", "SaveFileJsonDataStore");
                 return new SaveMetadata();
             }
 
@@ -267,18 +267,18 @@ namespace PaxDrops
                 // Generate save ID from enhanced data
                 metadata.SaveId = GenerateEnhancedSaveId(metadata);
 
-                Logger.Msg($"[SaveFileJsonDataStore] 🔍 Enhanced Save Identification:");
-                Logger.Msg($"[SaveFileJsonDataStore]   Steam ID: '{metadata.SteamId}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Organization: '{metadata.OrganizationName}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Start Date: '{metadata.StartDate}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Save Name: '{metadata.SaveName}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Generated ID: '{metadata.SaveId}'");
+                Logger.Debug($"🔍 Enhanced Save Identification:", "SaveFileJsonDataStore");
+                Logger.Debug($"   Steam ID: '{metadata.SteamId}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Organization: '{metadata.OrganizationName}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Start Date: '{metadata.StartDate}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Save Name: '{metadata.SaveName}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Generated ID: '{metadata.SaveId}'", "SaveFileJsonDataStore");
 
                 return metadata;
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to generate save metadata: {ex.Message}");
+                Logger.Error($"❌ Failed to generate save metadata: {ex.Message}", "SaveFileJsonDataStore");
                 
                 // Fallback to basic metadata
                 var fallbackMetadata = new SaveMetadata
@@ -318,7 +318,7 @@ namespace PaxDrops
                     // Steam IDs are typically 17 digits starting with 7656119
                     if (part.Length == 17 && part.StartsWith("7656119") && long.TryParse(part, out _))
                     {
-                        Logger.Msg($"[SaveFileJsonDataStore] 🔍 Extracted Steam ID from path: {part}");
+                        Logger.Debug($"🔍 Extracted Steam ID from path: {part}", "SaveFileJsonDataStore");
                         return part;
                     }
                 }
@@ -328,7 +328,7 @@ namespace PaxDrops
                 {
                     if (part.Length >= 10 && long.TryParse(part, out var numericPart) && numericPart > 1000000000)
                     {
-                        Logger.Msg($"[SaveFileJsonDataStore] 🔍 Found potential user ID in path: {part}");
+                        Logger.Debug($"🔍 Found potential user ID in path: {part}", "SaveFileJsonDataStore");
                         return part;
                     }
                 }
@@ -338,13 +338,13 @@ namespace PaxDrops
                 {
                     byte[] hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(savePath));
                     string pathHash = Convert.ToBase64String(hashedBytes).Replace('/', '_').Replace('+', '-').Substring(0, 8);
-                    Logger.Msg($"[SaveFileJsonDataStore] 🔍 No Steam ID found, using path hash as user ID: {pathHash}");
+                    Logger.Debug($"🔍 No Steam ID found, using path hash as user ID: {pathHash}", "SaveFileJsonDataStore");
                     return $"user_{pathHash}";
                 }
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[SaveFileJsonDataStore] ⚠️ Steam ID extraction failed: {ex.Message}");
+                Logger.Warn($"⚠️ Steam ID extraction failed: {ex.Message}", "SaveFileJsonDataStore");
                 return "unknown";
             }
         }
@@ -362,17 +362,17 @@ namespace PaxDrops
                     string orgName = loadManager.ActiveSaveInfo.OrganisationName;
                     if (!string.IsNullOrEmpty(orgName))
                     {
-                        Logger.Msg($"[SaveFileJsonDataStore] 🏢 Organization from game: {orgName}");
+                        Logger.Debug($"🏢 Organization from game: {orgName}", "SaveFileJsonDataStore");
                         return orgName.Trim();
                     }
                 }
 
-                Logger.Warn("[SaveFileJsonDataStore] ⚠️ Could not get organization name from game");
+                Logger.Warn("⚠️ Could not get organization name from game", "SaveFileJsonDataStore");
                 return "unknown_org";
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[SaveFileJsonDataStore] ⚠️ Organization name retrieval failed: {ex.Message}");
+                Logger.Warn($"⚠️ Organization name retrieval failed: {ex.Message}", "SaveFileJsonDataStore");
                 return "unknown_org";
             }
         }
@@ -403,7 +403,7 @@ namespace PaxDrops
                             if (dateValue != null)
                             {
                                 string dateStr = dateValue.ToString() ?? "";
-                                Logger.Msg($"[SaveFileJsonDataStore] 📅 Save start date from {propName}: {dateStr}");
+                                Logger.Debug($"📅 Save start date from {propName}: {dateStr}", "SaveFileJsonDataStore");
                                 return dateStr;
                             }
                         }
@@ -416,16 +416,16 @@ namespace PaxDrops
                 {
                     int gameDay = timeManager.ElapsedDays;
                     string gameDate = $"Day_{gameDay}";
-                    Logger.Msg($"[SaveFileJsonDataStore] 📅 Using current game day as start reference: {gameDate}");
+                    Logger.Debug($"📅 Using current game day as start reference: {gameDate}", "SaveFileJsonDataStore");
                     return gameDate;
                 }
 
-                Logger.Warn("[SaveFileJsonDataStore] ⚠️ Could not determine save start date");
+                Logger.Warn("⚠️ Could not determine save start date", "SaveFileJsonDataStore");
                 return DateTime.Now.ToString("yyyy-MM-dd");
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[SaveFileJsonDataStore] ⚠️ Save start date retrieval failed: {ex.Message}");
+                Logger.Warn($"⚠️ Save start date retrieval failed: {ex.Message}", "SaveFileJsonDataStore");
                 return DateTime.Now.ToString("yyyy-MM-dd");
             }
         }
@@ -440,20 +440,20 @@ namespace PaxDrops
                 // Combine all identifying information
                 string combined = $"{metadata.SteamId}|{metadata.OrganizationName}|{metadata.StartDate}|{metadata.SaveName}|{NormalizePath(metadata.SavePath)}";
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 🔧 Enhanced ID Components: '{combined}'");
+                Logger.Debug($"🔧 Enhanced ID Components: '{combined}'", "SaveFileJsonDataStore");
                 
                 using (var sha256 = SHA256.Create())
                 {
                     byte[] hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(combined));
                     string saveId = Convert.ToBase64String(hashedBytes).Replace('/', '_').Replace('+', '-').Substring(0, 12);
                     
-                    Logger.Msg($"[SaveFileJsonDataStore] 🆔 Enhanced Save ID: '{saveId}'");
+                    Logger.Debug($"🆔 Enhanced Save ID: '{saveId}'", "SaveFileJsonDataStore");
                     return saveId;
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Enhanced save ID generation failed: {ex.Message}");
+                Logger.Error($"❌ Enhanced save ID generation failed: {ex.Message}", "SaveFileJsonDataStore");
                 return GenerateBasicSaveId(metadata.SavePath, metadata.SaveName);
             }
         }
@@ -465,7 +465,7 @@ namespace PaxDrops
         {
             if (savePath == null || saveName == null)
             {
-                Logger.Error("[SaveFileJsonDataStore] ❌ Failed to generate basic save ID: savePath or saveName is null");
+                Logger.Error("❌ Failed to generate basic save ID: savePath or saveName is null", "SaveFileJsonDataStore");
                 return "unknown";
             }
 
@@ -502,11 +502,11 @@ namespace PaxDrops
                 string json = JsonConvert.SerializeObject(_currentSaveMetadata, Formatting.Indented);
                 File.WriteAllText(metadataFile, json);
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 📄 Metadata saved for Steam user {_currentSteamId}");
+                Logger.Debug($"📄 Metadata saved for Steam user {_currentSteamId}", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to save metadata file: {ex.Message}");
+                Logger.Error($"❌ Failed to save metadata file: {ex.Message}", "SaveFileJsonDataStore");
             }
         }
 
@@ -556,12 +556,12 @@ namespace PaxDrops
                 // Load daily orders
                 LoadDailyOrdersFromFile(ordersFile);
                 
-                Logger.Msg($"[SaveFileJsonDataStore] ✅ Loaded {PendingDrops.Values.Sum(list => list.Count)} drops and {MrsStacksOrdersToday.Count} order records");
+                Logger.Debug($"✅ Loaded {PendingDrops.Values.Sum(list => list.Count)} drops and {MrsStacksOrdersToday.Count} order records", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to load data for current save");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Failed to load data for current save", "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
                 ClearCurrentData(); // Ensure clean state on error
             }
         }
@@ -588,12 +588,12 @@ namespace PaxDrops
                 // Save daily orders
                 SaveDailyOrdersToFile(ordersFile);
                 
-                Logger.Msg($"[SaveFileJsonDataStore] ✅ Saved {PendingDrops.Values.Sum(list => list.Count)} drops and {MrsStacksOrdersToday.Count} order records");
+                Logger.Debug($"✅ Saved {PendingDrops.Values.Sum(list => list.Count)} drops and {MrsStacksOrdersToday.Count} order records", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to save data for current save");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Failed to save data for current save", "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
             }
         }
 
@@ -604,7 +604,7 @@ namespace PaxDrops
         {
             if (!File.Exists(dropsFile))
             {
-                Logger.Msg($"[SaveFileJsonDataStore] 📄 No existing drops file found");
+                Logger.Debug($"📄 No existing drops file found", "SaveFileJsonDataStore");
                 return;
             }
 
@@ -620,12 +620,12 @@ namespace PaxDrops
                     {
                         PendingDrops[kvp.Key] = kvp.Value;
                     }
-                    Logger.Msg($"[SaveFileJsonDataStore] 📂 Loaded {PendingDrops.Count} drop days from file");
+                    Logger.Debug($"📂 Loaded {PendingDrops.Count} drop days from file", "SaveFileJsonDataStore");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to load drops from file: {ex.Message}");
+                Logger.Error($"❌ Failed to load drops from file: {ex.Message}", "SaveFileJsonDataStore");
             }
         }
 
@@ -641,7 +641,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to save drops to file: {ex.Message}");
+                Logger.Error($"❌ Failed to save drops to file: {ex.Message}", "SaveFileJsonDataStore");
                 throw;
             }
         }
@@ -653,7 +653,7 @@ namespace PaxDrops
         {
             if (!File.Exists(ordersFile))
             {
-                Logger.Msg($"[SaveFileJsonDataStore] 📄 No existing orders file found");
+                Logger.Debug($"📄 No existing orders file found", "SaveFileJsonDataStore");
                 return;
             }
 
@@ -683,12 +683,12 @@ namespace PaxDrops
                         _lastMrsStacksOrderDay = (int)lastDay;
                     }
                     
-                    Logger.Msg($"[SaveFileJsonDataStore] 📂 Loaded {MrsStacksOrdersToday.Count} order records, last order day: {_lastMrsStacksOrderDay}");
+                    Logger.Debug($"📂 Loaded {MrsStacksOrdersToday.Count} order records, last order day: {_lastMrsStacksOrderDay}", "SaveFileJsonDataStore");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to load orders from file: {ex.Message}");
+                Logger.Error($"❌ Failed to load orders from file: {ex.Message}", "SaveFileJsonDataStore");
             }
         }
 
@@ -710,7 +710,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to save orders to file: {ex.Message}");
+                Logger.Error($"❌ Failed to save orders to file: {ex.Message}", "SaveFileJsonDataStore");
                 throw;
             }
         }
@@ -730,7 +730,7 @@ namespace PaxDrops
         {
             if (!_isLoadedForSave)
             {
-                Logger.Warn("[SaveFileJsonDataStore] ⚠️ No save loaded - cannot save drop");
+                Logger.Warn("⚠️ No save loaded - cannot save drop", "SaveFileJsonDataStore");
                 return;
             }
 
@@ -756,14 +756,14 @@ namespace PaxDrops
             }
             PendingDrops[day].Add(record);
 
-            Logger.Msg($"[SaveFileJsonDataStore] 💾 Drop queued for Day {day} with {items.Count} items (will save on next game save)");
+            Logger.Debug($"💾 Drop queued for Day {day} with {items.Count} items (will save on next game save)", "SaveFileJsonDataStore");
         }
 
         public static void SaveDropRecord(DropRecord record)
         {
             if (!_isLoadedForSave)
             {
-                Logger.Warn("[SaveFileJsonDataStore] ⚠️ No save loaded - cannot save drop record");
+                Logger.Warn("⚠️ No save loaded - cannot save drop record", "SaveFileJsonDataStore");
                 return;
             }
 
@@ -772,7 +772,7 @@ namespace PaxDrops
                 PendingDrops[record.Day] = new List<DropRecord>();
             }
             PendingDrops[record.Day].Add(record);
-            Logger.Msg($"[SaveFileJsonDataStore] 💾 Drop record queued for Day {record.Day} (will save on next game save)");
+            Logger.Debug($"💾 Drop record queued for Day {record.Day} (will save on next game save)", "SaveFileJsonDataStore");
         }
 
         public static void RemoveDrop(int day)
@@ -782,7 +782,7 @@ namespace PaxDrops
             if (PendingDrops.ContainsKey(day))
             {
                 PendingDrops[day].Clear();
-                Logger.Msg($"[SaveFileJsonDataStore] 🗑️ Removed all drops for Day {day}");
+                Logger.Debug($"🗑️ Removed all drops for Day {day}", "SaveFileJsonDataStore");
             }
         }
 
@@ -809,7 +809,7 @@ namespace PaxDrops
                     if (drop.Location == location && !drop.IsCollected)
                     {
                         drop.IsCollected = true;
-                        Logger.Msg($"[SaveFileJsonDataStore] ✅ Drop at {location} on day {day} marked as collected");
+                        Logger.Debug($"✅ Drop at {location} on day {day} marked as collected", "SaveFileJsonDataStore");
                         return;
                     }
                 }
@@ -826,7 +826,7 @@ namespace PaxDrops
                 {
                     drop.IsCollected = true;
                 }
-                Logger.Msg($"[SaveFileJsonDataStore] ✅ All drops for day {day} marked as collected");
+                Logger.Debug($"✅ All drops for day {day} marked as collected", "SaveFileJsonDataStore");
             }
         }
 
@@ -837,7 +837,7 @@ namespace PaxDrops
             if (PendingDrops.ContainsKey(day))
             {
                 PendingDrops[day].RemoveAll(drop => drop.Location == location);
-                Logger.Msg($"[SaveFileJsonDataStore] 🗑️ Removed drop at {location} for Day {day}");
+                Logger.Debug($"🗑️ Removed drop at {location} for Day {day}", "SaveFileJsonDataStore");
             }
         }
 
@@ -864,7 +864,7 @@ namespace PaxDrops
             }
             MrsStacksOrdersToday[day]++;
             _lastMrsStacksOrderDay = day;
-            Logger.Msg($"[SaveFileJsonDataStore] 📋 Mrs. Stacks order marked for day {day} (total: {MrsStacksOrdersToday[day]})");
+            Logger.Debug($"📋 Mrs. Stacks order marked for day {day} (total: {MrsStacksOrdersToday[day]})", "SaveFileJsonDataStore");
         }
 
         public static void ResetMrsStacksOrdersToday(int day)
@@ -874,7 +874,7 @@ namespace PaxDrops
             if (MrsStacksOrdersToday.ContainsKey(day))
             {
                 MrsStacksOrdersToday[day] = 0;
-                Logger.Msg($"[SaveFileJsonDataStore] 🔄 Reset Mrs. Stacks orders for day {day}");
+                Logger.Debug($"🔄 Reset Mrs. Stacks orders for day {day}", "SaveFileJsonDataStore");
             }
         }
 
@@ -919,11 +919,11 @@ namespace PaxDrops
             try
             {
                 UnloadCurrentSave();
-                Logger.Msg("[SaveFileJsonDataStore] 🔌 Shutdown complete");
+                Logger.Debug("🔌 Shutdown complete", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Shutdown error: {ex.Message}");
+                Logger.Error($"❌ Shutdown error: {ex.Message}", "SaveFileJsonDataStore");
             }
         }
 
@@ -936,26 +936,26 @@ namespace PaxDrops
             {
                 if (!Directory.Exists(BaseDataDir))
                 {
-                    Logger.Msg("[SaveFileJsonDataStore] 🔍 No SaveFiles directory exists yet");
+                    Logger.Debug("🔍 No SaveFiles directory exists yet", "SaveFileJsonDataStore");
                     return;
                 }
 
                 var steamUserDirs = Directory.GetDirectories(BaseDataDir);
-                Logger.Msg($"[SaveFileJsonDataStore] 🔍 Found {steamUserDirs.Length} Steam user directories:");
+                Logger.Debug($"🔍 Found {steamUserDirs.Length} Steam user directories:", "SaveFileJsonDataStore");
                 
                 foreach (var steamUserDir in steamUserDirs)
                 {
                     string steamId = Path.GetFileName(steamUserDir);
                     var saveDirectories = Directory.GetDirectories(steamUserDir);
                     
-                    Logger.Msg($"[SaveFileJsonDataStore] 👤 Steam User: {steamId} ({saveDirectories.Length} saves)");
+                    Logger.Debug($"👤 Steam User: {steamId} ({saveDirectories.Length} saves)", "SaveFileJsonDataStore");
                     
                     foreach (var saveDir in saveDirectories)
                     {
                         string saveId = Path.GetFileName(saveDir);
                         var files = Directory.GetFiles(saveDir, "*.json");
                         
-                        Logger.Msg($"[SaveFileJsonDataStore]   📁 Save ID: {saveId} ({files.Length} files)");
+                        Logger.Debug($"📁 Save ID: {saveId} ({files.Length} files)", "SaveFileJsonDataStore");
                         
                         // Try to load metadata if it exists
                         string metadataFile = Path.Combine(saveDir, "metadata.json");
@@ -967,15 +967,15 @@ namespace PaxDrops
                                 var metadata = JsonConvert.DeserializeObject<SaveMetadata>(json);
                                 if (metadata != null)
                                 {
-                                    Logger.Msg($"[SaveFileJsonDataStore]     📋 Name: {metadata.SaveName}");
-                                    Logger.Msg($"[SaveFileJsonDataStore]     🏢 Org: {metadata.OrganizationName}");
-                                    Logger.Msg($"[SaveFileJsonDataStore]     📅 Start: {metadata.StartDate}");
-                                    Logger.Msg($"[SaveFileJsonDataStore]     🕐 Last: {metadata.LastAccessed}");
+                                    Logger.Debug($"📋 Name: {metadata.SaveName}", "SaveFileJsonDataStore");
+                                    Logger.Debug($"🏢 Org: {metadata.OrganizationName}", "SaveFileJsonDataStore");
+                                    Logger.Debug($"📅 Start: {metadata.StartDate}", "SaveFileJsonDataStore");
+                                    Logger.Debug($"🕐 Last: {metadata.LastAccessed}", "SaveFileJsonDataStore");
                                 }
                             }
                             catch (Exception ex)
                             {
-                                Logger.Warn($"[SaveFileJsonDataStore]     ⚠️ Failed to read metadata: {ex.Message}");
+                                Logger.Warn($"⚠️ Failed to read metadata: {ex.Message}", "SaveFileJsonDataStore");
                             }
                         }
                         
@@ -983,14 +983,14 @@ namespace PaxDrops
                         {
                             string fileName = Path.GetFileName(file);
                             var fileInfo = new FileInfo(file);
-                            Logger.Msg($"[SaveFileJsonDataStore]     📄 {fileName} ({fileInfo.Length} bytes, {fileInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss})");
+                            Logger.Debug($"📄 {fileName} ({fileInfo.Length} bytes, {fileInfo.LastWriteTime:yyyy-MM-dd HH:mm:ss})", "SaveFileJsonDataStore");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Debug show directories failed: {ex.Message}");
+                Logger.Error($"❌ Debug show directories failed: {ex.Message}", "SaveFileJsonDataStore");
             }
         }
 
@@ -1001,29 +1001,29 @@ namespace PaxDrops
         {
             try
             {
-                Logger.Msg($"[SaveFileJsonDataStore] 🔍 Current Cached Metadata:");
-                Logger.Msg($"[SaveFileJsonDataStore]   Is Loaded: {_isLoadedForSave}");
-                Logger.Msg($"[SaveFileJsonDataStore]   Save ID: '{_currentSaveId ?? "null"}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Steam ID: '{_currentSteamId ?? "null"}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Save Path: '{_currentSavePath ?? "null"}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Save Name: '{_currentSaveName ?? "null"}'");
+                Logger.Debug($"🔍 Current Cached Metadata:", "SaveFileJsonDataStore");
+                Logger.Debug($"   Is Loaded: {_isLoadedForSave}", "SaveFileJsonDataStore");
+                Logger.Debug($"   Save ID: '{_currentSaveId ?? "null"}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Steam ID: '{_currentSteamId ?? "null"}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Save Path: '{_currentSavePath ?? "null"}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Save Name: '{_currentSaveName ?? "null"}'", "SaveFileJsonDataStore");
                 
                 if (_currentSaveMetadata != null)
                 {
-                    Logger.Msg($"[SaveFileJsonDataStore]   Metadata Object:");
-                    Logger.Msg($"[SaveFileJsonDataStore]     Save ID: '{_currentSaveMetadata.SaveId}'");
-                    Logger.Msg($"[SaveFileJsonDataStore]     Steam ID: '{_currentSaveMetadata.SteamId}'");
-                    Logger.Msg($"[SaveFileJsonDataStore]     Organization: '{_currentSaveMetadata.OrganizationName}'");
-                    Logger.Msg($"[SaveFileJsonDataStore]     Start Date: '{_currentSaveMetadata.StartDate}'");
-                    Logger.Msg($"[SaveFileJsonDataStore]     Save Name: '{_currentSaveMetadata.SaveName}'");
-                    Logger.Msg($"[SaveFileJsonDataStore]     Save Path: '{_currentSaveMetadata.SavePath}'");
-                    Logger.Msg($"[SaveFileJsonDataStore]     Creation: '{_currentSaveMetadata.CreationTimestamp}'");
-                    Logger.Msg($"[SaveFileJsonDataStore]     Last Access: '{_currentSaveMetadata.LastAccessed}'");
-                    Logger.Msg($"[SaveFileJsonDataStore]     Expected Folder: SaveFiles/{_currentSaveMetadata.SteamId}/{_currentSaveMetadata.SaveId}/");
+                    Logger.Debug($"   Metadata Object:", "SaveFileJsonDataStore");
+                    Logger.Debug($"     Save ID: '{_currentSaveMetadata.SaveId}'", "SaveFileJsonDataStore");
+                    Logger.Debug($"     Steam ID: '{_currentSaveMetadata.SteamId}'", "SaveFileJsonDataStore");
+                    Logger.Debug($"     Organization: '{_currentSaveMetadata.OrganizationName}'", "SaveFileJsonDataStore");
+                    Logger.Debug($"     Start Date: '{_currentSaveMetadata.StartDate}'", "SaveFileJsonDataStore");
+                    Logger.Debug($"     Save Name: '{_currentSaveMetadata.SaveName}'", "SaveFileJsonDataStore");
+                    Logger.Debug($"     Save Path: '{_currentSaveMetadata.SavePath}'", "SaveFileJsonDataStore");
+                    Logger.Debug($"     Creation: '{_currentSaveMetadata.CreationTimestamp}'", "SaveFileJsonDataStore");
+                    Logger.Debug($"     Last Access: '{_currentSaveMetadata.LastAccessed}'", "SaveFileJsonDataStore");
+                    Logger.Debug($"     Expected Folder: SaveFiles/{_currentSaveMetadata.SteamId}/{_currentSaveMetadata.SaveId}/", "SaveFileJsonDataStore");
                 }
                 else
                 {
-                    Logger.Msg($"[SaveFileJsonDataStore]   Metadata Object: null");
+                    Logger.Debug($"   Metadata Object: null", "SaveFileJsonDataStore");
                 }
                 
                 // Also show what the current game would generate
@@ -1035,42 +1035,42 @@ namespace PaxDrops
                         string? currentSavePath = saveManager.PlayersSavePath;
                         string? currentSaveName = saveManager.SaveName;
                         
-                        Logger.Msg($"[SaveFileJsonDataStore] 🎮 Current Game Save Info:");
-                        Logger.Msg($"[SaveFileJsonDataStore]   Game Save Path: '{currentSavePath ?? "null"}'");
-                        Logger.Msg($"[SaveFileJsonDataStore]   Game Save Name: '{currentSaveName ?? "null"}'");
+                        Logger.Debug($"🎮 Current Game Save Info:", "SaveFileJsonDataStore");
+                        Logger.Debug($"   Game Save Path: '{currentSavePath ?? "null"}'", "SaveFileJsonDataStore");
+                        Logger.Debug($"   Game Save Name: '{currentSaveName ?? "null"}'", "SaveFileJsonDataStore");
                         
                         if (!string.IsNullOrEmpty(currentSavePath) && !string.IsNullOrEmpty(currentSaveName))
                         {
                             var freshMetadata = GenerateSaveMetadata(currentSavePath, currentSaveName);
-                            Logger.Msg($"[SaveFileJsonDataStore] 🔄 Fresh Metadata Generation (for comparison):");
-                            Logger.Msg($"[SaveFileJsonDataStore]     Fresh Save ID: '{freshMetadata.SaveId}'");
-                            Logger.Msg($"[SaveFileJsonDataStore]     Fresh Steam ID: '{freshMetadata.SteamId}'");
-                            Logger.Msg($"[SaveFileJsonDataStore]     Fresh Organization: '{freshMetadata.OrganizationName}'");
-                            Logger.Msg($"[SaveFileJsonDataStore]     Fresh Start Date: '{freshMetadata.StartDate}'");
+                            Logger.Debug($"🔄 Fresh Metadata Generation (for comparison):", "SaveFileJsonDataStore");
+                            Logger.Debug($"     Fresh Save ID: '{freshMetadata.SaveId}'", "SaveFileJsonDataStore");
+                            Logger.Debug($"     Fresh Steam ID: '{freshMetadata.SteamId}'", "SaveFileJsonDataStore");
+                            Logger.Debug($"     Fresh Organization: '{freshMetadata.OrganizationName}'", "SaveFileJsonDataStore");
+                            Logger.Debug($"     Fresh Start Date: '{freshMetadata.StartDate}'", "SaveFileJsonDataStore");
                             
                             bool idsMatch = _currentSaveId == freshMetadata.SaveId;
-                            Logger.Msg($"[SaveFileJsonDataStore]   🔍 ID Consistency: {(idsMatch ? "✅ CONSISTENT" : "❌ INCONSISTENT")}");
+                            Logger.Debug($"   🔍 ID Consistency: {(idsMatch ? "✅ CONSISTENT" : "❌ INCONSISTENT")}", "SaveFileJsonDataStore");
                             
                             if (!idsMatch)
                             {
-                                Logger.Warn($"[SaveFileJsonDataStore] 🚨 Save ID mismatch detected!");
-                                Logger.Warn($"[SaveFileJsonDataStore] 🚨 Cached: '{_currentSaveId}' vs Fresh: '{freshMetadata.SaveId}'");
+                                Logger.Warn($"🚨 Save ID mismatch detected!", "SaveFileJsonDataStore");
+                                Logger.Warn($"🚨 Cached: '{_currentSaveId}' vs Fresh: '{freshMetadata.SaveId}'", "SaveFileJsonDataStore");
                             }
                         }
                     }
                     else
                     {
-                        Logger.Msg($"[SaveFileJsonDataStore] 🎮 SaveManager not available");
+                        Logger.Debug($"🎮 SaveManager not available", "SaveFileJsonDataStore");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Logger.Warn($"[SaveFileJsonDataStore] ⚠️ Could not get current game save info: {ex.Message}");
+                    Logger.Warn($"⚠️ Could not get current game save info: {ex.Message}", "SaveFileJsonDataStore");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Debug metadata display failed: {ex.Message}");
+                Logger.Error($"❌ Debug metadata display failed: {ex.Message}", "SaveFileJsonDataStore");
             }
         }
 
@@ -1109,7 +1109,7 @@ namespace PaxDrops
                     if (savesIndex != -1)
                     {
                         normalized = normalized.Substring(0, savesIndex + "/saves".Length);
-                        Logger.Msg($"[SaveFileJsonDataStore] 🔧 Normalized to base saves directory: '{normalized}'");
+                        Logger.Debug($"🔧 Normalized to base saves directory: '{normalized}'", "SaveFileJsonDataStore");
                     }
                 }
                 
@@ -1117,7 +1117,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[SaveFileJsonDataStore] ⚠️ Path normalization failed for '{path}': {ex.Message}");
+                Logger.Warn($"⚠️ Path normalization failed for '{path}': {ex.Message}", "SaveFileJsonDataStore");
                 return path?.ToLowerInvariant() ?? "";
             }
         }
@@ -1131,22 +1131,22 @@ namespace PaxDrops
             {
                 if (testPath == null || testName == null)
                 {
-                    Logger.Error("[SaveFileJsonDataStore] ❌ Test save ID generation failed: testPath or testName is null");
+                    Logger.Error("❌ Test save ID generation failed: testPath or testName is null", "SaveFileJsonDataStore");
                     return;
                 }
 
-                Logger.Msg($"[SaveFileJsonDataStore] 🧪 Testing Enhanced Save ID generation:");
-                Logger.Msg($"[SaveFileJsonDataStore]   Test Input - Path: '{testPath}', Name: '{testName}'");
+                Logger.Debug($"🧪 Testing Enhanced Save ID generation:", "SaveFileJsonDataStore");
+                Logger.Debug($"   Test Input - Path: '{testPath}', Name: '{testName}'", "SaveFileJsonDataStore");
                 
                 // Test enhanced metadata generation
                 var testMetadata = GenerateSaveMetadata(testPath, testName);
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 🔄 Enhanced Metadata Results:");
-                Logger.Msg($"[SaveFileJsonDataStore]   Steam ID: '{testMetadata.SteamId}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Organization: '{testMetadata.OrganizationName}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Start Date: '{testMetadata.StartDate}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Save ID: '{testMetadata.SaveId}'");
-                Logger.Msg($"[SaveFileJsonDataStore]   Folder Structure: SaveFiles/{testMetadata.SteamId}/{testMetadata.SaveId}/");
+                Logger.Debug($"🔄 Enhanced Metadata Results:", "SaveFileJsonDataStore");
+                Logger.Debug($"   Steam ID: '{testMetadata.SteamId}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Organization: '{testMetadata.OrganizationName}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Start Date: '{testMetadata.StartDate}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Save ID: '{testMetadata.SaveId}'", "SaveFileJsonDataStore");
+                Logger.Debug($"   Folder Structure: SaveFiles/{testMetadata.SteamId}/{testMetadata.SaveId}/", "SaveFileJsonDataStore");
                 
                 // Test with different path variations
                 string[] pathVariations = {
@@ -1158,20 +1158,20 @@ namespace PaxDrops
                     testPath.ToUpperInvariant()
                 };
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 🔄 Testing path variations:");
+                Logger.Debug($"🔄 Testing path variations:", "SaveFileJsonDataStore");
                 foreach (var variation in pathVariations)
                 {
                     if (variation != null)
                     {
                         var variationMetadata = GenerateSaveMetadata(variation, testName);
                         bool matches = variationMetadata.SaveId == testMetadata.SaveId;
-                        Logger.Msg($"[SaveFileJsonDataStore]   '{variation}' → {variationMetadata.SaveId} {(matches ? "✅ MATCH" : "❌ DIFFERENT")}");
+                        Logger.Debug($"   '{variation}' → {variationMetadata.SaveId} {(matches ? "✅ MATCH" : "❌ DIFFERENT")}", "SaveFileJsonDataStore");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Debug test generation failed: {ex.Message}");
+                Logger.Error($"❌ Debug test generation failed: {ex.Message}", "SaveFileJsonDataStore");
             }
         }
 
@@ -1184,14 +1184,14 @@ namespace PaxDrops
             {
                 if (!Directory.Exists(BaseDataDir))
                 {
-                    Logger.Msg("[SaveFileJsonDataStore] 🔍 No SaveFiles directory exists");
+                    Logger.Debug("🔍 No SaveFiles directory exists", "SaveFileJsonDataStore");
                     return;
                 }
 
                 var steamUserDirs = Directory.GetDirectories(BaseDataDir);
                 int totalSaves = 0;
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 🔍 Analyzing {steamUserDirs.Length} Steam user directories:");
+                Logger.Debug($"🔍 Analyzing {steamUserDirs.Length} Steam user directories:", "SaveFileJsonDataStore");
                 
                 foreach (var steamUserDir in steamUserDirs)
                 {
@@ -1199,7 +1199,7 @@ namespace PaxDrops
                     var saveDirectories = Directory.GetDirectories(steamUserDir);
                     totalSaves += saveDirectories.Length;
                     
-                    Logger.Msg($"[SaveFileJsonDataStore] 👤 Steam User: {steamId} ({saveDirectories.Length} saves)");
+                    Logger.Debug($"👤 Steam User: {steamId} ({saveDirectories.Length} saves)", "SaveFileJsonDataStore");
                     
                     var saveInfos = new List<SaveDirectoryInfo>();
                     
@@ -1208,12 +1208,12 @@ namespace PaxDrops
                         var info = AnalyzeSaveDirectory(saveDir);
                         saveInfos.Add(info);
                         
-                        Logger.Msg($"[SaveFileJsonDataStore]   📁 {info.SaveId}:");
-                        Logger.Msg($"[SaveFileJsonDataStore]     📄 Files: {info.FileCount} | Data entries: {info.DataEntries}");
-                        Logger.Msg($"[SaveFileJsonDataStore]     🕐 Last modified: {info.LastModified:yyyy-MM-dd HH:mm:ss}");
+                        Logger.Debug($"   📁 {info.SaveId}:", "SaveFileJsonDataStore");
+                        Logger.Debug($"     📄 Files: {info.FileCount} | Data entries: {info.DataEntries}", "SaveFileJsonDataStore");
+                        Logger.Debug($"     🕐 Last modified: {info.LastModified:yyyy-MM-dd HH:mm:ss}", "SaveFileJsonDataStore");
                         if (info.FileCount > 0)
                         {
-                            Logger.Msg($"[SaveFileJsonDataStore]     📋 Size: {info.TotalSize} bytes");
+                            Logger.Debug($"     📋 Size: {info.TotalSize} bytes", "SaveFileJsonDataStore");
                         }
                     }
                     
@@ -1221,11 +1221,11 @@ namespace PaxDrops
                     IdentifyPotentialDuplicatesForUser(steamId, saveInfos);
                 }
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 📊 Total analysis: {steamUserDirs.Length} users, {totalSaves} saves");
+                Logger.Debug($"📊 Total analysis: {steamUserDirs.Length} users, {totalSaves} saves", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Analyze saves failed: {ex.Message}");
+                Logger.Error($"❌ Analyze saves failed: {ex.Message}", "SaveFileJsonDataStore");
             }
         }
 
@@ -1238,15 +1238,16 @@ namespace PaxDrops
             
             if (duplicateGroups.Count > 0)
             {
-                Logger.Msg($"[SaveFileJsonDataStore] 🔍 Found {duplicateGroups.Count} potential duplicate groups for Steam user {steamId}:");
+                Logger.Debug($"🔍 Found {duplicateGroups.Count} potential duplicate groups for Steam user {steamId}:", "SaveFileJsonDataStore");
+
                 foreach (var group in duplicateGroups)
                 {
-                    Logger.Msg($"[SaveFileJsonDataStore]   📁 Duplicate group ({group.Count} saves):");
+                    Logger.Debug($"     Duplicate group ({group.Count} saves):", "SaveFileJsonDataStore");
                     foreach (var dup in group)
                     {
-                        Logger.Msg($"[SaveFileJsonDataStore]     {dup.SaveId} ({dup.FileCount} files, {dup.TotalSize} bytes, {dup.LastModified:HH:mm:ss})");
+                        Logger.Debug($"        {dup.SaveId} ({dup.FileCount} files, {dup.TotalSize} bytes, {dup.LastModified:HH:mm:ss})", "SaveFileJsonDataStore");
                     }
-                }
+                }   
             }
         }
 
@@ -1259,21 +1260,21 @@ namespace PaxDrops
             {
                 if (!Directory.Exists(BaseDataDir))
                 {
-                    Logger.Msg("[SaveFileJsonDataStore] 🧹 No SaveFiles directory to clean");
+                    Logger.Debug("🧹 No SaveFiles directory to clean", "SaveFileJsonDataStore");
                     return;
                 }
 
                 var steamUserDirs = Directory.GetDirectories(BaseDataDir);
                 int totalCleaned = 0;
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 🧹 Analyzing {steamUserDirs.Length} Steam user directories for cleanup");
+                Logger.Debug($"🧹 Analyzing {steamUserDirs.Length} Steam user directories for cleanup", "SaveFileJsonDataStore");
                 
                 foreach (var steamUserDir in steamUserDirs)
                 {
                     string steamId = Path.GetFileName(steamUserDir);
                     var saveDirectories = Directory.GetDirectories(steamUserDir);
                     
-                    Logger.Msg($"[SaveFileJsonDataStore] 🧹 Cleaning user {steamId} ({saveDirectories.Length} saves)");
+                    Logger.Debug($"🧹 Cleaning user {steamId} ({saveDirectories.Length} saves)", "SaveFileJsonDataStore");
                     
                     var saveInfos = new List<SaveDirectoryInfo>();
                     foreach (var dir in saveDirectories)
@@ -1293,11 +1294,11 @@ namespace PaxDrops
                     }
                 }
                 
-                Logger.Msg($"[SaveFileJsonDataStore] ✅ Cleanup completed - removed {totalCleaned} duplicate directories");
+                Logger.Debug($"✅ Cleanup completed - removed {totalCleaned} duplicate directories", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Cleanup failed: {ex.Message}");
+                Logger.Error($"❌ Cleanup failed: {ex.Message}", "SaveFileJsonDataStore");
             }
         }
 
@@ -1314,22 +1315,22 @@ namespace PaxDrops
                 var keepDirectory = duplicates[0];
                 var removeDirectories = duplicates.Skip(1).ToList();
                 
-                Logger.Msg($"[SaveFileJsonDataStore] 🔄 Merging duplicates into: {keepDirectory.SaveId}");
+                Logger.Debug($"🔄 Merging duplicates into: {keepDirectory.SaveId}", "SaveFileJsonDataStore");
                 
                 int removedCount = 0;
                 foreach (var removeDir in removeDirectories)
                 {
-                    Logger.Msg($"[SaveFileJsonDataStore] 🗑️ Removing duplicate: {removeDir.SaveId}");
+                    Logger.Debug($"🗑️ Removing duplicate: {removeDir.SaveId}", "SaveFileJsonDataStore");
                     
                     try
                     {
                         Directory.Delete(removeDir.DirectoryPath, true);
-                        Logger.Msg($"[SaveFileJsonDataStore] ✅ Deleted: {removeDir.SaveId}");
+                        Logger.Debug($"✅ Deleted: {removeDir.SaveId}", "SaveFileJsonDataStore");
                         removedCount++;
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error($"[SaveFileJsonDataStore] ❌ Failed to delete {removeDir.SaveId}: {ex.Message}");
+                        Logger.Error($"❌ Failed to delete {removeDir.SaveId}: {ex.Message}", "SaveFileJsonDataStore");
                     }
                 }
                 
@@ -1337,7 +1338,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveFileJsonDataStore] ❌ Merge failed: {ex.Message}");
+                Logger.Error($"❌ Merge failed: {ex.Message}", "SaveFileJsonDataStore");
                 return 0;
             }
         }
@@ -1399,7 +1400,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[SaveFileJsonDataStore] ⚠️ Failed to analyze directory {info.SaveId}: {ex.Message}");
+                Logger.Warn($"⚠️ Failed to analyze directory {info.SaveId}: {ex.Message}", "SaveFileJsonDataStore");
             }
             
             return info;
@@ -1434,10 +1435,10 @@ namespace PaxDrops
                 if (potentialDuplicates.Count > 1)
                 {
                     duplicateGroups.Add(potentialDuplicates);
-                    Logger.Msg($"[SaveFileJsonDataStore] 🔍 Found potential duplicate group:");
+                    Logger.Debug($"🔍 Found potential duplicate group:", "SaveFileJsonDataStore");
                     foreach (var dup in potentialDuplicates)
                     {
-                        Logger.Msg($"[SaveFileJsonDataStore]   📁 {dup.SaveId} ({dup.FileCount} files, {dup.TotalSize} bytes, {dup.LastModified:HH:mm:ss})");
+                        Logger.Debug($"   📁 {dup.SaveId} ({dup.FileCount} files, {dup.TotalSize} bytes, {dup.LastModified:HH:mm:ss})", "SaveFileJsonDataStore");
                     }
                 }
                 

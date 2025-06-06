@@ -95,7 +95,7 @@ namespace PaxDrops
             if (_initialized) return;
             _initialized = true;
 
-            Logger.Msg("[TierLevel] Loading mafia-themed loot pools...");
+            Logger.Debug("Loading mafia-themed loot pools...", "TierLevel");
 
             LootPools[Tier.StreetEarner1] = new List<string>
             {
@@ -142,7 +142,7 @@ namespace PaxDrops
                 "goldentoilet", "goldenskateboard", "jukebox"
             };
 
-            Logger.Msg("[TierLevel] Loot pools loaded with 9 tiers.");
+            Logger.Debug("Loot pools loaded with 9 tiers.", "TierLevel");
         }
 
         /// <summary>
@@ -178,7 +178,7 @@ namespace PaxDrops
                 Loot = loot
             };
 
-            Logger.Msg($"[TierLevel] Created drop for Day {day} ({tier}) ➤ {packet}");
+            Logger.Debug($"Created drop for Day {day} ({tier}) ➤ {packet}", "TierLevel");
             return packet;
         }
 
@@ -215,7 +215,7 @@ namespace PaxDrops
                 Loot = loot
             };
 
-            Logger.Msg($"[TierLevel] Created PREMIUM drop for Day {day} ({tier}) ➤ {packet}");
+            Logger.Debug($"Created PREMIUM drop for Day {day} ({tier}) ➤ {packet}", "TierLevel");
             return packet;
         }
 
@@ -255,7 +255,7 @@ namespace PaxDrops
                 Loot = loot
             };
 
-            Logger.Msg($"[TierLevel] Created RANDOM drop for Day {day} (max tier {maxTier}) ➤ {packet}");
+            Logger.Debug($"Created RANDOM drop for Day {day} (max tier {maxTier}) ➤ {packet}", "TierLevel");
             return packet;
         }
 
@@ -290,7 +290,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TierLevel] ❌ Error getting rank, defaulting to Tier 1: {ex.Message}");
+                Logger.Error($"❌ Error getting rank, defaulting to Tier 1: {ex.Message}", "TierLevel");
                 return Tier.StreetEarner1;
             }
         }
@@ -307,7 +307,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TierLevel] ❌ Error checking tier unlock: {ex.Message}");
+                Logger.Error($"❌ Error checking tier unlock: {ex.Message}", "TierLevel");
                 return tier == Tier.StreetEarner1; // Default to tier 1 only
             }
         }

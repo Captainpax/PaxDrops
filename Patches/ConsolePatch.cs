@@ -23,14 +23,14 @@ namespace PaxDrops.Patches
 
             try
             {
-                Logger.Msg("[ConsolePatch] 🔧 Setting up console command interception...");
+                Logger.Info("🔧 Setting up console command interception...", "ConsolePatch");
                 SetupHarmonyPatches();
                 _initialized = true;
-                Logger.Msg("[ConsolePatch] ✅ Console patches ready");
+                Logger.Info("✅ Console patches ready", "ConsolePatch");
             }
             catch (Exception ex)
             {
-                Logger.Error("[ConsolePatch] ❌ Console patch initialization failed.");
+                Logger.Error("❌ Console patch initialization failed.", "ConsolePatch");
                 Logger.Exception(ex);
             }
         }
@@ -54,11 +54,11 @@ namespace PaxDrops.Patches
                     var patchMethod = typeof(ConsolePatch).GetMethod(nameof(SubmitCommandListPrefix), 
                         System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                     _harmony.Patch(submitCommandListMethod, prefix: new HarmonyMethod(patchMethod));
-                    Logger.Msg("[ConsolePatch] ⚙️ Console.SubmitCommand(List<string>) patch applied");
+                    Logger.Debug("⚙️ Console.SubmitCommand(List<string>) patch applied", "ConsolePatch");
                 }
                 else
                 {
-                    Logger.Error("[ConsolePatch] ❌ Could not find Console.SubmitCommand(List<string>) method");
+                    Logger.Error("❌ Could not find Console.SubmitCommand(List<string>) method", "ConsolePatch");
                 }
                 
                 // Also patch Console.SubmitCommand(string) version
@@ -68,16 +68,16 @@ namespace PaxDrops.Patches
                     var patchStringMethod = typeof(ConsolePatch).GetMethod(nameof(SubmitCommandStringPrefix), 
                         System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                     _harmony.Patch(submitCommandStringMethod, prefix: new HarmonyMethod(patchStringMethod));
-                    Logger.Msg("[ConsolePatch] ⚙️ Console.SubmitCommand(string) patch applied");
+                    Logger.Debug("⚙️ Console.SubmitCommand(string) patch applied", "ConsolePatch");
                 }
                 else
                 {
-                    Logger.Error("[ConsolePatch] ❌ Could not find Console.SubmitCommand(string) method");
+                    Logger.Error("❌ Could not find Console.SubmitCommand(string) method", "ConsolePatch");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[ConsolePatch] ❌ Harmony patch setup failed: {ex.Message}");
+                Logger.Error($"❌ Harmony patch setup failed: {ex.Message}", "ConsolePatch");
             }
         }
 
@@ -90,11 +90,11 @@ namespace PaxDrops.Patches
         {
             try
             {
-                Logger.Msg($"[ConsolePatch] 🔍 List patch called with {args?.Count ?? 0} args");
+                Logger.Debug($"🔍 List patch called with {args?.Count ?? 0} args", "ConsolePatch");
                 if (args == null || args.Count == 0) return true;
 
                 string command = args[0].ToLower();
-                Logger.Msg($"[ConsolePatch] 🔍 Processing command: '{command}'");
+                Logger.Debug($"🔍 Processing command: '{command}'", "ConsolePatch");
                 
                 // Handle our custom commands
                 switch (command)
@@ -115,7 +115,7 @@ namespace PaxDrops.Patches
             }
             catch (Exception ex)
             {
-                Logger.Error($"[ConsolePatch] ❌ Console command List patch error: {ex.Message}");
+                Logger.Error($"❌ Console command List patch error: {ex.Message}", "ConsolePatch");
                 return true; // Continue with original on error
             }
         }
@@ -129,7 +129,7 @@ namespace PaxDrops.Patches
         {
             try
             {
-                Logger.Msg($"[ConsolePatch] 🔍 String patch called with: '{args ?? "null"}'");
+                Logger.Debug($"🔍 String patch called with: '{args ?? "null"}'", "ConsolePatch");
                 if (string.IsNullOrEmpty(args)) return true;
 
                 // Split the command string into parts
@@ -142,7 +142,7 @@ namespace PaxDrops.Patches
                 }
 
                 string command = parts[0].ToLower();
-                Logger.Msg($"[ConsolePatch] 🔍 Processing string command: '{command}'");
+                Logger.Debug($"🔍 Processing string command: '{command}'", "ConsolePatch");
                 
                 // Handle our custom commands
                 switch (command)
@@ -163,7 +163,7 @@ namespace PaxDrops.Patches
             }
             catch (Exception ex)
             {
-                Logger.Error($"[ConsolePatch] ❌ Console command string patch error: {ex.Message}");
+                Logger.Error($"❌ Console command string patch error: {ex.Message}", "ConsolePatch");
                 return true; // Continue with original on error
             }
         }
@@ -179,7 +179,7 @@ namespace PaxDrops.Patches
             _harmony = null;
             _initialized = false;
             
-            Logger.Msg("[ConsolePatch] 🔌 Console patches shutdown");
+            Logger.Info("🔌 Console patches shutdown", "ConsolePatch");
         }
     }
 } 

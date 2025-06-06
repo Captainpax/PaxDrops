@@ -111,7 +111,7 @@ namespace PaxDrops.Commands
             );
 
             Il2CppScheduleOne.Console.Log($"[PaxDrop] 📦 DevCommand drop scheduled for Day {day} | Type: {type}");
-            Logger.Msg($"📦 DevCommand drop scheduled - Day {day}, Type: {type}");
+            Logger.Debug($"📦 DevCommand drop scheduled - Day {day}, Type: {type}", "PaxDropCommand");
         }
 
         /// <summary>

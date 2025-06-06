@@ -31,15 +31,15 @@ namespace PaxDrops.Patches
 
             try
             {
-                Logger.Msg("[SaveSystemPatch] 🔧 Setting up save system hooks...");
+                Logger.Debug("🔧 Setting up save system hooks...", "SaveSystemPatch");
                 SetupHarmonyPatches();
                 _initialized = true;
-                Logger.Msg("[SaveSystemPatch] ✅ Save system patches ready");
+                Logger.Debug("✅ Save system patches ready", "SaveSystemPatch");
             }
             catch (Exception ex)
             {
-                Logger.Error("[SaveSystemPatch] ❌ Save system patch initialization failed.");
-                Logger.Exception(ex);
+                Logger.Error("❌ Save system patch initialization failed.", "SaveSystemPatch");
+                Logger.Exception(ex, "SaveSystemPatch");
             }
         }
 
@@ -61,11 +61,11 @@ namespace PaxDrops.Patches
                     var patchMethod = typeof(SaveSystemPatch).GetMethod(nameof(SavePostfix), 
                         System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                     _harmony.Patch(saveMethod, postfix: new HarmonyMethod(patchMethod));
-                    Logger.Msg("[SaveSystemPatch] ⚙️ SaveManager.Save() patch applied");
+                    Logger.Info("⚙️ SaveManager.Save() patch applied", "SaveSystemPatch");
                 }
                 else
                 {
-                    Logger.Error("[SaveSystemPatch] ❌ Could not find SaveManager.Save() method");
+                    Logger.Error("❌ Could not find SaveManager.Save() method", "SaveSystemPatch");
                 }
                 
                 // Patch SaveManager.Save(string) for manual saves with specific path
@@ -75,16 +75,16 @@ namespace PaxDrops.Patches
                     var patchWithPathMethod = typeof(SaveSystemPatch).GetMethod(nameof(SaveWithPathPostfix), 
                         System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                     _harmony.Patch(saveWithPathMethod, postfix: new HarmonyMethod(patchWithPathMethod));
-                    Logger.Msg("[SaveSystemPatch] ⚙️ SaveManager.Save(string) patch applied");
+                    Logger.Debug("⚙️ SaveManager.Save(string) patch applied", "SaveSystemPatch");
                 }
                 else
                 {
-                    Logger.Error("[SaveSystemPatch] ❌ Could not find SaveManager.Save(string) method");
+                    Logger.Error("❌ Could not find SaveManager.Save(string) method", "SaveSystemPatch");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveSystemPatch] ❌ Harmony patch setup failed: {ex.Message}");
+                Logger.Error($"❌ Harmony patch setup failed: {ex.Message}", "SaveSystemPatch");
             }
         }
 
@@ -104,8 +104,8 @@ namespace PaxDrops.Patches
             if (timeSinceLastSave.TotalMilliseconds < SAVE_COOLDOWN_MS &&
                 normalizedLastPath == normalizedPath && _lastSaveName == saveName)
             {
-                Logger.Msg($"[SaveSystemPatch] ⏳ Skipping duplicate save within cooldown: {methodName} ({timeSinceLastSave.TotalMilliseconds:F0}ms ago)");
-                Logger.Msg($"[SaveSystemPatch]   Same normalized path: '{normalizedPath}' == '{normalizedLastPath}'");
+                Logger.Debug($"⏳ Skipping duplicate save within cooldown: {methodName} ({timeSinceLastSave.TotalMilliseconds:F0}ms ago)", "SaveSystemPatch");
+                Logger.Debug($"   Same normalized path: '{normalizedPath}' == '{normalizedLastPath}'", "SaveSystemPatch");
                 return true;
             }
             
@@ -149,7 +149,7 @@ namespace PaxDrops.Patches
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[SaveSystemPatch] ⚠️ Path normalization failed for '{path}': {ex.Message}");
+                Logger.Warn($"⚠️ Path normalization failed for '{path}': {ex.Message}", "SaveSystemPatch");
                 return path?.ToLowerInvariant() ?? "";
             }
         }
@@ -178,14 +178,14 @@ namespace PaxDrops.Patches
                 string? saveName = __instance?.SaveName;
                 
                 // Enhanced logging for debugging multiple saves
-                Logger.Msg($"[SaveSystemPatch] 📊 Save() Method Triggered:");
-                Logger.Msg($"[SaveSystemPatch]   Instance: {(__instance != null ? "Valid" : "NULL")}");
-                Logger.Msg($"[SaveSystemPatch]   PlayersSavePath: '{savePath ?? "NULL"}'");
-                Logger.Msg($"[SaveSystemPatch]   SaveName: '{saveName ?? "NULL"}'");
+                Logger.Info("📊 Save() Method Triggered:", "SaveSystemPatch");
+                Logger.Debug($"   Instance: {(__instance != null ? "Valid" : "NULL")}", "SaveSystemPatch");
+                Logger.Debug($"   PlayersSavePath: '{savePath ?? "NULL"}'", "SaveSystemPatch");
+                Logger.Debug($"   SaveName: '{saveName ?? "NULL"}'", "SaveSystemPatch");
                 
                 if (string.IsNullOrEmpty(savePath) || string.IsNullOrEmpty(saveName))
                 {
-                    Logger.Warn("[SaveSystemPatch] ⚠️ Save() - Missing path or name, using defaults");
+                    Logger.Warn("⚠️ Save() - Missing path or name, using defaults", "SaveSystemPatch");
                     savePath = "";
                     saveName = "default";
                 }
@@ -196,7 +196,7 @@ namespace PaxDrops.Patches
                 
                 // Normalize path for consistent save ID generation
                 string normalizedPath = NormalizePath(savePath);
-                Logger.Msg($"[SaveSystemPatch] 💾 Processing Save() - Normalized Path: {normalizedPath}, Name: {saveName}");
+                Logger.Debug($"💾 Processing Save() - Normalized Path: {normalizedPath}, Name: {saveName}", "SaveSystemPatch");
                 
                 // Update tracking and trigger save
                 UpdateLastSave(savePath, saveName);
@@ -204,8 +204,8 @@ namespace PaxDrops.Patches
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveSystemPatch] ❌ Save() postfix error: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Save() postfix error: {ex.Message}", "SaveSystemPatch");
+                Logger.Exception(ex, "SaveSystemPatch");
             }
         }
 
@@ -221,15 +221,15 @@ namespace PaxDrops.Patches
                 string? saveName = __instance?.SaveName;
                 
                 // Enhanced logging for debugging multiple saves  
-                Logger.Msg($"[SaveSystemPatch] 📊 Save(string) Method Triggered:");
-                Logger.Msg($"[SaveSystemPatch]   Instance: {(__instance != null ? "Valid" : "NULL")}");
-                Logger.Msg($"[SaveSystemPatch]   saveFolderPath param: '{saveFolderPath ?? "NULL"}'");
-                Logger.Msg($"[SaveSystemPatch]   SaveName: '{saveName ?? "NULL"}'");
-                Logger.Msg($"[SaveSystemPatch]   PlayersSavePath: '{(__instance?.PlayersSavePath ?? "NULL")}'");
+                Logger.Debug("📊 Save(string) Method Triggered:", "SaveSystemPatch");
+                Logger.Debug($"   Instance: {(__instance != null ? "Valid" : "NULL")}", "SaveSystemPatch");
+                Logger.Debug($"   saveFolderPath param: '{saveFolderPath ?? "NULL"}'", "SaveSystemPatch");
+                Logger.Debug($"   SaveName: '{saveName ?? "NULL"}'", "SaveSystemPatch");
+                Logger.Debug($"   PlayersSavePath: '{(__instance?.PlayersSavePath ?? "NULL")}'", "SaveSystemPatch");
                 
                 if (string.IsNullOrEmpty(saveFolderPath))
                 {
-                    Logger.Warn("[SaveSystemPatch] ⚠️ Save(string) - Empty folder path, using defaults");
+                    Logger.Warn("⚠️ Save(string) - Empty folder path, using defaults", "SaveSystemPatch");
                     saveFolderPath = "";
                     saveName = saveName ?? "manual";
                 }
@@ -240,7 +240,7 @@ namespace PaxDrops.Patches
                 
                 // Normalize path for consistent save ID generation
                 string normalizedPath = NormalizePath(saveFolderPath);
-                Logger.Msg($"[SaveSystemPatch] 💾 Processing Save(string) - Normalized FolderPath: {normalizedPath}, Name: {saveName ?? "manual"}");
+                Logger.Debug($"💾 Processing Save(string) - Normalized FolderPath: {normalizedPath}, Name: {saveName ?? "manual"}", "SaveSystemPatch");
                 
                 // Update tracking and trigger save
                 UpdateLastSave(saveFolderPath, saveName ?? "manual");
@@ -248,8 +248,8 @@ namespace PaxDrops.Patches
             }
             catch (Exception ex)
             {
-                Logger.Error($"[SaveSystemPatch] ❌ Save(string) postfix error: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Save(string) postfix error: {ex.Message}", "SaveSystemPatch");
+                Logger.Exception(ex, "SaveSystemPatch");
             }
         }
 
@@ -269,7 +269,7 @@ namespace PaxDrops.Patches
             _lastSavePath = null;
             _lastSaveName = null;
             
-            Logger.Msg("[SaveSystemPatch] 🔌 Save system patches shutdown");
+            Logger.Info("🔌 Save system patches shutdown", "SaveSystemPatch");
         }
     }
 } 

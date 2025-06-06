@@ -33,16 +33,16 @@ namespace PaxDrops
                 }
                 else
                 {
-                    Logger.Warn("[TimeMonitor] ⚠️ TimeManager not found during init, will retry later.");
+                    Logger.Warn("⚠️ TimeManager not found during init, will retry later.", "TimeMonitor");
                     MelonCoroutines.Start(RetryTimeManagerHook());
                 }
 
-                Logger.Msg("[TimeMonitor] ⏰ Time monitoring initialized.");
+                Logger.Info("⏰ Time monitoring initialized.", "TimeMonitor");
             }
             catch (Exception ex)
             {
-                Logger.Error("[TimeMonitor] ❌ Failed to initialize time monitoring.");
-                Logger.Exception(ex);
+                Logger.Error("❌ Failed to initialize time monitoring.", "TimeMonitor");
+                Logger.Exception(ex, "TimeMonitor");
             }
         }
 
@@ -59,11 +59,11 @@ namespace PaxDrops
             if (timeManager != null)
             {
                 HookTimeManagerEvents(timeManager);
-                Logger.Msg("[TimeMonitor] ✅ TimeManager hook established after retry.");
+                Logger.Msg("✅ TimeManager hook established after retry.", "TimeMonitor");
             }
             else
             {
-                Logger.Error("[TimeMonitor] ❌ Failed to hook TimeManager after retries.");
+                Logger.Error("❌ Failed to hook TimeManager after retries.", "TimeMonitor");
             }
         }
 
@@ -75,7 +75,7 @@ namespace PaxDrops
             // Hook into day changes for daily reset
             timeManager.onDayPass += new System.Action(OnDayPass);
             
-            Logger.Msg("[TimeMonitor] 🕐 Event hooks established.");
+            Logger.Info("🕐 Event hooks established.", "TimeMonitor");
         }
 
         /// <summary>
@@ -91,18 +91,18 @@ namespace PaxDrops
                 int currentHour = timeManager.CurrentTime;
                 int currentDay = timeManager.ElapsedDays;
                 
-                Logger.Msg($"[TimeMonitor] ⏰ Hour changed to {currentHour} on day {currentDay}");
+                Logger.Msg($"⏰ Hour changed to {currentHour} on day {currentDay}", "TimeMonitor");
 
                 // Check for scheduled drop deliveries at delivery time (7:30 AM = 730)
                 if (currentHour == 730)
                 {
-                    Logger.Msg("[TimeMonitor] 🌅 Drop delivery time! Checking for scheduled deliveries...");
+                    Logger.Msg("🌅 Drop delivery time! Checking for scheduled deliveries...", "TimeMonitor");
                     ProcessScheduledDeliveries(currentDay, currentHour);
                 }
                 // Also check for missed delivery windows (if player skipped 7:30 AM)
                 else if (currentHour > 730 && currentHour < 1200) // Between 7:30 AM and noon
                 {
-                    Logger.Msg($"[TimeMonitor] 🔍 Checking for missed deliveries (current time {currentHour} is past 7:30 AM)...");
+                    Logger.Msg($"🔍 Checking for missed deliveries (current time {currentHour} is past 7:30 AM)...", "TimeMonitor");
                     ProcessScheduledDeliveries(currentDay, currentHour);
                 }
 
@@ -113,21 +113,21 @@ namespace PaxDrops
                 // Morning business hours and inactivity reminders (7:00 AM = 700)
                 if (currentHour == 700)
                 {
-                    Logger.Msg("[TimeMonitor] 🌅 Morning business hours starting!");
+                    Logger.Msg("🌅 Morning business hours starting!", "TimeMonitor");
                     MrsStacksNPC.OnNewDay();
                 }
 
                 // Evening reminder check (8:00 PM = 2000)
                 if (currentHour == 2000)
                 {
-                    Logger.Msg("[TimeMonitor] 🌙 Evening reminder time!");
+                    Logger.Msg("🌙 Evening reminder time!", "TimeMonitor");
                     SendEveningReminders(currentDay);
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TimeMonitor] ❌ Error handling hour change: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Error handling hour change: {ex.Message}", "TimeMonitor");
+                Logger.Exception(ex, "TimeMonitor");
             }
         }
 
@@ -142,7 +142,7 @@ namespace PaxDrops
                 if (timeManager == null) return;
 
                 int currentDay = timeManager.ElapsedDays;
-                Logger.Msg($"[TimeMonitor] 📅 Day changed to {currentDay}");
+                Logger.Msg($"📅 Day changed to {currentDay}", "TimeMonitor");
 
                 // Notify MrStacks about day change
                 MrsStacksNPC.OnDayChanged();
@@ -152,8 +152,8 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TimeMonitor] ❌ Error handling day change: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Error handling day change: {ex.Message}", "TimeMonitor");
+                Logger.Exception(ex, "TimeMonitor");
             }
         }
 
@@ -165,31 +165,31 @@ namespace PaxDrops
             try
             {
                 var allDrops = SaveFileJsonDataStore.GetAllDrops();
-                Logger.Msg($"[TimeMonitor] 🔍 Checking {allDrops.Count} total drops for delivery at day {currentDay}, hour {currentHour}");
+                Logger.Msg($"🔍 Checking {allDrops.Count} total drops for delivery at day {currentDay}, hour {currentHour}", "TimeMonitor");
 
                 var deliveriesToProcess = new List<SaveFileJsonDataStore.DropRecord>();
 
                 foreach (var drop in allDrops)
                 {
-                    Logger.Msg($"[TimeMonitor] 🔍 Examining drop: Day={drop.Day}, Hour={drop.DropHour}, Location='{drop.Location}', Available={DropConfig.IsDropAvailable(drop.Day, drop.DropHour, currentDay, currentHour)}");
+                    Logger.Msg($"🔍 Examining drop: Day={drop.Day}, Hour={drop.DropHour}, Location='{drop.Location}', Available={DropConfig.IsDropAvailable(drop.Day, drop.DropHour, currentDay, currentHour)}", "TimeMonitor");
                     
                     // Check if this drop should be delivered now
                     if (DropConfig.IsDropAvailable(drop.Day, drop.DropHour, currentDay, currentHour) && 
                         string.IsNullOrEmpty(drop.Location)) // Not yet spawned
                     {
                         deliveriesToProcess.Add(drop);
-                        Logger.Msg($"[TimeMonitor] ✅ Drop scheduled for delivery: {drop.Org} (Day={drop.Day}, Hour={drop.DropHour})");
+                        Logger.Msg($"✅ Drop scheduled for delivery: {drop.Org} (Day={drop.Day}, Hour={drop.DropHour})", "TimeMonitor");
                     }
                     else
                     {
                         string reason = !DropConfig.IsDropAvailable(drop.Day, drop.DropHour, currentDay, currentHour) 
                             ? "not available yet" 
                             : "already spawned";
-                        Logger.Msg($"[TimeMonitor] ⏭️ Skipping drop: {drop.Org} - {reason}");
+                        Logger.Msg($"⏭️ Skipping drop: {drop.Org} - {reason}", "TimeMonitor");
                     }
                 }
 
-                Logger.Msg($"[TimeMonitor] 📦 Found {deliveriesToProcess.Count} drops ready for delivery");
+                Logger.Msg($"📦 Found {deliveriesToProcess.Count} drops ready for delivery", "TimeMonitor");
 
                 int successCount = 0;
                 int failCount = 0;
@@ -197,7 +197,7 @@ namespace PaxDrops
 
                 foreach (var drop in deliveriesToProcess)
                 {
-                    Logger.Msg($"[TimeMonitor] 📦 Processing delivery #{successCount + failCount + 1}: {drop.Org} scheduled for day {drop.Day} at {DropConfig.FormatGameTime(drop.DropHour)}");
+                    Logger.Msg($"📦 Processing delivery #{successCount + failCount + 1}: {drop.Org} scheduled for day {drop.Day} at {DropConfig.FormatGameTime(drop.DropHour)}", "TimeMonitor");
                     
                     // Spawn the drop at a location
                     string? location = DeadDrop.SpawnImmediateDrop(drop);
@@ -211,12 +211,12 @@ namespace PaxDrops
                         }
                         
                         successCount++;
-                        Logger.Msg($"[TimeMonitor] ✅ Delivery #{successCount} completed: {drop.Org} at {location}");
+                        Logger.Msg($"✅ Delivery #{successCount} completed: {drop.Org} at {location}", "TimeMonitor");
                     }
                     else
                     {
                         failCount++;
-                        Logger.Error($"[TimeMonitor] ❌ Delivery #{failCount} failed: {drop.Org}");
+                        Logger.Error($"❌ Delivery #{failCount} failed: {drop.Org}", "TimeMonitor");
                     }
                 }
 
@@ -228,17 +228,17 @@ namespace PaxDrops
 
                 if (deliveriesToProcess.Count > 0)
                 {
-                    Logger.Msg($"[TimeMonitor] 📬 Processed {deliveriesToProcess.Count} deliveries: {successCount} success, {failCount} failed");
+                    Logger.Msg($"📬 Processed {deliveriesToProcess.Count} deliveries: {successCount} success, {failCount} failed", "TimeMonitor");
                 }
                 else
                 {
-                    Logger.Msg("[TimeMonitor] 📭 No deliveries processed at this time");
+                    Logger.Msg("📭 No deliveries processed at this time", "TimeMonitor");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TimeMonitor] ❌ Error processing deliveries: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Error processing deliveries: {ex.Message}", "TimeMonitor");
+                Logger.Exception(ex, "TimeMonitor");
             }
         }
 
@@ -281,11 +281,11 @@ namespace PaxDrops
                     MrsStacksMessaging.SendMessage(npc, message);
                 }
 
-                Logger.Msg($"[TimeMonitor] 📱 Consolidated ready message sent for {readyDrops.Count} drops");
+                Logger.Msg($"📱 Consolidated ready message sent for {readyDrops.Count} drops", "TimeMonitor");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TimeMonitor] ❌ Consolidated ready message failed: {ex.Message}");
+                Logger.Error($"❌ Consolidated ready message failed: {ex.Message}", "TimeMonitor");
             }
         }
 
@@ -325,7 +325,7 @@ namespace PaxDrops
                         // If storage has 50% or fewer items than initially placed, consider it collected
                         if (currentItemCount <= (drop.InitialItemCount * 0.5f))
                         {
-                            Logger.Msg($"[TimeMonitor] ✅ Drop at {drop.Location} appears to have been collected ({currentItemCount}/{drop.InitialItemCount} items remaining)");
+                            Logger.Msg($"✅ Drop at {drop.Location} appears to have been collected ({currentItemCount}/{drop.InitialItemCount} items remaining)", "TimeMonitor");
                             SaveFileJsonDataStore.MarkSpecificDropCollected(drop.Day, drop.Location);
                         }
                     }
@@ -333,8 +333,8 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TimeMonitor] ❌ Error checking collection status: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Error checking collection status: {ex.Message}", "TimeMonitor");
+                Logger.Exception(ex, "TimeMonitor");
             }
         }
 
@@ -365,7 +365,7 @@ namespace PaxDrops
                 foreach (var drop in expiredDrops)
                 {
                     var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
-                    Logger.Msg($"[TimeMonitor] 🗑️ Cleaning up expired drop at {drop.Location} (expired day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)})");
+                    Logger.Msg($"🗑️ Cleaning up expired drop at {drop.Location} (expired day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)})", "TimeMonitor");
 
                     // Find the dead drop and clear its contents
                     foreach (var deadDrop in deadDrops)
@@ -376,11 +376,11 @@ namespace PaxDrops
                             {
                                 // Clear the storage contents
                                 deadDrop.Storage.ClearContents();
-                                Logger.Msg($"[TimeMonitor] ✅ Cleared expired drop contents from {drop.Location}");
+                                Logger.Msg($"✅ Cleared expired drop contents from {drop.Location}", "TimeMonitor");
                             }
                             catch (Exception ex)
                             {
-                                Logger.Error($"[TimeMonitor] ❌ Failed to clear contents from {drop.Location}: {ex.Message}");
+                                Logger.Error($"❌ Failed to clear contents from {drop.Location}: {ex.Message}", "TimeMonitor");
                             }
                             break;
                         }
@@ -392,13 +392,13 @@ namespace PaxDrops
 
                 if (expiredDrops.Count > 0)
                 {
-                    Logger.Msg($"[TimeMonitor] 🗑️ Cleaned up {expiredDrops.Count} expired drops");
+                    Logger.Msg($"🗑️ Cleaned up {expiredDrops.Count} expired drops", "TimeMonitor");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TimeMonitor] ❌ Error cleaning up expired drops: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Error cleaning up expired drops: {ex.Message}", "TimeMonitor");
+                Logger.Exception(ex, "TimeMonitor");
             }
         }
 
@@ -423,7 +423,7 @@ namespace PaxDrops
 
                 if (uncollectedDrops.Count > 0)
                 {
-                    Logger.Msg($"[TimeMonitor] 📱 Sending evening reminder for {uncollectedDrops.Count} uncollected drops");
+                    Logger.Msg($"📱 Sending evening reminder for {uncollectedDrops.Count} uncollected drops", "TimeMonitor");
 
                     var npc = MrsStacksMessaging.FindMrsStacksNPC();
                     if (npc != null)
@@ -460,8 +460,8 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TimeMonitor] ❌ Error sending evening reminders: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Error sending evening reminders: {ex.Message}", "TimeMonitor");
+                Logger.Exception(ex, "TimeMonitor");
             }
         }
 
@@ -492,12 +492,12 @@ namespace PaxDrops
 
                 if (removedCount > 0)
                 {
-                    Logger.Msg($"[TimeMonitor] 🗑️ Cleaned up {removedCount} old drop records from {daysToRemove.Count} days");
+                    Logger.Msg($"🗑️ Cleaned up {removedCount} old drop records from {daysToRemove.Count} days", "TimeMonitor");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[TimeMonitor] ❌ Error cleaning up old drops: {ex.Message}");
+                Logger.Error($"❌ Error cleaning up old drops: {ex.Message}", "TimeMonitor");
             }
         }
 
@@ -516,12 +516,12 @@ namespace PaxDrops
                 }
 
                 _initialized = false;
-                Logger.Msg("[TimeMonitor] 🔌 Time monitoring shutdown.");
+                Logger.Info("🔌 Time monitoring shutdown.", "TimeMonitor");
             }
             catch (Exception ex)
             {
-                Logger.Error("[TimeMonitor] ❌ Error during shutdown.");
-                Logger.Exception(ex);
+                Logger.Error("❌ Error during shutdown.", "TimeMonitor");
+                Logger.Exception(ex, "TimeMonitor");
             }
         }
     }

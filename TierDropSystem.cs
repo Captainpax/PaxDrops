@@ -79,9 +79,9 @@ namespace PaxDrops
             if (_initialized) return;
             _initialized = true;
 
-            Logger.Msg("[TierDropSystem] 🎯 New tier-based drop system initialized");
-            Logger.Msg($"[TierDropSystem] 📊 {Enum.GetValues(typeof(TierConfig.Tier)).Length} tiers configured");
-            Logger.Msg($"[TierDropSystem] 🏢 {Enum.GetValues(typeof(TierConfig.Organization)).Length} organizations available");
+            Logger.Info("🎯 New tier-based drop system initialized", "TierDropSystem");
+            Logger.Debug($"📊 {Enum.GetValues(typeof(TierConfig.Tier)).Length} tiers configured", "TierDropSystem");
+            Logger.Debug($"🏢 {Enum.GetValues(typeof(TierConfig.Organization)).Length} organizations available", "TierDropSystem");
         }
 
         /// <summary>
@@ -117,7 +117,7 @@ namespace PaxDrops
                 package.Items.Add(new DropItem(itemId, quantity, isValuable));
             }
 
-            Logger.Msg($"[TierDropSystem] 📦 Generated {TierConfig.GetTierName(tier)} drop: {package}");
+            Logger.Debug($"📦 Generated {TierConfig.GetTierName(tier)} drop: {package}", "TierDropSystem");
             return package;
         }
 
@@ -167,7 +167,7 @@ namespace PaxDrops
                 fillerItems.Remove(itemId); // No duplicates
             }
 
-            Logger.Msg($"[TierDropSystem] 💎 Generated PREMIUM {TierConfig.GetTierName(tier)} drop: {package}");
+            Logger.Debug($"💎 Generated PREMIUM {TierConfig.GetTierName(tier)} drop: {package}", "TierDropSystem");
             return package;
         }
 
@@ -188,12 +188,12 @@ namespace PaxDrops
                 if (nextTier.HasValue)
                 {
                     randomTier = nextTier.Value;
-                    Logger.Msg($"[TierDropSystem] 🎲 Random drop upgraded from {TierConfig.GetTierName(playerTier)} to {TierConfig.GetTierName(randomTier)}");
+                    Logger.Debug($"🎲 Random drop upgraded from {TierConfig.GetTierName(playerTier)} to {TierConfig.GetTierName(randomTier)}", "TierDropSystem");
                 }
             }
 
             var package = GenerateDropPackage(randomTier);
-            Logger.Msg($"[TierDropSystem] 🎲 Generated random drop: {package}");
+            Logger.Debug($"🎲 Generated random drop: {package}", "TierDropSystem");
             return package;
         }
 

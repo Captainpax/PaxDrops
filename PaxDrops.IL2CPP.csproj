@@ -11,6 +11,17 @@
     <S1Dir>/Users/shreyas/Library/Application Support/CrossOver/Bottles/Schedule I/drive_c/Program Files (x86)/Steam/steamapps/common/Schedule I/</S1Dir>
   </PropertyGroup>
 
+  <!-- Build Configuration -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>DEBUG;TRACE;VERBOSE_LOGGING</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Staging'">
+    <DefineConstants>STAGING;TRACE;INFO_LOGGING</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DefineConstants>RELEASE;TRACE;MINIMAL_LOGGING</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <!-- Exclude old Mono files completely -->
     <Compile Remove="my_references\**\*.cs" />

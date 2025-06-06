@@ -24,7 +24,7 @@ namespace PaxDrops
 
             try
             {
-                Logger.Msg("[CommandHandler] 🔧 CommandHandler temporarily disabled");
+                Logger.Info("🔧 CommandHandler temporarily disabled", "CommandHandler");
                 
                 // COMMENTED OUT - Focusing on core functionality first
                 // Initialize console patches to intercept commands
@@ -38,12 +38,12 @@ namespace PaxDrops
                 // Commands["pd_cleanup_expired"] = () => CleanupExpiredDrops();
                 
                 _initialized = true;
-                Logger.Msg("[CommandHandler] ✅ Core systems ready (commands disabled)");
+                Logger.Info("✅ Core systems ready (commands disabled)", "CommandHandler");
             }
             catch (Exception ex)
             {
-                Logger.Error("[CommandHandler] ❌ Command handler initialization failed.");
-                Logger.Exception(ex);
+                Logger.Error("❌ Command handler initialization failed.", "CommandHandler");
+                Logger.Error(ex.Message, "CommandHandler");
             }
         }
 
@@ -58,12 +58,12 @@ namespace PaxDrops
             {
                 // ConsolePatch.Shutdown(); // COMMENTED OUT
                 _initialized = false;
-                Logger.Msg("[CommandHandler] 🔌 Command handler shutdown (was disabled)");
+                Logger.Info("🔌 Command handler shutdown (was disabled)", "CommandHandler");
             }
             catch (Exception ex)
             {
-                Logger.Error("[CommandHandler] ❌ Command shutdown failed.");
-                Logger.Exception(ex);
+                Logger.Error("❌ Command shutdown failed.", "CommandHandler");
+                Logger.Error(ex.Message, "CommandHandler");
             }
         }
 
@@ -80,59 +80,59 @@ namespace PaxDrops
         /// </summary>
         private static void ShowSystemInfo()
         {
-            Logger.Msg("[CommandHandler] 📊 PaxDrops System Information:");
-            Logger.Msg("═══════════════════════════════════════════");
+            Logger.Debug("📊 PaxDrops System Information:", "CommandHandler");
+            Logger.Debug("═══════════════════════════════════════════", "CommandHandler");
             
             // Player Detection Status
-            Logger.Msg($"Player Detection: {DropConfig.GetPlayerDetectionStatus()}");
+            Logger.Debug($"Player Detection: {DropConfig.GetPlayerDetectionStatus()}", "CommandHandler");
             
             // Current Game State
             var currentDay = DropConfig.GetCurrentGameDay();
             var currentRank = DropConfig.GetCurrentPlayerRank();
             var currentTier = DropConfig.GetCurrentPlayerTier();
             
-            Logger.Msg($"Game Day: {currentDay}");
-            Logger.Msg($"Player Rank: {currentRank}");
-            Logger.Msg($"Player Tier: {TierConfig.GetTierName(currentTier)}");
-            Logger.Msg($"Organization: {TierConfig.GetOrganizationName(TierConfig.GetOrganization(currentTier))}");
+            Logger.Debug($"Game Day: {currentDay}", "CommandHandler");
+            Logger.Debug($"Player Rank: {currentRank}", "CommandHandler");
+            Logger.Debug($"Player Tier: {TierConfig.GetTierName(currentTier)}", "CommandHandler");
+            Logger.Debug($"Organization: {TierConfig.GetOrganizationName(TierConfig.GetOrganization(currentTier))}", "CommandHandler");
             
             // Daily Order Status
             var ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
             var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
             var remaining = DropConfig.GetRemainingOrdersToday(currentDay);
             
-            Logger.Msg($"Orders Today: {ordersToday}/{dailyLimit} (Remaining: {remaining})");
+            Logger.Debug($"Orders Today: {ordersToday}/{dailyLimit} (Remaining: {remaining})", "CommandHandler");
             
             // Active Drops
             var pendingDrops = SaveFileJsonDataStore.GetAllDrops();
             var activeDrops = pendingDrops.FindAll(d => !d.IsCollected);
             var collectedDrops = pendingDrops.FindAll(d => d.IsCollected);
             
-            Logger.Msg($"Active Drops: {activeDrops.Count}");
-            Logger.Msg($"Collected Drops: {collectedDrops.Count}");
+            Logger.Debug($"Active Drops: {activeDrops.Count}", "CommandHandler");
+            Logger.Debug($"Collected Drops: {collectedDrops.Count}", "CommandHandler");
             
             // Show save file info
             var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
             if (isLoaded)
             {
-                Logger.Msg($"Save File: {saveName} (ID: {saveId}, Steam: {steamId})");
+                Logger.Debug($"Save File: {saveName} (ID: {saveId}, Steam: {steamId})", "CommandHandler");
             }
             else
             {
-                Logger.Msg("Save File: No save loaded");
+                Logger.Debug("Save File: No save loaded", "CommandHandler");
             }
             
-            Logger.Msg("═══════════════════════════════════════════");
+            Logger.Debug("═══════════════════════════════════════════", "CommandHandler");
             
             if (activeDrops.Count > 0)
             {
-                Logger.Msg("Active Drop Details:");
+                Logger.Debug("Active Drop Details:", "CommandHandler");
                 foreach (var drop in activeDrops)
                 {
                     var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
                     string expiryText = expiryDay != -1 ? $"Day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)}" : "Unknown";
                     
-                    Logger.Msg($"  Day {drop.Day}: {drop.Org} at {drop.Location} (expires {expiryText})");
+                    Logger.Debug($"  Day {drop.Day}: {drop.Org} at {drop.Location} (expires {expiryText})", "CommandHandler");
                 }
             }
         }
@@ -142,12 +142,12 @@ namespace PaxDrops
         /// </summary>
         private static void TestCollectionDetection()
         {
-            Logger.Msg("[CommandHandler] 🔍 Testing collection detection...");
+            Logger.Debug("🔍 Testing collection detection...", "CommandHandler");
             
             var pendingDrops = SaveFileJsonDataStore.GetAllDrops();
             var deadDrops = UnityEngine.Object.FindObjectsOfType<Il2CppScheduleOne.Economy.DeadDrop>();
             
-            Logger.Msg($"Found {pendingDrops.Count} pending drops and {deadDrops.Length} dead drop locations");
+            Logger.Debug($"Found {pendingDrops.Count} pending drops and {deadDrops.Length} dead drop locations", "CommandHandler");
             
             foreach (var drop in pendingDrops)
             {
@@ -169,16 +169,16 @@ namespace PaxDrops
                     int currentItemCount = targetDeadDrop.Storage.ItemCount;
                     float collectionPercentage = (float)currentItemCount / drop.InitialItemCount * 100f;
                     
-                    Logger.Msg($"Drop at {drop.Location}: {currentItemCount}/{drop.InitialItemCount} items ({collectionPercentage:F1}%)");
+                    Logger.Debug($"Drop at {drop.Location}: {currentItemCount}/{drop.InitialItemCount} items ({collectionPercentage:F1}%)", "CommandHandler");
                     
                     if (currentItemCount <= (drop.InitialItemCount * 0.5f))
                     {
-                        Logger.Msg($"  → Would mark as collected (≤50% items remaining)");
+                        Logger.Debug($"  → Would mark as collected (≤50% items remaining)", "CommandHandler");
                     }
                 }
                 else
                 {
-                    Logger.Warn($"Drop location {drop.Location} not found or no storage");
+                    Logger.Warn($"Drop location {drop.Location} not found or no storage", "CommandHandler");
                 }
             }
         }
@@ -188,7 +188,7 @@ namespace PaxDrops
         /// </summary>
         private static void TestExpiryCleanup()
         {
-            Logger.Msg("[CommandHandler] 🗑️ Testing expiry cleanup...");
+            Logger.Debug("🗑️ Testing expiry cleanup...", "CommandHandler");
             
             var timeManager = Il2CppScheduleOne.GameTime.TimeManager.Instance;
             int currentDay = timeManager?.ElapsedDays ?? 0;
@@ -206,19 +206,19 @@ namespace PaxDrops
                 }
             }
             
-            Logger.Msg($"Found {expiredDrops.Count} expired drops");
+            Logger.Debug($"Found {expiredDrops.Count} expired drops", "CommandHandler");
             
             foreach (var drop in expiredDrops)
             {
                 var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
                 string expiryText = expiryDay != -1 ? $"Day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)}" : "Unknown";
                 
-                Logger.Msg($"Expired: {drop.Org} at {drop.Location} (expired {expiryText})");
+                Logger.Debug($"Expired: {drop.Org} at {drop.Location} (expired {expiryText})", "CommandHandler");
             }
             
             if (expiredDrops.Count > 0)
             {
-                Logger.Msg("Use 'pd_cleanup_expired' to actually clean them up");
+                Logger.Debug("Use 'pd_cleanup_expired' to actually clean them up", "CommandHandler");
             }
         }
 
@@ -229,7 +229,7 @@ namespace PaxDrops
         {
             var currentDay = DropConfig.GetCurrentGameDay();
             SaveFileJsonDataStore.ResetMrsStacksOrdersToday(currentDay);
-            Logger.Msg($"[CommandHandler] 🔄 Reset daily orders for day {currentDay}");
+            Logger.Debug($"🔄 Reset daily orders for day {currentDay}", "CommandHandler");
         }
 
         /// <summary>
@@ -237,12 +237,12 @@ namespace PaxDrops
         /// </summary>
         private static void ShowOrderHistory()
         {
-            Logger.Msg("[CommandHandler] 📋 Order History:");
+            Logger.Debug("📋 Order History:", "CommandHandler");
             
             var orderSummary = SaveFileJsonDataStore.GetMrsStacksOrderSummary();
             if (orderSummary.Count == 0)
             {
-                Logger.Msg("No orders recorded yet.");
+                Logger.Debug("No orders recorded yet.", "CommandHandler");
                 return;
             }
             
@@ -251,7 +251,7 @@ namespace PaxDrops
             
             foreach (var kvp in sortedOrders)
             {
-                Logger.Msg($"Day {kvp.Key}: {kvp.Value} order(s)");
+                Logger.Debug($"Day {kvp.Key}: {kvp.Value} order(s)", "CommandHandler");
             }
         }
 
@@ -260,7 +260,7 @@ namespace PaxDrops
         /// </summary>
         private static void CleanupExpiredDrops()
         {
-            Logger.Msg("[CommandHandler] 🗑️ Manually cleaning up expired drops...");
+            Logger.Debug("🗑️ Manually cleaning up expired drops...", "CommandHandler");
             
             var timeManager = Il2CppScheduleOne.GameTime.TimeManager.Instance;
             int currentDay = timeManager?.ElapsedDays ?? 0;
@@ -280,7 +280,7 @@ namespace PaxDrops
             
             if (expiredDrops.Count == 0)
             {
-                Logger.Msg("No expired drops to clean up.");
+                Logger.Debug("No expired drops to clean up.", "CommandHandler");
                 return;
             }
 
@@ -289,7 +289,7 @@ namespace PaxDrops
 
             foreach (var drop in expiredDrops)
             {
-                Logger.Msg($"Cleaning up expired drop at {drop.Location}");
+                Logger.Debug($"Cleaning up expired drop at {drop.Location}", "CommandHandler");
 
                 // Find the dead drop and clear its contents
                 foreach (var deadDrop in deadDrops)
@@ -299,12 +299,12 @@ namespace PaxDrops
                         try
                         {
                             deadDrop.Storage.ClearContents();
-                            Logger.Msg($"✅ Cleared contents from {drop.Location}");
+                            Logger.Debug($"✅ Cleared contents from {drop.Location}", "CommandHandler");
                             cleanedCount++;
                         }
                         catch (Exception ex)
                         {
-                            Logger.Error($"Failed to clear contents from {drop.Location}: {ex.Message}");
+                            Logger.Error($"Failed to clear contents from {drop.Location}: {ex.Message}", "CommandHandler");
                         }
                         break;
                     }
@@ -314,7 +314,7 @@ namespace PaxDrops
                 SaveFileJsonDataStore.RemoveSpecificDrop(drop.Day, drop.Location);
             }
 
-            Logger.Msg($"[CommandHandler] ✅ Cleaned up {cleanedCount}/{expiredDrops.Count} expired drops");
+            Logger.Debug($"✅ Cleaned up {cleanedCount}/{expiredDrops.Count} expired drops", "CommandHandler");
         }
         */
     }

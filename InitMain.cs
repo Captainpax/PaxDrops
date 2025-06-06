@@ -37,8 +37,8 @@ namespace PaxDrops
                 // Initialize only basic logging system
                 Logger.Init();
                 
-                Logger.Msg("[InitMain] ⚙️ Application initialization complete");
-                Logger.Msg("[InitMain] 📋 Waiting for main scene...");
+                Logger.Info("⚙️ Application initialization complete", "InitMain");
+                Logger.Info("📋 Waiting for main scene...", "InitMain");
             }
             catch (System.Exception ex)
             {
@@ -81,21 +81,21 @@ namespace PaxDrops
             if (isMainScene && !_isInMainScene)
             {
                 // PHASE 2: Entering main scene
-                Logger.Msg($"[InitMain] 🎬 Main scene loaded (Scene: {sceneName}, Index: {buildIndex})");
+                Logger.Info($"🎬 Main scene loaded (Scene: {sceneName}, Index: {buildIndex})", "InitMain");
                 _isInMainScene = true;
                 OnEnterMainScene();
             }
             else if (_isInMainScene && !isMainScene)
             {
                 // Exiting main scene (going back to menu)
-                Logger.Msg($"[InitMain] 🚪 Exiting main scene to {sceneName} (Index: {buildIndex})");
+                Logger.Info($"🚪 Exiting main scene to {sceneName} (Index: {buildIndex})", "InitMain");
                 OnExitMainScene();
                 _isInMainScene = false;
             }
             else if (isMainScene && _isInMainScene)
             {
                 // Re-entering main scene (loading different save)
-                Logger.Msg($"[InitMain] 🔄 Re-entering main scene (Scene: {sceneName}, Index: {buildIndex})");
+                Logger.Info($"🔄 Re-entering main scene (Scene: {sceneName}, Index: {buildIndex})", "InitMain");
                 OnReEnterMainScene();
             }
         }
@@ -107,7 +107,7 @@ namespace PaxDrops
         {
             try
             {
-                Logger.Msg("[InitMain] 🏗️ Bootstrapping PaxDrops for main scene...");
+                Logger.Debug("🏗️ Bootstrapping PaxDrops for main scene...", "InitMain");
                 
                 // PHASE 2A: Initialize core systems (scene-dependent but player-independent)
                 if (!_coreSystemsInitialized)
@@ -122,12 +122,12 @@ namespace PaxDrops
                 // PHASE 2C: Start player detection
                 StartPlayerDetection();
                 
-                Logger.Msg("🎮 [InitMain] Main scene initialization complete! Waiting for player detection...");
+                Logger.Info("🎮 Main scene initialization complete! Waiting for player detection...", "InitMain");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Main scene entry failed: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Main scene entry failed: {ex.Message}", "InitMain");
+                Logger.Exception(ex, "InitMain");
             }
         }
 
@@ -138,7 +138,7 @@ namespace PaxDrops
         {
             try
             {
-                Logger.Msg("[InitMain] 🔄 Re-entering main scene - refreshing save data");
+                Logger.Debug("🔄 Re-entering main scene - refreshing save data", "InitMain");
                 
                 // Shutdown player-dependent systems for clean slate
                 if (_playerDependentSystemsInitialized)
@@ -152,12 +152,12 @@ namespace PaxDrops
                 // Restart player detection
                 StartPlayerDetection();
                 
-                Logger.Msg("[InitMain] ✅ Main scene re-entry complete");
+                Logger.Info("✅ Main scene re-entry complete", "InitMain");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Main scene re-entry failed: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Main scene re-entry failed: {ex.Message}", "InitMain");
+                Logger.Exception(ex, "InitMain");
             }
         }
 
@@ -168,7 +168,7 @@ namespace PaxDrops
         {
             try
             {
-                Logger.Msg("[InitMain] 📤 Exiting main scene - performing cleanup");
+                Logger.Debug("📤 Exiting main scene - performing cleanup", "InitMain");
                 
                 // PHASE 4: Cleanup - shutdown player-dependent systems
                 ShutdownPlayerDependentSystems();
@@ -179,12 +179,12 @@ namespace PaxDrops
                 // Stop player detection
                 StopPlayerDetection();
                 
-                Logger.Msg("[InitMain] ✅ Main scene exit complete");
+                Logger.Info("✅ Main scene exit complete", "InitMain");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Error during main scene exit: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Error during main scene exit: {ex.Message}", "InitMain");
+                Logger.Exception(ex, "InitMain");
             }
         }
 
@@ -197,7 +197,7 @@ namespace PaxDrops
         /// </summary>
         private static void InitCoreSystems()
         {
-            Logger.Msg("[InitMain] 🔧 Initializing core PaxDrops systems...");
+            Logger.Info("🔧 Initializing core PaxDrops systems...", "InitMain");
             
             try
             {
@@ -213,12 +213,12 @@ namespace PaxDrops
                 // Console/debugging (disabled for now)
                 // CommandHandler.Init();     // 🎮 Console command system
                 
-                Logger.Msg("✅ [InitMain] Core systems initialized successfully!");
+                Logger.Info("✅ Core systems initialized successfully!", "InitMain");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Core system initialization failed: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Core system initialization failed: {ex.Message}", "InitMain");
+                Logger.Exception(ex, "InitMain");
             }
         }
 
@@ -227,7 +227,7 @@ namespace PaxDrops
         /// </summary>
         private static void InitPlayerDependentSystems(Player player, ERank rank)
         {
-            Logger.Msg($"[InitMain] 🚀 Initializing player-dependent systems for {player.PlayerName} (Rank: {rank})...");
+            Logger.Info($"🚀 Initializing player-dependent systems for {player.PlayerName} (Rank: {rank})...", "InitMain");
 
             try
             {
@@ -239,18 +239,18 @@ namespace PaxDrops
 
                 _playerDependentSystemsInitialized = true;
 
-                Logger.Msg("✅ [InitMain] Player-dependent systems initialized!");
-                Logger.Msg("🎯 [InitMain] Rank-based tier system active (11 tiers mapped 1:1 with ERank)");
-                Logger.Msg("📅 [InitMain] Daily ordering system enabled - tier rewards based on player rank");
-                Logger.Msg($"🎮 [InitMain] PaxDrops fully initialized for {player.PlayerName} (Rank: {rank})!");
+                Logger.Debug("✅ Player-dependent systems initialized!", "InitMain");
+                Logger.Debug("🎯 Rank-based tier system active (11 tiers mapped 1:1 with ERank)", "InitMain");
+                Logger.Debug("📅 Daily ordering system enabled - tier rewards based on player rank", "InitMain");
+                Logger.Debug($"🎮 PaxDrops fully initialized for {player.PlayerName} (Rank: {rank})!", "InitMain");
 
                 // Log final status
                 LogSystemStatus();
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Player-dependent system initialization failed: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Player-dependent system initialization failed: {ex.Message}", "InitMain");
+                Logger.Exception(ex, "InitMain");
             }
         }
 
@@ -272,11 +272,12 @@ namespace PaxDrops
                 PlayerDetection.OnPlayerLoaded += OnPlayerDetected;
                 PlayerDetection.OnPlayerRankLoaded += OnPlayerRankDetected;
                 
-                Logger.Msg("[InitMain] 👀 Player detection started");
+                Logger.Info("👀 Player detection started", "InitMain");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Player detection start failed: {ex.Message}");
+                Logger.Error($"❌ Player detection start failed: {ex.Message}", "InitMain");
+                Logger.Exception(ex, "InitMain");
             }
         }
 
@@ -294,11 +295,11 @@ namespace PaxDrops
                 // IMPORTANT: Reset the PlayerDetection state so it can be restarted
                 PlayerDetection.Reset();
                 
-                Logger.Msg("[InitMain] 👀 Player detection stopped and reset");
+                Logger.Info("👀 Player detection stopped and reset", "InitMain");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Player detection stop failed: {ex.Message}");
+                Logger.Error($"❌ Player detection stop failed: {ex.Message}", "InitMain");
             }
         }
 
@@ -307,8 +308,8 @@ namespace PaxDrops
         /// </summary>
         private static void OnPlayerDetected(Player player)
         {
-            Logger.Msg($"[InitMain] 👤 Player detected: {player.PlayerName}");
-            Logger.Msg("[InitMain] Waiting for rank data...");
+            Logger.Info($"👤 Player detected: {player.PlayerName}", "InitMain");
+            Logger.Info("Waiting for rank data...", "InitMain");
         }
 
         /// <summary>
@@ -318,11 +319,11 @@ namespace PaxDrops
         {
             if (_playerDependentSystemsInitialized)
             {
-                Logger.Msg($"[InitMain] ♻️ Player rank re-detected: {rank} (systems already initialized)");
+                Logger.Info($"♻️ Player rank re-detected: {rank} (systems already initialized)", "InitMain");
                 return; // Prevent double initialization
             }
 
-            Logger.Msg($"[InitMain] 🎯 Player rank detected: {rank}");
+            Logger.Info($"🎯 Player rank detected: {rank}", "InitMain");
             
             // PHASE 3: Initialize player-dependent systems
             InitPlayerDependentSystems(player, rank);
@@ -341,7 +342,7 @@ namespace PaxDrops
 
             try
             {
-                Logger.Msg("[InitMain] 🔌 Shutting down player-dependent systems...");
+                Logger.Info("🔌 Shutting down player-dependent systems...", "InitMain");
                 
                 // Shutdown NPC and messaging systems
                 MrsStacksNPC.Shutdown();
@@ -350,11 +351,11 @@ namespace PaxDrops
                 
                 _playerDependentSystemsInitialized = false;
                 
-                Logger.Msg("[InitMain] ✅ Player-dependent systems shutdown complete");
+                Logger.Info("✅ Player-dependent systems shutdown complete", "InitMain");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Player-dependent shutdown error: {ex.Message}");
+                Logger.Error($"❌ Player-dependent shutdown error: {ex.Message}", "InitMain");
             }
         }
 
@@ -367,7 +368,7 @@ namespace PaxDrops
 
             try
             {
-                Logger.Msg("[InitMain] 🔌 Shutting down core systems...");
+                Logger.Info("🔌 Shutting down core systems...", "InitMain");
                 
                 // Shutdown core systems
                 TimeMonitor.Shutdown();
@@ -378,11 +379,11 @@ namespace PaxDrops
                 
                 _coreSystemsInitialized = false;
                 
-                Logger.Msg("[InitMain] ✅ Core systems shutdown complete");
+                Logger.Info("✅ Core systems shutdown complete", "InitMain");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Core shutdown error: {ex.Message}");
+                Logger.Error($"❌ Core shutdown error: {ex.Message}", "InitMain");
             }
         }
 
@@ -406,25 +407,25 @@ namespace PaxDrops
                     
                     if (!string.IsNullOrEmpty(savePath) && !string.IsNullOrEmpty(saveName))
                     {
-                        Logger.Msg($"[InitMain] 📂 Loading data for save: {saveName} at {savePath}");
+                        Logger.Info($"📂 Loading data for save: {saveName} at {savePath}", "InitMain");
                         SaveFileJsonDataStore.LoadForSaveFile(savePath, saveName);
                     }
                     else
                     {
-                        Logger.Warn("[InitMain] ⚠️ Could not identify current save file - using default");
+                        Logger.Warn("⚠️ Could not identify current save file - using default", "InitMain");
                         SaveFileJsonDataStore.LoadForSaveFile("", "default");
                     }
                 }
                 else
                 {
-                    Logger.Warn("[InitMain] ⚠️ SaveManager not available - will retry later");
+                    Logger.Warn("⚠️ SaveManager not available - will retry later", "InitMain");
                     // We'll rely on the save system patch to catch saves later
                 }
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Failed to load save file data: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Failed to load save file data: {ex.Message}", "InitMain");
+                Logger.Exception(ex, "InitMain");
             }
         }
 
@@ -436,27 +437,27 @@ namespace PaxDrops
             try
             {
                 // Log player detection status
-                Logger.Msg($"[InitMain] Player Status: {PaxDrops.Configs.DropConfig.GetPlayerDetectionStatus()}");
+                Logger.Debug($"Player Status: {PaxDrops.Configs.DropConfig.GetPlayerDetectionStatus()}", "InitMain");
                 
                 // Log save file status
                 var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
                 if (isLoaded)
                 {
-                    Logger.Msg($"[InitMain] 💾 Save File: {saveName} (ID: {saveId}, Steam: {steamId})");
+                    Logger.Debug($"💾 Save File: {saveName} (ID: {saveId}, Steam: {steamId})", "InitMain");
                 }
                 else
                 {
-                    Logger.Warn("[InitMain] ⚠️ No save file data loaded");
+                    Logger.Warn("⚠️ No save file data loaded", "InitMain");
                 }
                 
                 // Log system status
-                Logger.Msg($"[InitMain] 🔧 Core Systems: {(_coreSystemsInitialized ? "✅ Active" : "❌ Inactive")}");
-                Logger.Msg($"[InitMain] 👤 Player Systems: {(_playerDependentSystemsInitialized ? "✅ Active" : "❌ Inactive")}");
-                Logger.Msg($"[InitMain] 🎬 Main Scene: {(_isInMainScene ? "✅ Active" : "❌ Inactive")}");
+                Logger.Debug($"🔧 Core Systems: {(_coreSystemsInitialized ? "✅ Active" : "❌ Inactive")}", "InitMain");
+                Logger.Debug($"👤 Player Systems: {(_playerDependentSystemsInitialized ? "✅ Active" : "❌ Inactive")}", "InitMain");
+                Logger.Debug($"🎬 Main Scene: {(_isInMainScene ? "✅ Active" : "❌ Inactive")}", "InitMain");
             }
             catch (System.Exception ex)
             {
-                Logger.Error($"[InitMain] ❌ Status logging failed: {ex.Message}");
+                Logger.Error($"❌ Status logging failed: {ex.Message}", "InitMain");
             }
         }
 

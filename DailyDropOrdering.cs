@@ -19,7 +19,7 @@ namespace PaxDrops
             if (_initialized) return;
             _initialized = true;
 
-            Logger.Msg("[DailyDropOrdering] 🎯 Daily drop ordering system initialized");
+            Logger.Info("🎯 Daily drop ordering system initialized", "DailyDropOrdering");
         }
 
         /// <summary>
@@ -32,7 +32,7 @@ namespace PaxDrops
                 var timeManager = TimeManager.Instance;
                 if (timeManager == null)
                 {
-                    Logger.Error("[DailyDropOrdering] ❌ TimeManager not available");
+                    Logger.Error("❌ TimeManager not available", "DailyDropOrdering");
                     return false;
                 }
 
@@ -41,7 +41,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Error checking order availability: {ex.Message}");
+                Logger.Error($"❌ Error checking order availability: {ex.Message}", "DailyDropOrdering");
                 return false;
             }
         }
@@ -61,7 +61,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Error getting remaining orders: {ex.Message}");
+                Logger.Error($"❌ Error getting remaining orders: {ex.Message}", "DailyDropOrdering");
                 return 0;
             }
         }
@@ -86,7 +86,7 @@ namespace PaxDrops
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Error getting status info: {ex.Message}");
+                Logger.Error($"❌ Error getting status info: {ex.Message}", "DailyDropOrdering");
                 return "Status unavailable";
             }
         }
@@ -101,7 +101,7 @@ namespace PaxDrops
                 if (!CanPlayerOrderToday())
                 {
                     var statusInfo = GetOrderStatusInfo();
-                    Logger.Msg($"[DailyDropOrdering] 🚫 Daily order limit reached - {statusInfo}");
+                    Logger.Debug($"🚫 Daily order limit reached - {statusInfo}", "DailyDropOrdering");
                     
                     if (sendMessages)
                     {
@@ -118,12 +118,12 @@ namespace PaxDrops
                 // Process the order through OrderProcessor
                 OrderProcessor.ProcessOrder("Mrs. Stacks", orderType, tier, sendMessages: sendMessages);
                 
-                Logger.Msg($"[DailyDropOrdering] ✅ Mrs. Stacks {orderType} order processed");
+                Logger.Debug($"✅ Mrs. Stacks {orderType} order processed", "DailyDropOrdering");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Error processing Mrs. Stacks order: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Error processing Mrs. Stacks order: {ex.Message}", "DailyDropOrdering");
+                Logger.Error(ex.Message, "DailyDropOrdering");
             }
         }
 
@@ -150,18 +150,18 @@ namespace PaxDrops
                     $"You've reached your daily limit of {limitText}. " +
                     $"Come back tomorrow for more business opportunities.");
 
-                Logger.Msg("[DailyDropOrdering] 📱 Daily limit message sent");
+                Logger.Debug("📱 Daily limit message sent", "DailyDropOrdering");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Failed to send daily limit message: {ex.Message}");
+                Logger.Error($"❌ Failed to send daily limit message: {ex.Message}", "DailyDropOrdering");
             }
         }
 
         public static void Shutdown()
         {
             _initialized = false;
-            Logger.Msg("[DailyDropOrdering] 🔌 Daily drop ordering shutdown");
+            Logger.Info("🔌 Daily drop ordering shutdown", "DailyDropOrdering");
         }
 
         /// <summary>
@@ -228,12 +228,12 @@ namespace PaxDrops
                 MrsStacksMessaging.SendMessage(npc, reminderMessage);
                 
                 string logType = daysSinceLastOrder == -1 ? "first-time" : $"{daysSinceLastOrder}-day inactivity";
-                Logger.Msg($"[DailyDropOrdering] 📱 Sent {logType} reminder message");
+                Logger.Debug($"📱 Sent {logType} reminder message", "DailyDropOrdering");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Inactivity reminder failed: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Inactivity reminder failed: {ex.Message}", "DailyDropOrdering");
+                Logger.Error(ex.Message, "DailyDropOrdering");
             }
         }
 
@@ -259,12 +259,12 @@ namespace PaxDrops
                                    $"Deliveries arrive at 7:30 AM and expire after 24 hours. Ready to do business?";
 
                 MrsStacksMessaging.SendMessage(npc, welcomeMessage);
-                Logger.Msg("[DailyDropOrdering] 📱 Welcome message sent");
+                Logger.Info("📱 Welcome message sent", "DailyDropOrdering");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[DailyDropOrdering] ❌ Welcome message failed: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Welcome message failed: {ex.Message}", "DailyDropOrdering");
+                Logger.Error(ex.Message, "DailyDropOrdering");
             }
         }
     }

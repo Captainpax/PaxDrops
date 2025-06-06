@@ -23,7 +23,7 @@ namespace PaxDrops.MrStacks
         /// </summary>
         public static void Init()
         {
-            Logger.Msg("[MrsStacksNPC] 🏗️ Initializing Mrs. Stacks NPC...");
+            Logger.Debug("[MrsStacksNPC] 🏗️ Initializing Mrs. Stacks NPC...", "MrsStacksNPC");
             MrsStacksPatches.Init();
             MelonCoroutines.Start(FindAndCreateMrsStacks());
             _initialized = true;
@@ -47,7 +47,7 @@ namespace PaxDrops.MrStacks
                 if (timeManager == null) return;
 
                 int currentDay = timeManager.ElapsedDays;
-                Logger.Msg($"[MrsStacksNPC] 🌅 New day {currentDay} - checking for business opportunities");
+                Logger.Debug($"🌅 New day {currentDay} - checking for business opportunities", "MrsStacksNPC");
 
                 // Check order history for inactivity reminders
                 var ordersToday = SaveFileJsonDataStore.MrsStacksOrdersToday;
@@ -55,18 +55,18 @@ namespace PaxDrops.MrStacks
 
                 if (!hasOrderedRecently)
                 {
-                    Logger.Msg("[MrsStacksNPC] 📱 No recent orders - checking for inactivity reminder");
+                    Logger.Debug("[MrsStacksNPC] 📱 No recent orders - checking for inactivity reminder", "MrsStacksNPC");
                     DailyDropOrdering.SendInactivityReminderIfNeeded();
                 }
                 else
                 {
-                    Logger.Msg($"[MrsStacksNPC] ✅ Player has recent order activity ({ordersToday.Count} days with orders)");
+                    Logger.Debug($"✅ Player has recent order activity ({ordersToday.Count} days with orders)", "MrsStacksNPC");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ New day processing error: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ New day processing error: {ex.Message}", "MrsStacksNPC");
+                Logger.Exception(ex, "MrsStacksNPC");
             }
         }
 
@@ -80,7 +80,7 @@ namespace PaxDrops.MrStacks
                 var timeManager = TimeManager.Instance;
                 int currentDay = timeManager?.ElapsedDays ?? 0;
                 
-                Logger.Msg($"[MrsStacksNPC] 📅 Day changed to {currentDay} - performing daily maintenance");
+                Logger.Debug($"📅 Day changed to {currentDay} - performing daily maintenance", "MrsStacksNPC");
 
                 // Reset Mrs. Stacks availability for new day
                 // Note: SaveFileJsonDataStore tracks daily orders, no reset needed here
@@ -89,13 +89,13 @@ namespace PaxDrops.MrStacks
                 if (_mrsStacks != null)
                 {
                     // Log supplier status
-                    Logger.Msg($"[MrsStacksNPC] 📊 Mrs. Stacks status - Debt: ${_mrsStacks.Debt:F2}, Deliveries: {_mrsStacks.DeliveriesEnabled}");
+                    Logger.Debug($"📊 Mrs. Stacks status - Debt: ${_mrsStacks.Debt:F2}, Deliveries: {_mrsStacks.DeliveriesEnabled}", "MrsStacksNPC");
                     
                     // Ensure deliveries stay enabled
                     if (!_mrsStacks.DeliveriesEnabled)
                     {
                         _mrsStacks.DeliveriesEnabled = true;
-                        Logger.Msg("[MrsStacksNPC] ✅ Re-enabled Mrs. Stacks deliveries");
+                        Logger.Debug("✅ Re-enabled Mrs. Stacks deliveries", "MrsStacksNPC");
                     }
                     
                     // Clear any accumulated debt (Mrs. Stacks operates debt-free)
@@ -104,11 +104,11 @@ namespace PaxDrops.MrStacks
                         try
                         {
                             _mrsStacks.ChangeDebt(-_mrsStacks.Debt);
-                            Logger.Msg("[MrsStacksNPC] 💰 Cleared Mrs. Stacks debt on day change");
+                            Logger.Debug("💰 Cleared Mrs. Stacks debt on day change", "MrsStacksNPC");
                         }
                         catch (Exception ex)
                         {
-                            Logger.Warn($"[MrsStacksNPC] ⚠️ Could not clear debt: {ex.Message}");
+                            Logger.Warn($"⚠️ Could not clear debt: {ex.Message}", "MrsStacksNPC");
                         }
                     }
                 }
@@ -118,7 +118,7 @@ namespace PaxDrops.MrStacks
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ OnDayChanged error: {ex.Message}");
+                Logger.Error($"❌ OnDayChanged error: {ex.Message}", "MrsStacksNPC");
             }
         }
 
@@ -148,12 +148,12 @@ namespace PaxDrops.MrStacks
 
                 if (keysToRemove.Count > 0)
                 {
-                    Logger.Msg($"[MrsStacksNPC] 🗑️ Cleaned up {keysToRemove.Count} old Mrs. Stacks order records");
+                    Logger.Debug($"🗑️ Cleaned up {keysToRemove.Count} old Mrs. Stacks order records", "MrsStacksNPC");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ Order cleanup error: {ex.Message}");
+                Logger.Error($"❌ Order cleanup error: {ex.Message}", "MrsStacksNPC");
             }
         }
 
@@ -169,18 +169,18 @@ namespace PaxDrops.MrStacks
                 var albert = FindAlbertNPC();
                 if (albert != null)
                 {
-                    Logger.Msg($"[MrsStacksNPC] ✅ Found Albert: {albert.FirstName} {albert.LastName}");
+                    Logger.Debug($"✅ Found Albert: {albert.FirstName} {albert.LastName}", "MrsStacksNPC");
                     CreateMrsStacks(albert);
                 }
                 else
                 {
-                    Logger.Error("[MrsStacksNPC] ❌ Albert not found");
+                    Logger.Error("❌ Albert not found", "MrsStacksNPC");
                     TryFallbackCreation();
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ Mrs. Stacks creation failed: {ex.Message}");
+                Logger.Error($"❌ Mrs. Stacks creation failed: {ex.Message}", "MrsStacksNPC");
             }
         }
 
@@ -196,15 +196,15 @@ namespace PaxDrops.MrStacks
                 
                 if (albert != null)
                 {
-                    Logger.Msg($"[MrsStacksNPC] ✅ Found Albert via GetNPC: {albert.FirstName} {albert.LastName} (ID: {albert.ID})");
+                    Logger.Debug($"✅ Found Albert via GetNPC: {albert.FirstName} {albert.LastName} (ID: {albert.ID})", "MrsStacksNPC");
                     return albert;
                 }
-                Logger.Error("[MrsStacksNPC] ❌ Albert not found");
+                Logger.Error("❌ Albert not found", "MrsStacksNPC");
                 return null;
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ Albert search failed: {ex.Message}");
+                Logger.Error($"❌ Albert search failed: {ex.Message}", "MrsStacksNPC");
                 return null;
             }
         }
@@ -216,7 +216,7 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                Logger.Msg("[MrsStacksNPC] 🏗️ Creating Mrs. Stacks...");
+                Logger.Debug("🏗️ Creating Mrs. Stacks...", "MrsStacksNPC");
 
                 var mrsStacksNPC = UnityEngine.Object.Instantiate(albertTemplate);
                 mrsStacksNPC.FirstName = "Mrs.";
@@ -237,14 +237,14 @@ namespace PaxDrops.MrStacks
                 
                 MrsStacksMessaging.SetupConversation(mrsStacksNPC);
                 
-                Logger.Msg("[MrsStacksNPC] ✅ Mrs. Stacks created successfully");
+                Logger.Debug("✅ Mrs. Stacks created successfully", "MrsStacksNPC");
                 
                 // Send welcome message after a short delay to ensure everything is set up
                 MelonCoroutines.Start(SendDelayedWelcomeMessage());
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ Creation failed: {ex.Message}");
+                Logger.Error($"❌ Creation failed: {ex.Message}", "MrsStacksNPC");
             }
         }
 
@@ -261,7 +261,7 @@ namespace PaxDrops.MrStacks
                 if (customSprite != null)
                 {
                     npc.MugshotSprite = customSprite;
-                    Logger.Msg("[MrsStacksNPC] ⚙️ Custom icon set");
+                    Logger.Debug("⚙️ Custom icon set", "MrsStacksNPC");
                 }
                 else
                 {
@@ -270,7 +270,7 @@ namespace PaxDrops.MrStacks
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ Icon setup failed: {ex.Message}");
+                Logger.Error($"❌ Icon setup failed: {ex.Message}", "MrsStacksNPC");
                 npc.AutoGenerateMugshot = true;
             }
         }
@@ -312,7 +312,7 @@ namespace PaxDrops.MrStacks
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ Sprite creation failed: {ex.Message}");
+                Logger.Error($"❌ Sprite creation failed: {ex.Message}", "MrsStacksNPC");
                 return null;
             }
         }
@@ -331,17 +331,17 @@ namespace PaxDrops.MrStacks
                 {
                     if (registry[i] is Supplier supplier)
                     {
-                        Logger.Msg($"[MrsStacksNPC] 🔄 Using fallback: {supplier.FirstName} {supplier.LastName}");
+                        Logger.Debug($"🔄 Using fallback: {supplier.FirstName} {supplier.LastName}", "MrsStacksNPC");
                         CreateMrsStacks(supplier);
                         return;
                     }
                 }
                 
-                Logger.Error("[MrsStacksNPC] ❌ No suppliers found for fallback");
+                Logger.Error("❌ No suppliers found for fallback", "MrsStacksNPC");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ Fallback failed: {ex.Message}");
+                Logger.Error($"❌ Fallback failed: {ex.Message}", "MrsStacksNPC");
             }
         }
 
@@ -351,7 +351,7 @@ namespace PaxDrops.MrStacks
         public static void ShowSupplierInfo()
         {
             var status = _mrsStacks != null ? "Available" : "Not initialized";
-            Logger.Msg($"[MrsStacksNPC] 📋 Mrs. Stacks: {status}");
+            Logger.Debug($"📋 Mrs. Stacks: {status}", "MrsStacksNPC");
         }
 
         /// <summary>
@@ -361,7 +361,7 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                Logger.Msg("[MrsStacksNPC] 🧼 Shutting down Mrs. Stacks NPC...");
+                Logger.Debug("🧼 Shutting down Mrs. Stacks NPC...", "MrsStacksNPC");
                 
                 if (_mrsStacks != null)
                 {
@@ -373,7 +373,7 @@ namespace PaxDrops.MrStacks
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warn($"[MrsStacksNPC] ⚠️ Could not clear debt on shutdown: {ex.Message}");
+                        Logger.Warn($"⚠️ Could not clear debt on shutdown: {ex.Message}", "MrsStacksNPC");
                     }
                     
                     // Try to remove from NPCManager registry
@@ -383,12 +383,12 @@ namespace PaxDrops.MrStacks
                         if (registry != null && registry.Contains(_mrsStacks))
                         {
                             registry.Remove(_mrsStacks);
-                            Logger.Msg("[MrsStacksNPC] 🗑️ Removed Mrs. Stacks from NPC registry");
+                            Logger.Debug("🗑️ Removed Mrs. Stacks from NPC registry", "MrsStacksNPC");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warn($"[MrsStacksNPC] ⚠️ Could not remove from registry: {ex.Message}");
+                        Logger.Warn($"⚠️ Could not remove from registry: {ex.Message}", "MrsStacksNPC");
                     }
                     
                     // Destroy the GameObject if it exists
@@ -397,12 +397,12 @@ namespace PaxDrops.MrStacks
                         if (_mrsStacks.gameObject != null)
                         {
                             UnityEngine.Object.Destroy(_mrsStacks.gameObject);
-                            Logger.Msg("[MrsStacksNPC] 🗑️ Destroyed Mrs. Stacks GameObject");
+                            Logger.Debug("🗑️ Destroyed Mrs. Stacks GameObject", "MrsStacksNPC");
                         }
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warn($"[MrsStacksNPC] ⚠️ Could not destroy GameObject: {ex.Message}");
+                        Logger.Warn($"⚠️ Could not destroy GameObject: {ex.Message}", "MrsStacksNPC");
                     }
                 }
                 
@@ -410,34 +410,34 @@ namespace PaxDrops.MrStacks
                 try
                 {
                     MrsStacksMessaging.Shutdown();
-                    Logger.Msg("[MrsStacksNPC] 📤 Messaging system shutdown");
+                    Logger.Debug("📤 Messaging system shutdown", "MrsStacksNPC");
                 }
                 catch (Exception ex)
                 {
-                    Logger.Warn($"[MrsStacksNPC] ⚠️ Messaging shutdown error: {ex.Message}");
+                    Logger.Warn($"⚠️ Messaging shutdown error: {ex.Message}", "MrsStacksNPC");
                 }
                 
                 // Shutdown patches
                 try
                 {
                     MrsStacksPatches.Shutdown();
-                    Logger.Msg("[MrsStacksNPC] 🔌 Patches shutdown");
+                    Logger.Debug("🔌 Patches shutdown", "MrsStacksNPC");
                 }
                 catch (Exception ex)
                 {
-                    Logger.Warn($"[MrsStacksNPC] ⚠️ Patch shutdown error: {ex.Message}");
+                    Logger.Warn($"⚠️ Patch shutdown error: {ex.Message}", "MrsStacksNPC");
                 }
                 
                 // Reset state
                 _mrsStacks = null;
                 _initialized = false;
                 
-                Logger.Msg("[MrsStacksNPC] ✅ Mrs. Stacks NPC shutdown complete");
+                Logger.Debug("✅ Mrs. Stacks NPC shutdown complete", "MrsStacksNPC");
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ Shutdown error: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Shutdown error: {ex.Message}", "MrsStacksNPC");
+                Logger.Exception(ex, "MrsStacksNPC");
                 
                 // Force reset state even if shutdown failed
                 _mrsStacks = null;
@@ -454,7 +454,7 @@ namespace PaxDrops.MrStacks
             
             try
             {
-                Logger.Msg($"[MrsStacksNPC] 🔍 Checking if welcome message should be sent...");
+                Logger.Debug("🔍 Checking if welcome message should be sent...", "MrsStacksNPC");
                 
                 // Check both order history AND conversation history to determine if user is truly new
                 int lastOrderDay = SaveFileJsonDataStore.GetLastMrsStacksOrderDay();
@@ -465,13 +465,13 @@ namespace PaxDrops.MrStacks
                 // Get current conversation history info
                 var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
                 
-                Logger.Msg($"[MrsStacksNPC] 🔍 Welcome check - Last order day: {lastOrderDay}");
-                Logger.Msg($"[MrsStacksNPC] 🔍 Save info - ID: {saveId}, Loaded: {isLoaded}");
+                Logger.Debug($"🔍 Welcome check - Last order day: {lastOrderDay}", "MrsStacksNPC");
+                Logger.Debug($"🔍 Save info - ID: {saveId}, Loaded: {isLoaded}", "MrsStacksNPC");
                 
                 // Use a more specific method to check conversation history
                 bool hasConversationHistory = MrsStacksMessaging.HasExistingConversation();
                 
-                Logger.Msg($"[MrsStacksNPC] 🔍 Has conversation history: {hasConversationHistory}");
+                Logger.Debug($"🔍 Has conversation history: {hasConversationHistory}", "MrsStacksNPC");
                 
                 // Only send welcome if BOTH conditions are true:
                 // 1. Never ordered before (lastOrderDay == -1)
@@ -480,18 +480,18 @@ namespace PaxDrops.MrStacks
                 
                 if (isReallyNewUser)
                 {
-                    Logger.Msg($"[MrsStacksNPC] 🎉 Sending welcome message to truly new user");
+                    Logger.Debug("🎉 Sending welcome message to truly new user", "MrsStacksNPC");
                     DailyDropOrdering.SendWelcomeMessage();
                 }
                 else
                 {
-                    Logger.Msg($"[MrsStacksNPC] ♻️ Skipping welcome - existing user (Orders: {lastOrderDay != -1}, Conversation: {hasConversationHistory})");
+                    Logger.Debug($"♻️ Skipping welcome - existing user (Orders: {lastOrderDay != -1}, Conversation: {hasConversationHistory})", "MrsStacksNPC");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"[MrsStacksNPC] ❌ Delayed welcome message failed: {ex.Message}");
-                Logger.Exception(ex);
+                Logger.Error($"❌ Delayed welcome message failed: {ex.Message}", "MrsStacksNPC");
+                Logger.Exception(ex, "MrsStacksNPC");
             }
         }
     }
