@@ -376,44 +376,44 @@ namespace PaxDrops.MrStacks
             
             try
             {
-                // Only send welcome if player hasn't ordered before
+                Logger.Msg($"[MrsStacksNPC] 🔍 Checking if welcome message should be sent...");
+                
+                // Check both order history AND conversation history to determine if user is truly new
                 int lastOrderDay = SaveFileJsonDataStore.GetLastMrsStacksOrderDay();
-                if (lastOrderDay == -1) // Never ordered before
+                
+                // Also check conversation history - load it for current save to get accurate count
+                MrsStacksMessaging.LoadConversationForCurrentSave();
+                
+                // Get current conversation history info
+                var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
+                
+                Logger.Msg($"[MrsStacksNPC] 🔍 Welcome check - Last order day: {lastOrderDay}");
+                Logger.Msg($"[MrsStacksNPC] 🔍 Save info - ID: {saveId}, Loaded: {isLoaded}");
+                
+                // Use a more specific method to check conversation history
+                bool hasConversationHistory = MrsStacksMessaging.HasExistingConversation();
+                
+                Logger.Msg($"[MrsStacksNPC] 🔍 Has conversation history: {hasConversationHistory}");
+                
+                // Only send welcome if BOTH conditions are true:
+                // 1. Never ordered before (lastOrderDay == -1)
+                // 2. No conversation history exists
+                bool isReallyNewUser = (lastOrderDay == -1) && !hasConversationHistory;
+                
+                if (isReallyNewUser)
                 {
+                    Logger.Msg($"[MrsStacksNPC] 🎉 Sending welcome message to truly new user");
                     DailyDropOrdering.SendWelcomeMessage();
+                }
+                else
+                {
+                    Logger.Msg($"[MrsStacksNPC] ♻️ Skipping welcome - existing user (Orders: {lastOrderDay != -1}, Conversation: {hasConversationHistory})");
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error($"[MrsStacksNPC] ❌ Delayed welcome message failed: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Check if Mrs. Stacks should send a business reminder
-        /// </summary>
-        private static bool ShouldSendBusinessReminder()
-        {
-            try
-            {
-                var timeManager = TimeManager.Instance;
-                if (timeManager == null) return false;
-
-                int currentDay = timeManager.ElapsedDays;
-                int lastOrderDay = SaveFileJsonDataStore.GetLastMrsStacksOrderDay();
-                
-                // Send reminder if it's been 3+ days since last order
-                if (lastOrderDay == -1) // Never ordered
-                {
-                    return currentDay >= 3; // After 3 days of game time
-                }
-                
-                return (currentDay - lastOrderDay) >= 3;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"[MrsStacksNPC] ❌ Business reminder check failed: {ex.Message}");
-                return false;
+                Logger.Exception(ex);
             }
         }
     }

@@ -128,10 +128,11 @@ namespace PaxDrops
                 // Load data for this save
                 LoadDataForCurrentSave();
                 
+                _isLoadedForSave = true;
+                
                 // Load conversation data for this save
                 PaxDrops.MrStacks.MrsStacksMessaging.LoadConversationForCurrentSave();
                 
-                _isLoadedForSave = true;
                 Logger.Msg($"[SaveFileJsonDataStore] 📂 Successfully loaded data for save: {saveName}");
                 Logger.Msg($"[SaveFileJsonDataStore] 🆔 Final IDs - Steam: {saveMetadata.SteamId} | Save: {saveMetadata.SaveId}");
                 
