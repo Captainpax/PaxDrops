@@ -11,7 +11,8 @@ MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
 # Define paths
-MODS_DIR="/Users/shreyas/Library/Application Support/CrossOver/Bottles/Schedule I/drive_c/Program Files (x86)/Steam/steamapps/common/Schedule I/Mods"
+# MODS_DIR="/Users/shreyas/Library/Application Support/CrossOver/Bottles/Schedule I/drive_c/Program Files (x86)/Steam/steamapps/common/Schedule I/Mods"
+MODS_DIR="D:/SteamLibrary/steamapps/common/Schedule I/Mods"
 
 # Function to log messages with colors
 print_info() {
@@ -63,7 +64,7 @@ build_project() {
     clean_build
 
     # Build the project
-    dotnet clean && dotnet build --configuration $config
+    dotnet clean PaxDrops.IL2CPP.csproj && dotnet build PaxDrops.IL2CPP.csproj --configuration $config
     if [ $? -ne 0 ]; then
         print_error " ❌ Failed to build project in $config configuration"
         exit 1

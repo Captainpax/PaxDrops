@@ -218,19 +218,58 @@ namespace PaxDrops.MrStacks
             {
                 Logger.Debug("🏗️ Creating Mrs. Stacks...", "MrsStacksNPC");
 
+                // Clone Albert but clear all his data to create a clean NPC
                 var mrsStacksNPC = UnityEngine.Object.Instantiate(albertTemplate);
+                
+                // Clear Albert's data and set Mrs. Stacks data
+                ClearNPCData(mrsStacksNPC);
                 mrsStacksNPC.FirstName = "Mrs.";
                 mrsStacksNPC.LastName = "Stacks";
                 mrsStacksNPC.ID = "mrs_stacks_001";
                 
                 SetupIcon(mrsStacksNPC);
                 
-                _mrsStacks = mrsStacksNPC as Supplier;
+                // Try to cast to Supplier with IL2CPP-safe method
+                try
+                {
+                    // First try direct cast
+                    _mrsStacks = mrsStacksNPC.TryCast<Supplier>();
+                    if (_mrsStacks == null)
+                    {
+                        // If direct cast fails, try as-cast
+                        _mrsStacks = mrsStacksNPC as Supplier;
+                    }
+                }
+                catch (Exception castEx)
+                {
+                    Logger.Warn($"⚠️ Casting attempt failed: {castEx.Message}", "MrsStacksNPC");
+                    // Fallback to as-cast
+                    _mrsStacks = mrsStacksNPC as Supplier;
+                }
+                
                 if (_mrsStacks != null)
                 {
+                    Logger.Debug($"✅ Mrs. Stacks created: {_mrsStacks.FirstName} {_mrsStacks.LastName} (ID: {_mrsStacks.ID})", "MrsStacksNPC");
                     _mrsStacks.DeliveriesEnabled = true;
+                    
+                    // Clear any financial data from Albert
+                    try
+                    {
+                        if (_mrsStacks.Debt != 0)
+                        {
+                            _mrsStacks.ChangeDebt(-_mrsStacks.Debt);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"⚠️ Could not clear inherited debt: {ex.Message}", "MrsStacksNPC");
+                    }
                 }
-
+                else
+                {
+                    Logger.Error("❌ Failed to cast Mrs. Stacks to Supplier", "MrsStacksNPC");
+                    return;
+                }
                 // Register and create conversation
                 NPCManager.NPCRegistry?.Add(mrsStacksNPC);
                 mrsStacksNPC.CreateMessageConversation();
@@ -245,6 +284,104 @@ namespace PaxDrops.MrStacks
             catch (Exception ex)
             {
                 Logger.Error($"❌ Creation failed: {ex.Message}", "MrsStacksNPC");
+            }
+        }
+
+        /// <summary>
+        /// Clear all data from cloned NPC to create a clean slate
+        /// </summary>
+        private static void ClearNPCData(NPC npc)
+        {
+            try
+            {
+                Logger.Debug("🧹 Clearing NPC data to create clean template...", "MrsStacksNPC");
+                
+                // Clear basic identity (will be set again)
+                npc.FirstName = "";
+                npc.LastName = "";
+                npc.ID = "";
+                
+                // Clear visual/appearance data
+                npc.AutoGenerateMugshot = true;
+                npc.MugshotSprite = null;
+                
+                // CRITICAL: Clear relationship data to prevent unlock prompts
+                if (npc.RelationData != null)
+                {
+                    try
+                    {
+                        // Clear all connections to other NPCs (this prevents the unlock requirement)
+                        if (npc.RelationData.Connections != null)
+                        {
+                            npc.RelationData.Connections.Clear();
+                            Logger.Debug("✂️ Cleared NPC connections", "MrsStacksNPC");
+                        }
+                        
+                        // Force unlock status to true (no unlock requirements)
+                        npc.RelationData.Unlocked = true;
+                        
+                        // Set relationship to maximum (friendly)
+                        npc.RelationData.SetRelationship(5.0f);
+                        
+                        // Clear any unlock callbacks that might trigger prompts
+                        npc.RelationData.onUnlocked = null;
+                        
+                        Logger.Debug("🔓 Mrs. Stacks set to unlocked with max relationship", "MrsStacksNPC");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"⚠️ Could not fully clear RelationData: {ex.Message}", "MrsStacksNPC");
+                    }
+                }
+                
+                // Clear any conversation/messaging data
+                if (npc.MSGConversation != null)
+                {
+                    try
+                    {
+                        npc.MSGConversation.messageHistory?.Clear();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"Could not clear messages: {ex.Message}", "MrsStacksNPC");
+                    }
+                }
+                
+                // If it's a Supplier, clear financial data and set custom message
+                if (npc is Supplier supplier)
+                {
+                    try
+                    {
+                        supplier.DeliveriesEnabled = false; // Will be re-enabled
+                        if (supplier.Debt != 0)
+                        {
+                            supplier.ChangeDebt(-supplier.Debt);
+                        }
+                        
+                        // Clear supplier-specific unlock message to prevent confusion
+                        try
+                        {
+                            if (!string.IsNullOrEmpty(supplier.SupplierRecommendMessage))
+                            {
+                                supplier.SupplierRecommendMessage = "Mrs. Stacks is ready to help with your orders!";
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Debug($"Could not set supplier message: {ex.Message}", "MrsStacksNPC");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Debug($"Could not clear supplier data: {ex.Message}", "MrsStacksNPC");
+                    }
+                }
+                
+                Logger.Debug("✅ NPC data cleared successfully", "MrsStacksNPC");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"⚠️ Error clearing NPC data: {ex.Message}", "MrsStacksNPC");
             }
         }
 

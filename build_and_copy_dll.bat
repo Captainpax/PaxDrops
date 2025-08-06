@@ -7,7 +7,7 @@
 :: This script will not have colored output as it is not natively supported in Windows.
 
 :: Define paths
-set MODS_DIR="C:\Program Files (x86)\Steam\steamapps\common\Schedule I\Mods"
+set MODS_DIR="D:\SteamLibrary\steamapps\common\Schedule I\Mods"
 
 :: Function to log messages
 echo_info() {
