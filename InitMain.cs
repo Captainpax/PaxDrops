@@ -2,11 +2,10 @@ using UnityEngine;
 using MelonLoader;
 using PaxDrops.MrStacks;
 using PaxDrops.Patches;
-using Il2CppScheduleOne.PlayerScripts;
-using Il2CppScheduleOne.Levelling;
-using Il2CppScheduleOne.Persistence;
+using PaxDrops.Runtime;
+using System.Collections;
 
-[assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "CaptainPax")]
+[assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "Pax")]
 [assembly: MelonGame("Cortez", "Schedule 1")]
 
 namespace PaxDrops
@@ -34,11 +33,18 @@ namespace PaxDrops
             
             try
             {
+                // Initialize runtime detection first
+                RuntimeEnvironment.Initialize();
+                MelonLogger.Msg($"🔍 Runtime detected: {RuntimeEnvironment.RuntimeType}");
+                
                 // Initialize only basic logging system
                 Logger.Init();
                 
+                // Initialize the unified API provider
+                GameAPIProvider.Instance.Initialize();
+                
                 Logger.Info("⚙️ Application initialization complete", "InitMain");
-                Logger.Info("📋 Waiting for main scene...", "InitMain");
+                Logger.Info($"📋 Runtime: {RuntimeEnvironment.RuntimeType} - Waiting for main scene...", "InitMain");
             }
             catch (System.Exception ex)
             {
@@ -225,9 +231,9 @@ namespace PaxDrops
         /// <summary>
         /// PHASE 3: Initialize player-dependent systems (NPCs, messaging, etc.)
         /// </summary>
-        private static void InitPlayerDependentSystems(Player player, ERank rank)
+        private static void InitPlayerDependentSystems(string playerName, string rank)
         {
-            Logger.Info($"🚀 Initializing player-dependent systems for {player.PlayerName} (Rank: {rank})...", "InitMain");
+            Logger.Info($"🚀 Initializing player-dependent systems for {playerName} (Rank: {rank})...", "InitMain");
 
             try
             {
@@ -242,7 +248,7 @@ namespace PaxDrops
                 Logger.Debug("✅ Player-dependent systems initialized!", "InitMain");
                 Logger.Debug("🎯 Rank-based tier system active (11 tiers mapped 1:1 with ERank)", "InitMain");
                 Logger.Debug("📅 Daily ordering system enabled - tier rewards based on player rank", "InitMain");
-                Logger.Debug($"🎮 PaxDrops fully initialized for {player.PlayerName} (Rank: {rank})!", "InitMain");
+                Logger.Debug($"🎮 PaxDrops fully initialized for {playerName} (Rank: {rank})!", "InitMain");
 
                 // Log final status
                 LogSystemStatus();
@@ -266,13 +272,17 @@ namespace PaxDrops
             try
             {
                 // Start player detection
-                PlayerDetection.StartDetection();
+                // TODO: Implement new PlayerDetection using runtime abstraction
+                // PlayerDetection.StartDetection();
 
                 // Subscribe to player detection events
-                PlayerDetection.OnPlayerLoaded += OnPlayerDetected;
-                PlayerDetection.OnPlayerRankLoaded += OnPlayerRankDetected;
+                // PlayerDetection.OnPlayerLoaded += OnPlayerDetected;
+                // PlayerDetection.OnPlayerRankLoaded += OnPlayerRankDetected;
                 
-                Logger.Info("👀 Player detection started", "InitMain");
+                // For now, simulate player detection for testing
+                MelonCoroutines.Start(SimulatePlayerDetection());
+                
+                Logger.Info("👀 Player detection started (simulated)", "InitMain");
             }
             catch (System.Exception ex)
             {
@@ -289,11 +299,11 @@ namespace PaxDrops
             try
             {
                 // Unsubscribe from events
-                PlayerDetection.OnPlayerLoaded -= OnPlayerDetected;
-                PlayerDetection.OnPlayerRankLoaded -= OnPlayerRankDetected;
+                // PlayerDetection.OnPlayerLoaded -= OnPlayerDetected;
+                // PlayerDetection.OnPlayerRankLoaded -= OnPlayerRankDetected;
                 
                 // IMPORTANT: Reset the PlayerDetection state so it can be restarted
-                PlayerDetection.Reset();
+                // PlayerDetection.Reset();
                 
                 Logger.Info("👀 Player detection stopped and reset", "InitMain");
             }
@@ -306,16 +316,16 @@ namespace PaxDrops
         /// <summary>
         /// Called when the player is first detected
         /// </summary>
-        private static void OnPlayerDetected(Player player)
+        private static void OnPlayerDetected(string playerName)
         {
-            Logger.Info($"👤 Player detected: {player.PlayerName}", "InitMain");
+            Logger.Info($"👤 Player detected: {playerName}", "InitMain");
             Logger.Info("Waiting for rank data...", "InitMain");
         }
 
         /// <summary>
         /// PHASE 3 TRIGGER: Called when player rank data becomes available
         /// </summary>
-        private static void OnPlayerRankDetected(Player player, ERank rank)
+        private static void OnPlayerRankDetected(string playerName, string rank)
         {
             if (_playerDependentSystemsInitialized)
             {
@@ -326,7 +336,7 @@ namespace PaxDrops
             Logger.Info($"🎯 Player rank detected: {rank}", "InitMain");
             
             // PHASE 3: Initialize player-dependent systems
-            InitPlayerDependentSystems(player, rank);
+            InitPlayerDependentSystems(playerName, rank);
         }
 
         #endregion
@@ -399,11 +409,11 @@ namespace PaxDrops
             try
             {
                 // Get the save manager to identify which save we're in
-                var saveManager = SaveManager.Instance;
-                if (saveManager != null)
+                var saveProvider = GameAPIProvider.Instance.SaveSystem;
+                if (saveProvider != null)
                 {
-                    string? savePath = saveManager.PlayersSavePath;
-                    string? saveName = saveManager.SaveName;
+                    string? savePath = saveProvider.GetPlayersSavePath();
+                    string? saveName = saveProvider.GetSaveName();
                     
                     if (!string.IsNullOrEmpty(savePath) && !string.IsNullOrEmpty(saveName))
                     {
@@ -459,6 +469,36 @@ namespace PaxDrops
             {
                 Logger.Error($"❌ Status logging failed: {ex.Message}", "InitMain");
             }
+        }
+
+        /// <summary>
+        /// Temporary simulation of player detection for testing
+        /// </summary>
+        private static IEnumerator SimulatePlayerDetection()
+        {
+            yield return new WaitForSeconds(3.0f);
+            
+            Logger.Info("🧪 Simulating player detection for testing...", "InitMain");
+            
+            string playerName = "TestPlayer";
+            string rank = "Street_Rat";
+            
+            // Simulate detecting a player using the runtime abstraction
+            try
+            {
+                var playerProvider = GameAPIProvider.Instance.Player;
+                playerName = playerProvider.GetPlayerName();
+                rank = playerProvider.GetPlayerRank();
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Warn($"🧪 Player simulation failed: {ex.Message}", "InitMain");
+                // Keep fallback values set above
+            }
+            
+            OnPlayerDetected(playerName);
+            yield return new WaitForSeconds(1.0f);
+            OnPlayerRankDetected(playerName, rank);
         }
 
         #endregion
