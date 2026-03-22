@@ -7,7 +7,7 @@ PaxDrops adds an immersive dead drop system to *Schedule I*, delivering cash and
 - 💵 Each drop contains random cash (up to $1,000) and mafia-sourced loot.
 - 📈 Loot tiers scale with player day and rank.
 - 📅 Drops are persistent using SQLite — not memory-based.
-- 📱 NPC-based request system via phone contact: "Mrs. Stacks".
+- 📱 NPC-based request system via phone contact: "Mr. Stacks".
 - 🛠 Console commands available for dev/debug purposes.
 
 ## 🎯 Intended Design Goals
@@ -89,7 +89,7 @@ PaxDrops adds an immersive dead drop system to *Schedule I*, delivering cash and
 ### `MrStacks.cs`
 - **Purpose**: Coordinates NPC message sending and interaction logic.
 - **Responsibilities**:
-  - Triggers daily SMS from “Mrs. Stacks” at 7:30 AM.
+  - Triggers daily SMS from “Mr. Stacks” at 7:30 AM.
   - Manages player dialogue flow for requesting drops.
   - Controls which tiers are unlocked based on progress.
   - Interfaces with `MrStacksMsg`, `MrStacksNpc`.
@@ -102,7 +102,7 @@ PaxDrops adds an immersive dead drop system to *Schedule I*, delivering cash and
   - Finalizes request and sends it to `TierLevel` and `DataBase`.
 
 ### `MrStacksNpc.cs`
-- **Purpose**: Defines appearance and behavior for Mrs. Stacks NPC.
+- **Purpose**: Defines appearance and behavior for Mr. Stacks NPC.
 - **Responsibilities**:
   - Contains model, voice, and dialogue metadata.
   - Can be reused to define other NPCs.
@@ -128,7 +128,7 @@ PaxDrops adds an immersive dead drop system to *Schedule I*, delivering cash and
 - If yes, spawns the drop and marks it as complete in DB.
 
 ### 📱 At 7:30 AM
-- `MrStacks.cs` sends SMS message from Mrs. Stacks to player.
+- `MrStacks.cs` sends SMS message from Mr. Stacks to player.
 
 ### 💬 When Player Opens Message
 1. `MrStacksMsg.cs` walks through org → tier → confirm steps.

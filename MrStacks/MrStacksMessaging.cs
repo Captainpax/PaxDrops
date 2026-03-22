@@ -13,10 +13,10 @@ using System.Linq;
 namespace PaxDrops.MrStacks
 {
     /// <summary>
-    /// Handles messaging functionality for Mrs. Stacks NPC.
+    /// Handles messaging functionality for Mr. Stacks NPC.
     /// Now includes save-file-aware conversation persistence using SaveFileJsonDataStore system.
     /// </summary>
-    public static class MrsStacksMessaging
+    public static class MrStacksMessaging
     {
         /// <summary>
         /// Conversation message record for JSON storage
@@ -39,7 +39,7 @@ namespace PaxDrops.MrStacks
         public class ConversationHistory
         {
             public List<MessageRecord> Messages { get; set; } = new List<MessageRecord>();
-            public string ContactName { get; set; } = "Mrs. Stacks";
+            public string ContactName { get; set; } = "Mr. Stacks";
             public string LastSaved { get; set; } = "";
             public string SaveId { get; set; } = "";
         }
@@ -62,19 +62,19 @@ namespace PaxDrops.MrStacks
                     {
                         LoadConversationHistory(saveId);
                         _isConversationLoaded = true;
-                        Logger.Info($"📂 Loaded conversation for save: {saveName} (ID: {saveId}, Steam: {steamId})", "MrsStacksMessaging");
+                        Logger.Info($"📂 Loaded conversation for save: {saveName} (ID: {saveId}, Steam: {steamId})", "MrStacksMessaging");
                     }
                     else
                     {
                         // Fallback to default conversation if no save loaded
                         _conversationHistory = new ConversationHistory();
-                        Logger.Warn("⚠️ No save loaded - using default conversation", "MrsStacksMessaging");
+                        Logger.Warn("⚠️ No save loaded - using default conversation", "MrStacksMessaging");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Failed to load conversation for current save: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Failed to load conversation for current save: {ex.Message}", "MrStacksMessaging");
                 _conversationHistory = new ConversationHistory();
             }
         }
@@ -89,17 +89,17 @@ namespace PaxDrops.MrStacks
                 if (_isConversationLoaded)
                 {
                     var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
-                    Logger.Info($"📤 Unloading conversation for save: {saveName} (ID: {saveId}, Steam: {steamId})", "MrsStacksMessaging");
+                    Logger.Info($"📤 Unloading conversation for save: {saveName} (ID: {saveId}, Steam: {steamId})", "MrStacksMessaging");
                     
                     _conversationHistory = new ConversationHistory();
                     _isConversationLoaded = false;
                     
-                    Logger.Info("✅ Conversation unloaded", "MrsStacksMessaging");
+                    Logger.Info("✅ Conversation unloaded", "MrStacksMessaging");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Failed to unload conversation: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Failed to unload conversation: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -125,44 +125,44 @@ namespace PaxDrops.MrStacks
                 string steamUserDir = Path.Combine(baseDataDir, steamId);
                 string saveDir = Path.Combine(steamUserDir, currentSaveId);  // Use currentSaveId for consistency
                 
-                Logger.Debug($"📁 Conversation file path: {Path.Combine(saveDir, "conversation.json")}", "MrsStacksMessaging");
-                Logger.Debug($"📁 Using Steam ID: {steamId}, Save ID: {currentSaveId}", "MrsStacksMessaging");
+                Logger.Debug($"📁 Conversation file path: {Path.Combine(saveDir, "conversation.json")}", "MrStacksMessaging");
+                Logger.Debug($"📁 Using Steam ID: {steamId}, Save ID: {currentSaveId}", "MrStacksMessaging");
                 
                 return Path.Combine(saveDir, "conversation.json");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Failed to get conversation file path: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Failed to get conversation file path: {ex.Message}", "MrStacksMessaging");
                 return Path.Combine("Mods/PaxDrops/SaveFiles", "fallback", saveId, "conversation.json");
             }
         }
 
         /// <summary>
-        /// Find the Mrs. Stacks NPC using the proper GetNPC method
+        /// Find the Mr. Stacks NPC using the proper GetNPC method
         /// </summary>
-        public static NPC? FindMrsStacksNPC()
+        public static NPC? FindMrStacksNPC()
         {
             try
             {
-                // First try to get Mrs. Stacks directly by ID
-                var mrsStacks = NPCManager.GetNPC("mrs_stacks_001");
-                if (mrsStacks != null)
+                // First try to get Mr. Stacks directly by ID
+                var mrStacks = NPCManager.GetNPC("mr_stacks_001");
+                if (mrStacks != null)
                 {
-                    return mrsStacks;
+                    return mrStacks;
                 }
                 
-                Logger.Error("❌ Mrs. Stacks not found", "MrsStacksMessaging");
+                Logger.Error("❌ Mr. Stacks not found", "MrStacksMessaging");
                 return null;
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ NPC search failed: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ NPC search failed: {ex.Message}", "MrStacksMessaging");
                 return null;
             }
         }
 
         /// <summary>
-        /// Send a message from Mrs. Stacks to the player and save to current save's conversation
+        /// Send a message from Mr. Stacks to the player and save to current save's conversation
         /// </summary>
         public static void SendMessage(NPC npc, string messageText)
         {
@@ -174,7 +174,7 @@ namespace PaxDrops.MrStacks
                 var conversation = MessagingManager.Instance?.GetConversation(npc);
                 if (conversation == null)
                 {
-                    Logger.Error("❌ No conversation found", "MrsStacksMessaging");
+                    Logger.Error("❌ No conversation found", "MrStacksMessaging");
                     return;
                 }
 
@@ -184,11 +184,11 @@ namespace PaxDrops.MrStacks
                 // Save to our save-aware JSON storage
                 SaveMessageToHistory(messageText, false);
                 
-                Logger.Info($"📱 Message sent and saved: {messageText}", "MrsStacksMessaging");
+                Logger.Info($"📱 Message sent and saved: {messageText}", "MrStacksMessaging");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Message send failed: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Message send failed: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -199,36 +199,36 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                Logger.Info("🔧 Setting up conversation with Mrs. Stacks", "MrsStacksMessaging");
+                Logger.Info("🔧 Setting up conversation with Mr. Stacks", "MrStacksMessaging");
                 
                 var conversation = MessagingManager.Instance?.GetConversation(npc);
                 if (conversation != null)
                 {
-                    conversation.contactName = "Mrs. Stacks";
+                    conversation.contactName = "Mr. Stacks";
                     
-                    Logger.Debug($"🔧 Conversation loaded: {_isConversationLoaded}", "MrsStacksMessaging");
-                    Logger.Debug($"🔧 Current message count before loading: {_conversationHistory.Messages.Count}", "MrsStacksMessaging");
+                    Logger.Debug($"🔧 Conversation loaded: {_isConversationLoaded}", "MrStacksMessaging");
+                    Logger.Debug($"🔧 Current message count before loading: {_conversationHistory.Messages.Count}", "MrStacksMessaging");
                     
                     // Load existing conversation history for current save
                     LoadConversationForCurrentSave();
                     
-                    Logger.Debug($"🔧 Message count after loading: {_conversationHistory.Messages.Count}", "MrsStacksMessaging");
+                    Logger.Debug($"🔧 Message count after loading: {_conversationHistory.Messages.Count}", "MrStacksMessaging");
                     
                     // Restore previous messages to the conversation
                     RestoreConversationHistory(conversation);
                     
-                    Logger.Info($"📱 ✅ Conversation setup complete - restored {_conversationHistory.Messages.Count} messages", "MrsStacksMessaging");
-                    Logger.Info($"📱 Note: Welcome/reminder messages are handled by MrsStacksNPC.SendDelayedWelcomeMessage() and OnNewDay()", "MrsStacksMessaging");
+                    Logger.Info($"📱 ✅ Conversation setup complete - restored {_conversationHistory.Messages.Count} messages", "MrStacksMessaging");
+                    Logger.Info($"📱 Note: Welcome/reminder messages are handled by MrStacksNPC.SendDelayedWelcomeMessage() and OnNewDay()", "MrStacksMessaging");
                 }
                 else
                 {
-                    Logger.Error($"❌ No conversation object found for Mrs. Stacks NPC", "MrsStacksMessaging");
+                    Logger.Error($"❌ No conversation object found for Mr. Stacks NPC", "MrStacksMessaging");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Conversation setup failed: {ex.Message}", "MrsStacksMessaging");
-                Logger.Exception(ex, "MrsStacksMessaging");
+                Logger.Error($"❌ Conversation setup failed: {ex.Message}", "MrStacksMessaging");
+                Logger.Exception(ex, "MrStacksMessaging");
             }
         }
 
@@ -264,11 +264,11 @@ namespace PaxDrops.MrStacks
 
                 // Don't save immediately - only save when game saves
                 // SaveConversationHistory(); // REMOVED - only save when game saves
-                Logger.Debug($"📝 Message queued for save: {messageRecord.MessageId} (Save: {saveName}, Steam: {steamId}) - will save on next game save", "MrsStacksMessaging");
+                Logger.Debug($"📝 Message queued for save: {messageRecord.MessageId} (Save: {saveName}, Steam: {steamId}) - will save on next game save", "MrStacksMessaging");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Failed to save message to history: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Failed to save message to history: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -279,45 +279,45 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                Logger.Debug($"🔍 Loading conversation history for save ID: {saveId}", "MrsStacksMessaging");
+                Logger.Debug($"🔍 Loading conversation history for save ID: {saveId}", "MrStacksMessaging");
                 
                 string conversationFile = GetConversationFilePath(saveId);
                 
-                Logger.Debug($"📄 Looking for conversation file: {conversationFile}", "MrsStacksMessaging");
-                Logger.Debug($"📄 File exists: {File.Exists(conversationFile)}", "MrsStacksMessaging");
+                Logger.Debug($"📄 Looking for conversation file: {conversationFile}", "MrStacksMessaging");
+                Logger.Debug($"📄 File exists: {File.Exists(conversationFile)}", "MrStacksMessaging");
                 
                 if (File.Exists(conversationFile))
                 {
                     string json = File.ReadAllText(conversationFile);
-                    Logger.Debug($"📄 File content length: {json.Length} characters", "MrsStacksMessaging");
+                    Logger.Debug($"📄 File content length: {json.Length} characters", "MrStacksMessaging");
                     
                     var loaded = JsonConvert.DeserializeObject<ConversationHistory>(json);
                     if (loaded != null)
                     {
                         _conversationHistory = loaded;
                         _conversationHistory.SaveId = saveId; // Ensure save ID is set
-                        Logger.Info($"📂 ✅ Successfully loaded {_conversationHistory.Messages.Count} messages from save-aware JSON (Save ID: {saveId})", "MrsStacksMessaging");
+                        Logger.Info($"📂 ✅ Successfully loaded {_conversationHistory.Messages.Count} messages from save-aware JSON (Save ID: {saveId})", "MrStacksMessaging");
                         
                         // Debug: show first few messages
                         if (_conversationHistory.Messages.Count > 0)
                         {
-                            Logger.Debug($"📝 First message: {_conversationHistory.Messages[0].Text.Substring(0, Math.Min(50, _conversationHistory.Messages[0].Text.Length))}...", "MrsStacksMessaging");
+                            Logger.Debug($"📝 First message: {_conversationHistory.Messages[0].Text.Substring(0, Math.Min(50, _conversationHistory.Messages[0].Text.Length))}...", "MrStacksMessaging");
                         }
                         return;
                     }
                     else
                     {
-                        Logger.Warn($"⚠️ Failed to deserialize conversation JSON", "MrsStacksMessaging");
+                        Logger.Warn($"⚠️ Failed to deserialize conversation JSON", "MrStacksMessaging");
                     }
                 }
                 
-                Logger.Debug($"📂 No existing conversation history found for save ID: {saveId} - starting fresh (no file created until save)", "MrsStacksMessaging");
+                Logger.Debug($"📂 No existing conversation history found for save ID: {saveId} - starting fresh (no file created until save)", "MrStacksMessaging");
                 _conversationHistory = new ConversationHistory { SaveId = saveId };
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Failed to load conversation history for save ID {saveId}: {ex.Message}", "MrsStacksMessaging");
-                Logger.Exception(ex, "MrsStacksMessaging");
+                Logger.Error($"❌ Failed to load conversation history for save ID {saveId}: {ex.Message}", "MrStacksMessaging");
+                Logger.Exception(ex, "MrStacksMessaging");
                 _conversationHistory = new ConversationHistory { SaveId = saveId };
             }
         }
@@ -332,7 +332,7 @@ namespace PaxDrops.MrStacks
                 var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
                 if (!isLoaded || string.IsNullOrEmpty(saveId))
                 {
-                    Logger.Warn("[MrsStacksMessaging] ⚠️ No save loaded - cannot save conversation");
+                    Logger.Warn("[MrStacksMessaging] ⚠️ No save loaded - cannot save conversation");
                     return;
                 }
 
@@ -348,11 +348,11 @@ namespace PaxDrops.MrStacks
                 string json = JsonConvert.SerializeObject(_conversationHistory, Formatting.Indented);
                 File.WriteAllText(conversationFile, json);
                 
-                Logger.Debug($"💾 Conversation history saved to save-aware location ({_conversationHistory.Messages.Count} messages, Save: {saveName}, Steam: {steamId})", "MrsStacksMessaging");
+                Logger.Debug($"💾 Conversation history saved to save-aware location ({_conversationHistory.Messages.Count} messages, Save: {saveName}, Steam: {steamId})", "MrStacksMessaging");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Failed to save conversation history: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Failed to save conversation history: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -381,15 +381,15 @@ namespace PaxDrops.MrStacks
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warn($"[MrsStacksMessaging] ⚠️ Failed to restore message {messageRecord.MessageId}: {ex.Message}");
+                        Logger.Warn($"[MrStacksMessaging] ⚠️ Failed to restore message {messageRecord.MessageId}: {ex.Message}");
                     }
                 }
 
-                Logger.Info($"✅ Restored {_conversationHistory.Messages.Count} messages to conversation for current save", "MrsStacksMessaging");
+                Logger.Info($"✅ Restored {_conversationHistory.Messages.Count} messages to conversation for current save", "MrStacksMessaging");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Failed to restore conversation history: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Failed to restore conversation history: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -402,28 +402,28 @@ namespace PaxDrops.MrStacks
             {
                 var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
                 
-                Logger.Debug($"📊 Conversation History (Save-Aware JSON Storage):", "MrsStacksMessaging");
-                Logger.Debug($"💾 Current Save: {saveName} (ID: {saveId}, Steam: {steamId})", "MrsStacksMessaging");
-                Logger.Debug($"📝 Contact: {_conversationHistory.ContactName}", "MrsStacksMessaging");
-                Logger.Debug($"🔢 Messages: {_conversationHistory.Messages.Count}", "MrsStacksMessaging");
-                Logger.Debug($"💾 Last Saved: {_conversationHistory.LastSaved}", "MrsStacksMessaging");
-                Logger.Debug($"📄 File: {(isLoaded ? GetConversationFilePath(saveId ?? "") : "No save loaded")}", "MrsStacksMessaging");
-                Logger.Debug($"📁 Loaded: {_isConversationLoaded}", "MrsStacksMessaging");
+                Logger.Debug($"📊 Conversation History (Save-Aware JSON Storage):", "MrStacksMessaging");
+                Logger.Debug($"💾 Current Save: {saveName} (ID: {saveId}, Steam: {steamId})", "MrStacksMessaging");
+                Logger.Debug($"📝 Contact: {_conversationHistory.ContactName}", "MrStacksMessaging");
+                Logger.Debug($"🔢 Messages: {_conversationHistory.Messages.Count}", "MrStacksMessaging");
+                Logger.Debug($"💾 Last Saved: {_conversationHistory.LastSaved}", "MrStacksMessaging");
+                Logger.Debug($"📄 File: {(isLoaded ? GetConversationFilePath(saveId ?? "") : "No save loaded")}", "MrStacksMessaging");
+                Logger.Debug($"📁 Loaded: {_isConversationLoaded}", "MrStacksMessaging");
 
                 if (_conversationHistory.Messages.Count > 0)
                 {
-                    Logger.Debug($"📜 Recent Messages:", "MrsStacksMessaging");
+                    Logger.Debug($"📜 Recent Messages:", "MrStacksMessaging");
                     var recent = _conversationHistory.Messages.TakeLast(3);
                     foreach (var msg in recent)
                     {
-                        string sender = msg.IsFromPlayer ? "Player" : "Mrs. Stacks";
-                        Logger.Debug($"   [{msg.Timestamp}] {sender}: {msg.Text.Substring(0, Math.Min(50, msg.Text.Length))}...", "MrsStacksMessaging");
+                        string sender = msg.IsFromPlayer ? "Player" : "Mr. Stacks";
+                        Logger.Debug($"   [{msg.Timestamp}] {sender}: {msg.Text.Substring(0, Math.Min(50, msg.Text.Length))}...", "MrStacksMessaging");
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ History display failed: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ History display failed: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -435,11 +435,11 @@ namespace PaxDrops.MrStacks
             try
             {
                 SaveConversationHistory();
-                Logger.Info($"✅ Force save completed for current save", "MrsStacksMessaging");
+                Logger.Info($"✅ Force save completed for current save", "MrStacksMessaging");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Force save failed: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Force save failed: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -457,11 +457,11 @@ namespace PaxDrops.MrStacks
                 
                 // Don't save immediately - only save when game saves
                 // SaveConversationHistory(); // REMOVED - only save when game saves
-                Logger.Debug($"🗑️ Conversation history cleared for save: {saveName} (Steam: {steamId}) - will save on next game save", "MrsStacksMessaging");
+                Logger.Debug($"🗑️ Conversation history cleared for save: {saveName} (Steam: {steamId}) - will save on next game save", "MrStacksMessaging");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Failed to clear conversation history: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Failed to clear conversation history: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -477,7 +477,7 @@ namespace PaxDrops.MrStacks
                 var conversation = MessagingManager.Instance?.GetConversation(supplier);
                 if (conversation != null)
                 {
-                    Logger.Debug("🔧 Applying conversation customizations...", "MrsStacksMessaging");
+                    Logger.Debug("🔧 Applying conversation customizations...", "MrStacksMessaging");
                     
                     // Try to disable debt-related functionality
                     if (supplier.Debt > 0.01f)
@@ -485,18 +485,18 @@ namespace PaxDrops.MrStacks
                         try
                         {
                             supplier.ChangeDebt(-supplier.Debt);
-                            Logger.Debug("💰 Cleared Mrs. Stacks debt", "MrsStacksMessaging");
+                            Logger.Debug("💰 Cleared Mr. Stacks debt", "MrStacksMessaging");
                         }
                         catch (Exception ex)
                         {
-                            Logger.Warn($"⚠️ Could not clear debt: {ex.Message}", "MrsStacksMessaging");
+                            Logger.Warn($"⚠️ Could not clear debt: {ex.Message}", "MrStacksMessaging");
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Conversation customization failed: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ Conversation customization failed: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -513,12 +513,12 @@ namespace PaxDrops.MrStacks
                     LoadConversationForCurrentSave();
                 }
                 
-                Logger.Debug($"🔍 HasExistingConversation check - Message count: {_conversationHistory.Messages.Count}", "MrsStacksMessaging");
+                Logger.Debug($"🔍 HasExistingConversation check - Message count: {_conversationHistory.Messages.Count}", "MrStacksMessaging");
                 return _conversationHistory.Messages.Count > 0;
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ HasExistingConversation check failed: {ex.Message}", "MrsStacksMessaging");
+                Logger.Error($"❌ HasExistingConversation check failed: {ex.Message}", "MrStacksMessaging");
                 return false;
             }
         }
@@ -530,7 +530,7 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                Logger.Debug("🧼 Shutting down messaging system...", "MrsStacksMessaging");
+                Logger.Debug("🧼 Shutting down messaging system...", "MrStacksMessaging");
                 
                 // Unload conversation data
                 UnloadConversationForCurrentSave();
@@ -539,12 +539,12 @@ namespace PaxDrops.MrStacks
                 _conversationHistory = new ConversationHistory();
                 _isConversationLoaded = false;
                 
-                Logger.Info("✅ Messaging system shutdown complete", "MrsStacksMessaging");
+                Logger.Info("✅ Messaging system shutdown complete", "MrStacksMessaging");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Shutdown error: {ex.Message}", "MrsStacksMessaging");
-                Logger.Exception(ex, "MrsStacksMessaging");
+                Logger.Error($"❌ Shutdown error: {ex.Message}", "MrStacksMessaging");
+                Logger.Exception(ex, "MrStacksMessaging");
                 
                 // Force reset state even if shutdown failed
                 _conversationHistory = new ConversationHistory();

@@ -79,7 +79,7 @@ namespace PaxDrops
                 int currentDay = timeManager.ElapsedDays;
                 var currentTier = DropConfig.GetCurrentPlayerTier();
                 var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
-                var ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
+                var ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
                 int remaining = dailyLimit - ordersToday;
 
                 return $"Day {currentDay}: {ordersToday}/{dailyLimit} orders used, {remaining} remaining";
@@ -92,9 +92,9 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Process a Mrs. Stacks drop order - handles daily limit enforcement
+        /// Process a Mr. Stacks drop order - handles daily limit enforcement
         /// </summary>
-        public static void ProcessMrsStacksOrder(string orderType = "standard", int? tier = null, bool sendMessages = true)
+        public static void ProcessMrStacksOrder(string orderType = "standard", int? tier = null, bool sendMessages = true)
         {
             try
             {
@@ -116,13 +116,13 @@ namespace PaxDrops
                 }
 
                 // Process the order through OrderProcessor
-                OrderProcessor.ProcessOrder("Mrs. Stacks", orderType, tier, sendMessages: sendMessages);
+                OrderProcessor.ProcessOrder("Mr. Stacks", orderType, tier, sendMessages: sendMessages);
                 
-                Logger.Debug($"✅ Mrs. Stacks {orderType} order processed", "DailyDropOrdering");
+                Logger.Debug($"✅ Mr. Stacks {orderType} order processed", "DailyDropOrdering");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Error processing Mrs. Stacks order: {ex.Message}", "DailyDropOrdering");
+                Logger.Error($"❌ Error processing Mr. Stacks order: {ex.Message}", "DailyDropOrdering");
                 Logger.Error(ex.Message, "DailyDropOrdering");
             }
         }
@@ -134,7 +134,7 @@ namespace PaxDrops
         {
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
                 string limitText = dailyLimit switch
@@ -146,7 +146,7 @@ namespace PaxDrops
                     _ => $"{dailyLimit} orders per day"
                 };
 
-                MrsStacksMessaging.SendMessage(npc, 
+                MrStacksMessaging.SendMessage(npc, 
                     $"You've reached your daily limit of {limitText}. " +
                     $"Come back tomorrow for more business opportunities.");
 
@@ -171,14 +171,14 @@ namespace PaxDrops
         {
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
                 var timeManager = TimeManager.Instance;
                 if (timeManager == null) return;
 
                 int currentDay = timeManager.ElapsedDays;
-                int daysSinceLastOrder = SaveFileJsonDataStore.GetDaysSinceLastMrsStacksOrder(currentDay);
+                int daysSinceLastOrder = SaveFileJsonDataStore.GetDaysSinceLastMrStacksOrder(currentDay);
                 
                 // Send reminder if 4+ days since last order (or never ordered and it's been 4+ days since start)
                 bool shouldSendReminder = false;
@@ -208,16 +208,16 @@ namespace PaxDrops
                 var reminderMessages = daysSinceLastOrder == -1 ? new[]
                 {
                     // First-time user messages
-                    $"Hey there! I'm Mrs. Stacks, your connection to {orgName}. Your {currentRank} rank gives you access to {tierName} tier drops. Interested in some business?",
+                    $"Hey there! I'm Mr. Stacks, your connection to {orgName}. Your {currentRank} rank gives you access to {tierName} tier drops. Interested in some business?",
                     $"Word on the street is you might need some... special deliveries. I handle {tierName} tier packages for {orgName}. What do you say?",
-                    $"New face around here? I'm Mrs. Stacks - I arrange discrete deliveries. Your {tierName} tier access gets you {dailyLimit} order(s) per day.",
+                    $"New face around here? I'm Mr. Stacks - I arrange discrete deliveries. Your {tierName} tier access gets you {dailyLimit} order(s) per day.",
                     $"Looking for reliable supply lines? {orgName} operations are my specialty. Your rank unlocks {tierName} tier packages."
                 } : new[]
                 {
                     // Returning customer messages
                     $"It's been {daysSinceLastOrder} days since our last business. Missing the quality {tierName} tier packages? {orgName} has fresh inventory waiting.",
                     $"Haven't heard from you in {daysSinceLastOrder} days! The {tierName} tier supply chain is running smooth. Ready for another order?",
-                    $"Mrs. Stacks here - been {daysSinceLastOrder} days since your last drop. Your {currentRank} access to {tierName} tier is still active. Need anything?",
+                    $"Mr. Stacks here - been {daysSinceLastOrder} days since your last drop. Your {currentRank} access to {tierName} tier is still active. Need anything?",
                     $"Long time no see! {daysSinceLastOrder} days without business. {orgName} has some premium {tierName} tier stock if you're interested.",
                     $"Day {currentDay} check-in: It's been {daysSinceLastOrder} days since our last deal. Your {tierName} tier privileges are still good - want to place an order?"
                 };
@@ -225,7 +225,7 @@ namespace PaxDrops
                 var random = new System.Random();
                 var reminderMessage = reminderMessages[random.Next(reminderMessages.Length)];
                 
-                MrsStacksMessaging.SendMessage(npc, reminderMessage);
+                MrStacksMessaging.SendMessage(npc, reminderMessage);
                 
                 string logType = daysSinceLastOrder == -1 ? "first-time" : $"{daysSinceLastOrder}-day inactivity";
                 Logger.Debug($"📱 Sent {logType} reminder message", "DailyDropOrdering");
@@ -238,13 +238,13 @@ namespace PaxDrops
         }
 
         /// <summary>
-        /// Send welcome message when Mrs. Stacks is first discovered
+        /// Send welcome message when Mr. Stacks is first discovered
         /// </summary>
         public static void SendWelcomeMessage()
         {
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
                 var currentTier = DropConfig.GetCurrentPlayerTier();
@@ -254,11 +254,11 @@ namespace PaxDrops
                 var org = TierConfig.GetOrganization(currentTier);
                 var orgName = TierConfig.GetOrganizationName(org);
 
-                var welcomeMessage = $"Welcome to the network! I'm Mrs. Stacks, your connection to {orgName} operations. " +
+                var welcomeMessage = $"Welcome to the network! I'm Mr. Stacks, your connection to {orgName} operations. " +
                                    $"Your {currentRank} rank gives you access to {tierName} tier packages - up to {dailyLimit} order(s) per day. " +
                                    $"Deliveries arrive at 7:30 AM and expire after 24 hours. Ready to do business?";
 
-                MrsStacksMessaging.SendMessage(npc, welcomeMessage);
+                MrStacksMessaging.SendMessage(npc, welcomeMessage);
                 Logger.Info("📱 Welcome message sent", "DailyDropOrdering");
             }
             catch (Exception ex)

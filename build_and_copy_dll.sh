@@ -1,182 +1,147 @@
 #!/bin/bash
 
-# Build the project based on the configuration
+set -euo pipefail
 
-# Colors for output logging
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
-NC='\033[0m' # No Color
+SCHEDULE_I_DIR="${SCHEDULE_I_DIR:-/Users/shreyas/Library/Application Support/CrossOver/Bottles/Schedule I/drive_c/Program Files (x86)/Steam/steamapps/common/Schedule I}"
+MODS_DIR="${SCHEDULE_I_DIR}/Mods"
+IL2CPP_DIR="${SCHEDULE_I_DIR}/MelonLoader/Il2CppAssemblies"
+PROJECT_FILE="PaxDrops.IL2CPP.csproj"
 
-# Define paths
-MODS_DIR="/Users/shreyas/Library/Application Support/CrossOver/Bottles/Schedule I/drive_c/Program Files (x86)/Steam/steamapps/common/Schedule I/Mods"
-
-# Function to log messages with colors
 print_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo "[INFO] $1"
 }
 
 print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo "[SUCCESS] $1"
 }
 
 print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo "[ERROR] $1" >&2
 }
 
-# Function to clean the build directory
+require_schedule_i_build_env() {
+    if [[ ! -d "${SCHEDULE_I_DIR}" ]]; then
+        print_error "Schedule I install not found at ${SCHEDULE_I_DIR}."
+        print_error "Set SCHEDULE_I_DIR to your Schedule I install root and try again."
+        exit 1
+    fi
+
+    if [[ ! -f "${SCHEDULE_I_DIR}/MelonLoader/net6/MelonLoader.dll" ]]; then
+        print_error "MelonLoader was not found under ${SCHEDULE_I_DIR}."
+        print_error "Install MelonLoader for Schedule I before building PaxDrops."
+        exit 1
+    fi
+
+    if [[ ! -d "${IL2CPP_DIR}" ]]; then
+        print_error "Missing generated IL2CPP assemblies at ${IL2CPP_DIR}."
+        print_error "Launch Schedule I once with MelonLoader to generate Il2CppAssemblies, then rerun this script."
+        exit 1
+    fi
+
+    local required_assemblies=(
+        "${IL2CPP_DIR}/Assembly-CSharp.dll"
+        "${IL2CPP_DIR}/Il2CppSystem.dll"
+        "${IL2CPP_DIR}/UnityEngine.dll"
+    )
+
+    local required_assembly
+    for required_assembly in "${required_assemblies[@]}"; do
+        if [[ ! -f "${required_assembly}" ]]; then
+            print_error "Missing ${required_assembly}."
+            print_error "Launch Schedule I once with MelonLoader to regenerate the IL2CPP assemblies, then rerun this script."
+            exit 1
+        fi
+    done
+}
+
 clean_build() {
     print_info "Cleaning build directory..."
-    if [ -d "bin" ]; then
-        rm -rf bin
-    fi
-    if [ -d "obj" ]; then
-        rm -rf obj
-    fi
-    print_success " ✅ Build directory cleaned"
+    rm -rf bin obj
+    print_success "Build directory cleaned."
 }
 
-# help function
-help() {
-    echo "Usage: $0 [options]"
-    echo "Options:"
-    echo "  -h, --help    Show this help message"
-    echo "  -c, --clean   Clean the build directory"
-    echo "  -b, --build   Build the project with a specified configuration"
-    echo "  -d, --dll    Copy the DLL to the mods directory"
-    echo "  -a, --all    Perform a full build and copy process"
-    echo "  -config     Specify the build configuration (Debug, Staging, Release)"
-}
-
-# Function to build the project
 build_project() {
-    local config=$1
-    local output_dir="bin/$config/net6.0"
-    
-    # Clean the build directory
-    clean_build
+    local config="$1"
 
-    # Build the project
-    dotnet clean && dotnet build --configuration $config
-    if [ $? -ne 0 ]; then
-        print_error " ❌ Failed to build project in $config configuration"
+    require_schedule_i_build_env
+    clean_build
+    print_info "Building ${PROJECT_FILE} (${config})..."
+    dotnet clean "${PROJECT_FILE}" -c "${config}"
+    dotnet build "${PROJECT_FILE}" -c "${config}"
+    print_success "Build completed. MSBuild deployed PaxDrops.dll to ${MODS_DIR}."
+}
+
+copy_dll() {
+    local config="$1"
+    local output_dll="bin/${config}/net6.0/PaxDrops.dll"
+
+    if [[ ! -d "${SCHEDULE_I_DIR}" ]]; then
+        print_error "Schedule I install not found at ${SCHEDULE_I_DIR}."
+        print_error "Set SCHEDULE_I_DIR to your Schedule I install root and try again."
         exit 1
     fi
-    print_success " ✅ Project built in $config configuration"
-    
-    # Copy the DLL to the mods directory    
-    copy_dll $config
+
+    if [[ ! -f "${output_dll}" ]]; then
+        print_error "${output_dll} was not found. Build the project first."
+        exit 1
+    fi
+
+    mkdir -p "${MODS_DIR}"
+    cp "${output_dll}" "${MODS_DIR}/PaxDrops.dll"
+    print_success "Copied PaxDrops.dll to ${MODS_DIR}."
 }
 
-# Function to copy the DLL to the mods directory
-copy_dll() {
-    local config=$1
-    local output_dir="bin/$config/net6.0"
-    
-    # Copy the DLL to the mods directory
-    cp "$output_dir/PaxDrops.dll" "$MODS_DIR/"
-    print_success " ✅ DLL copied to $MODS_DIR"
+usage() {
+    cat <<EOF
+Usage: $0 [options]
+
+Options:
+  -h, --help           Show this help message
+  -c, --clean          Remove local bin and obj folders
+  -b, --build CONFIG   Clean and build, then let MSBuild deploy to Mods
+  -d, --dll CONFIG     Copy bin/CONFIG/net6.0/PaxDrops.dll to Mods
+  -a, --all            Same as --build Debug
+  -config CONFIG       Alias for --build CONFIG
+
+Environment:
+  SCHEDULE_I_DIR       Overrides the Schedule I install root.
+                       Current Mods target: ${MODS_DIR}
+                       Builds require MelonLoader-generated Il2CppAssemblies.
+EOF
 }
 
-# Parse arguments
-while getopts ":hcdba" opt; do
-  case $opt in
-    h)
-      help
-      exit 0
-      ;;
-    c)
-      clean_build
-      exit 0
-      ;;
-    b)
-      shift
-      if [ -z "$1" ]; then
-        echo "Please specify a build configuration"
-        exit 1
-      fi
-      build_project "$1"
-      exit 0
-      ;;
-    d)
-      shift
-      if [ -z "$1" ]; then
-        echo "Please specify a build configuration"
-        exit 1
-      fi
-      copy_dll "$1"
-      exit 0
-      ;;
-    a)
-      build_project "Debug"
-      exit 0
-      ;;
-    \?)
-      echo "Invalid option: -$OPTARG" >&2
-      help
-      exit 1
-      ;;
-  esac
-done
-
-if [ $# -gt 0 ]; then
-  case $1 in
-    --help)
-      help
-      exit 0
-      ;;
-    --clean)
-      clean_build
-      exit 0
-      ;;
-    --build)
-      shift
-      if [ -z "$1" ]; then
-        echo "Please specify a build configuration"
-        exit 1
-      fi
-      build_project "$1"
-      exit 0
-      ;;
-    --dll)
-      shift
-      if [ -z "$1" ]; then
-        echo "Please specify a build configuration"
-        exit 1
-      fi
-      copy_dll "$1"
-      exit 0
-      ;;
-    --all)
-      build_project "Debug"
-      exit 0
-      ;;
-    --config)
-      shift
-      if [ -z "$1" ]; then
-        echo "Please specify a build configuration"
-        exit 1
-      fi
-      build_project "$1"
-      exit 0
-      ;;
-    *)
-      echo "Invalid option: $1" >&2
-      help
-      exit 1
-      ;;
-  esac
+if [[ $# -eq 0 ]]; then
+    usage
+    exit 0
 fi
 
-# Example usage
-# ./build_and_copy_dll.sh -c
-# ./build_and_copy_dll.sh -b Debug
-# ./build_and_copy_dll.sh -d Debug
-# ./build_and_copy_dll.sh -a Debug
-# ./build_and_copy_dll.sh --config Staging
+case "$1" in
+    -h|--help)
+        usage
+        ;;
+    -c|--clean)
+        clean_build
+        ;;
+    -a|--all)
+        build_project "Debug"
+        ;;
+    -b|--build|-config|--config)
+        if [[ $# -lt 2 ]]; then
+            print_error "Please specify a build configuration."
+            exit 1
+        fi
+        build_project "$2"
+        ;;
+    -d|--dll)
+        if [[ $# -lt 2 ]]; then
+            print_error "Please specify a build configuration."
+            exit 1
+        fi
+        copy_dll "$2"
+        ;;
+    *)
+        print_error "Invalid option: $1"
+        usage
+        exit 1
+        ;;
+esac

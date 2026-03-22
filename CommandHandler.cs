@@ -97,7 +97,7 @@ namespace PaxDrops
             Logger.Debug($"Organization: {TierConfig.GetOrganizationName(TierConfig.GetOrganization(currentTier))}", "CommandHandler");
             
             // Daily Order Status
-            var ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
+            var ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
             var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
             var remaining = DropConfig.GetRemainingOrdersToday(currentDay);
             
@@ -228,7 +228,7 @@ namespace PaxDrops
         private static void ResetDailyOrders()
         {
             var currentDay = DropConfig.GetCurrentGameDay();
-            SaveFileJsonDataStore.ResetMrsStacksOrdersToday(currentDay);
+            SaveFileJsonDataStore.ResetMrStacksOrdersToday(currentDay);
             Logger.Debug($"🔄 Reset daily orders for day {currentDay}", "CommandHandler");
         }
 
@@ -239,7 +239,7 @@ namespace PaxDrops
         {
             Logger.Debug("📋 Order History:", "CommandHandler");
             
-            var orderSummary = SaveFileJsonDataStore.GetMrsStacksOrderSummary();
+            var orderSummary = SaveFileJsonDataStore.GetMrStacksOrderSummary();
             if (orderSummary.Count == 0)
             {
                 Logger.Debug("No orders recorded yet.", "CommandHandler");

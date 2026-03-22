@@ -114,7 +114,7 @@ namespace PaxDrops
                 if (currentHour == 700)
                 {
                     Logger.Msg("🌅 Morning business hours starting!", "TimeMonitor");
-                    MrsStacksNPC.OnNewDay();
+                    MrStacksNPC.OnNewDay();
                 }
 
                 // Evening reminder check (8:00 PM = 2000)
@@ -145,7 +145,7 @@ namespace PaxDrops
                 Logger.Msg($"📅 Day changed to {currentDay}", "TimeMonitor");
 
                 // Notify MrStacks about day change
-                MrsStacksNPC.OnDayChanged();
+                MrStacksNPC.OnDayChanged();
 
                 // Clean up old drops from database
                 CleanupOldDrops(currentDay);
@@ -205,7 +205,7 @@ namespace PaxDrops
                     if (!string.IsNullOrEmpty(location))
                     {
                         // Add to ready drops list for consolidated messaging
-                        if (drop.Org.Contains("Mrs. Stacks"))
+                        if (drop.Org.Contains("Mr. Stacks"))
                         {
                             readyDrops.Add((drop, location));
                         }
@@ -220,7 +220,7 @@ namespace PaxDrops
                     }
                 }
 
-                // Send consolidated ready message for all Mrs. Stacks drops
+                // Send consolidated ready message for all Mr. Stacks drops
                 if (readyDrops.Count > 0)
                 {
                     SendConsolidatedReadyMessage(readyDrops);
@@ -249,7 +249,7 @@ namespace PaxDrops
         {
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
                 if (readyDrops.Count == 1)
@@ -260,7 +260,7 @@ namespace PaxDrops
                     var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
                     string expiryText = expiryDay != -1 ? $" (Expires day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)})" : "";
 
-                    MrsStacksMessaging.SendMessage(npc, 
+                    MrStacksMessaging.SendMessage(npc, 
                         $"Package ready! Your {drop.Org} delivery is waiting at {location}. " +
                         $"Retrieve when safe. Quality guaranteed as always.{expiryText}");
                 }
@@ -278,7 +278,7 @@ namespace PaxDrops
                     }
                     message += $"Retrieve when safe. Quality guaranteed as always.{expiryText}";
 
-                    MrsStacksMessaging.SendMessage(npc, message);
+                    MrStacksMessaging.SendMessage(npc, message);
                 }
 
                 Logger.Msg($"📱 Consolidated ready message sent for {readyDrops.Count} drops", "TimeMonitor");
@@ -425,7 +425,7 @@ namespace PaxDrops
                 {
                     Logger.Msg($"📱 Sending evening reminder for {uncollectedDrops.Count} uncollected drops", "TimeMonitor");
 
-                    var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                    var npc = MrStacksMessaging.FindMrStacksNPC();
                     if (npc != null)
                     {
                         if (uncollectedDrops.Count == 1)
@@ -435,7 +435,7 @@ namespace PaxDrops
                             var (expiryDay, expiryHour) = DropConfig.ParseExpiryTime(drop.ExpiryTime);
                             string expiryText = expiryDay != -1 ? $" (expires day {expiryDay} at {DropConfig.FormatGameTime(expiryHour)})" : "";
 
-                            MrsStacksMessaging.SendMessage(npc, 
+                            MrStacksMessaging.SendMessage(npc, 
                                 $"Evening reminder: Your {drop.Org} package is still waiting at {drop.Location}{expiryText}. " +
                                 $"Don't forget to collect it when safe!");
                         }
@@ -453,7 +453,7 @@ namespace PaxDrops
                             }
                             message += $"Don't forget to collect them when safe!{expiryText}";
 
-                            MrsStacksMessaging.SendMessage(npc, message);
+                            MrStacksMessaging.SendMessage(npc, message);
                         }
                     }
                 }

@@ -43,8 +43,8 @@ Mods/PaxDrops/SaveFiles/
 ├── [SteamID1]/
 │   ├── [SaveID1]/
 │   │   ├── drops.json         # Pending drops for this save
-│   │   ├── orders.json        # Mrs. Stacks order history  
-│   │   ├── conversation.json  # Mrs. Stacks conversation history
+│   │   ├── orders.json        # Mr. Stacks order history  
+│   │   ├── conversation.json  # Mr. Stacks conversation history
 │   │   └── metadata.json      # Enhanced save metadata
 │   └── [SaveID2]/
 │       ├── drops.json
@@ -125,12 +125,12 @@ The legacy `JsonDataStore` system has been fully replaced by `SaveFileJsonDataSt
 ### API Compatibility
 All existing code seamlessly uses `SaveFileJsonDataStore` with the same public API:
 - `SaveDrop()`, `GetAllDrops()`, `MarkDropCollected()`, etc.
-- `HasMrsStacksOrderToday()`, `MarkMrsStacksOrderToday()`, etc.
+- `HasMrStacksOrderToday()`, `MarkMrStacksOrderToday()`, etc.
 
-**Mrs. Stacks Conversation System** is now also save-aware:
-- `MrsStacksMessaging.SendMessage()` automatically saves to current save
-- `MrsStacksMessaging.LoadConversationForCurrentSave()` loads conversation for current save
-- `MrsStacksMessaging.UnloadConversationForCurrentSave()` unloads when exiting save
+**Mr. Stacks Conversation System** is now also save-aware:
+- `MrStacksMessaging.SendMessage()` automatically saves to current save
+- `MrStacksMessaging.LoadConversationForCurrentSave()` loads conversation for current save
+- `MrStacksMessaging.UnloadConversationForCurrentSave()` unloads when exiting save
 - All conversation commands (`stacks history`, etc.) work with current save
 
 ## Scene Management
@@ -198,7 +198,7 @@ if (isLoaded)
 // This automatically works with the current save
 SaveFileJsonDataStore.SaveDrop(day, items, hour);
 var drops = SaveFileJsonDataStore.GetAllDrops();
-bool hasOrdered = SaveFileJsonDataStore.HasMrsStacksOrderToday(currentDay);
+bool hasOrdered = SaveFileJsonDataStore.HasMrStacksOrderToday(currentDay);
 ```
 
 ## Console Commands
@@ -216,7 +216,7 @@ Enhanced logging provides visibility into save operations:
 - `[SaveSystemPatch]` - Save system hook events
 - `[SaveFileJsonDataStore]` - Enhanced data load/save operations with Steam ID
 - `[InitMain]` - Scene transitions and save loading
-- `[MrsStacksMessaging]` - Conversation persistence per save
+- `[MrStacksMessaging]` - Conversation persistence per save
 
 ## Enhanced Benefits
 

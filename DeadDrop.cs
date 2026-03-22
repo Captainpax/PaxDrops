@@ -121,7 +121,7 @@ namespace PaxDrops
 
                 var player = Player.Local;
                 string playerName = player?.PlayerName ?? "Unknown";
-                string orgName = type == "immediate_test" ? "Mrs. Stacks (Test)" : "DevCommand";
+                string orgName = type == "immediate_test" ? "Mr. Stacks (Test)" : "DevCommand";
 
                 var record = new SaveFileJsonDataStore.DropRecord
                 {
@@ -511,7 +511,7 @@ namespace PaxDrops
                     }
                 }
 
-                Logger.Error($"❌ Failed to create instance for: {definition.name}", "DeadDrop");
+                Logger.Error("? Failed to create item instance from definition", "DeadDrop");
                 return null;
             }
             catch (Exception ex)
@@ -673,3 +673,4 @@ namespace PaxDrops
         }
     }
 } 
+

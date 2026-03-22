@@ -235,7 +235,7 @@ namespace PaxDrops
                 DailyDropOrdering.Init();  // 📅 Daily drop ordering system (rank-based)
                 
                 // NPC and messaging systems (require player context)
-                MrsStacksNPC.Init();       // 👤 Mrs. Stacks NPC integration (includes messaging)
+                MrStacksNPC.Init();       // 👤 Mr. Stacks NPC integration (includes messaging)
 
                 _playerDependentSystemsInitialized = true;
 
@@ -345,7 +345,7 @@ namespace PaxDrops
                 Logger.Info("🔌 Shutting down player-dependent systems...", "InitMain");
                 
                 // Shutdown NPC and messaging systems
-                MrsStacksNPC.Shutdown();
+                MrStacksNPC.Shutdown();
                 
                 // Note: DailyDropOrdering doesn't need explicit shutdown (stateless)
                 

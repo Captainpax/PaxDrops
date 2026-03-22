@@ -6,14 +6,14 @@ using PaxDrops.MrStacks;
 namespace PaxDrops.Commands
 {
     /// <summary>
-    /// Handles the 'stacks' and 'mrsstacks' console commands for Mrs. Stacks functionality.
+    /// Handles the 'stacks' and 'mrstacks' console commands for Mr. Stacks functionality.
     /// Usage: stacks [order|status|reset|help|history|save|clear]
     /// </summary>
     public static class StacksCommand
     {
         public const string CommandName = "stacks";
-        public const string AltName = "mrsstacks";
-        public const string Description = "Interact with Mrs. Stacks dealer system";
+        public const string AltName = "mrstacks";
+        public const string Description = "Interact with Mr. Stacks dealer system";
         public const string Usage = "stacks [order|status|reset|help|history|save|clear]";
 
         /// <summary>
@@ -76,23 +76,23 @@ namespace PaxDrops.Commands
         }
 
         /// <summary>
-        /// Place an order with Mrs. Stacks using OrderProcessor (once per day limit)
+        /// Place an order with Mr. Stacks using OrderProcessor (once per day limit)
         /// </summary>
         private static void PlaceOrder(int currentDay)
         {
             try
             {
                 // Check if already ordered today
-                if (SaveFileJsonDataStore.HasMrsStacksOrderToday(currentDay))
+                if (SaveFileJsonDataStore.HasMrStacksOrderToday(currentDay))
                 {
-                    Il2CppScheduleOne.Console.Log($"⚠️ You've already ordered from Mrs. Stacks today (Day {currentDay})");
+                    Il2CppScheduleOne.Console.Log($"⚠️ You've already ordered from Mr. Stacks today (Day {currentDay})");
                     return;
                 }
 
-                Il2CppScheduleOne.Console.Log("[Stacks] 📦 Placing order with Mrs. Stacks...");
+                Il2CppScheduleOne.Console.Log("[Stacks] 📦 Placing order with Mr. Stacks...");
                 
                 // Use the unified order processor with messaging enabled
-                OrderProcessor.ProcessOrder("Mrs. Stacks", "console_order", null, null, true);
+                OrderProcessor.ProcessOrder("Mr. Stacks", "console_order", null, null, true);
                 
                 Il2CppScheduleOne.Console.Log("[Stacks] ✅ Order placed! Check your messages for confirmation.");
             }
@@ -104,16 +104,16 @@ namespace PaxDrops.Commands
         }
 
         /// <summary>
-        /// Show order status for Mrs. Stacks
+        /// Show order status for Mr. Stacks
         /// </summary>
         private static void ShowStatus(int currentDay)
         {
             try
             {
-                bool orderedToday = SaveFileJsonDataStore.HasMrsStacksOrderToday(currentDay);
+                bool orderedToday = SaveFileJsonDataStore.HasMrStacksOrderToday(currentDay);
                 string status = orderedToday ? "✅ Ordered today" : "⏳ Available to order";
                 
-                Il2CppScheduleOne.Console.Log("=== Mrs. Stacks Status ===");
+                Il2CppScheduleOne.Console.Log("=== Mr. Stacks Status ===");
                 Il2CppScheduleOne.Console.Log($"Today (Day {currentDay}): {status}");
                 Il2CppScheduleOne.Console.Log("Orders: Once per day limit");
                 Il2CppScheduleOne.Console.Log("Quality: Premium surprise packages");
@@ -127,14 +127,14 @@ namespace PaxDrops.Commands
         }
 
         /// <summary>
-        /// Reset the daily order limit for Mrs. Stacks
+        /// Reset the daily order limit for Mr. Stacks
         /// </summary>
         private static void ResetDaily(int currentDay)
         {
             try
             {
-                SaveFileJsonDataStore.MrsStacksOrdersToday.Remove(currentDay);
-                Il2CppScheduleOne.Console.Log($"🔄 Reset Mrs. Stacks orders for Day {currentDay}");
+                SaveFileJsonDataStore.MrStacksOrdersToday.Remove(currentDay);
+                Il2CppScheduleOne.Console.Log($"🔄 Reset Mr. Stacks orders for Day {currentDay}");
             }
             catch (Exception ex)
             {
@@ -144,14 +144,14 @@ namespace PaxDrops.Commands
         }
 
         /// <summary>
-        /// Show Mrs. Stacks conversation history (JSON-based)
+        /// Show Mr. Stacks conversation history (JSON-based)
         /// </summary>
         private static void ShowConversationHistory()
         {
             try
             {
-                Il2CppScheduleOne.Console.Log("=== Mrs. Stacks Conversation History ===");
-                MrsStacksMessaging.ShowConversationHistory();
+                Il2CppScheduleOne.Console.Log("=== Mr. Stacks Conversation History ===");
+                MrStacksMessaging.ShowConversationHistory();
                 Il2CppScheduleOne.Console.Log("Check logs for detailed conversation stats");
             }
             catch (Exception ex)
@@ -167,8 +167,8 @@ namespace PaxDrops.Commands
         {
             try
             {
-                Il2CppScheduleOne.Console.Log("=== Testing Mrs. Stacks Conversation Save ===");
-                MrsStacksMessaging.ForceSaveConversation();
+                Il2CppScheduleOne.Console.Log("=== Testing Mr. Stacks Conversation Save ===");
+                MrStacksMessaging.ForceSaveConversation();
                 Il2CppScheduleOne.Console.Log("Save test completed - check logs for details");
             }
             catch (Exception ex)
@@ -184,8 +184,8 @@ namespace PaxDrops.Commands
         {
             try
             {
-                Il2CppScheduleOne.Console.Log("=== Clearing Mrs. Stacks Conversation History ===");
-                MrsStacksMessaging.ClearConversationHistory();
+                Il2CppScheduleOne.Console.Log("=== Clearing Mr. Stacks Conversation History ===");
+                MrStacksMessaging.ClearConversationHistory();
                 Il2CppScheduleOne.Console.Log("Conversation history cleared");
             }
             catch (Exception ex)
@@ -199,7 +199,7 @@ namespace PaxDrops.Commands
         /// </summary>
         private static void ShowHelp()
         {
-            Il2CppScheduleOne.Console.Log("=== Mrs. Stacks Commands ===");
+            Il2CppScheduleOne.Console.Log("=== Mr. Stacks Commands ===");
             Il2CppScheduleOne.Console.Log("  stacks order   - Place an order (once per day)");
             Il2CppScheduleOne.Console.Log("  stacks status  - Show order status");
             Il2CppScheduleOne.Console.Log("  stacks reset   - Reset daily limit");

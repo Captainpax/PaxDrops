@@ -105,7 +105,7 @@ namespace PaxDrops.Patches
                         return false; // Skip original processing
                         
                     case "stacks":
-                    case "mrsstacks":
+                    case "mrstacks":
                         StacksCommand.Execute(args);
                         return false; // Skip original processing
                         
@@ -153,7 +153,7 @@ namespace PaxDrops.Patches
                         return false; // Skip original processing
                         
                     case "stacks":
-                    case "mrsstacks":
+                    case "mrstacks":
                         StacksCommand.Execute(argList);
                         return false; // Skip original processing
                         

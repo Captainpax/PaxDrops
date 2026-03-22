@@ -1,14 +1,18 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk" InitialTargets="ValidateGameReferences">
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <OutputType>Library</OutputType>
+    <PlatformTarget>x64</PlatformTarget>
     <AssemblyName>PaxDrops</AssemblyName>
     <RootNamespace>PaxDrops</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <S1Dir>/Users/shreyas/Library/Application Support/CrossOver/Bottles/Schedule I/drive_c/Program Files (x86)/Steam/steamapps/common/Schedule I/</S1Dir>
+    <ScheduleIDir Condition="'$(SCHEDULE_I_DIR)' != ''">$(SCHEDULE_I_DIR)</ScheduleIDir>
+    <ScheduleIDir Condition="'$(ScheduleIDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Schedule I</ScheduleIDir>
+    <S1Dir>$(ScheduleIDir)</S1Dir>
+    <ModsDir>$(ScheduleIDir)\Mods</ModsDir>
   </PropertyGroup>
 
   <!-- Build Configuration -->
@@ -44,66 +48,93 @@
   </ItemGroup>
 
   <ItemGroup>
+    <RequiredGameAssembly Include="$(ScheduleIDir)\MelonLoader\net6\MelonLoader.dll" />
+    <RequiredGameAssembly Include="$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll" />
+    <RequiredGameAssembly Include="$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Il2CppSystem.dll" />
+    <RequiredGameAssembly Include="$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\UnityEngine.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="0Harmony">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\net6\0Harmony.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\net6\0Harmony.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Assembly-CSharp.dll</HintPath>
     </Reference>
     <Reference Include="Assembly-CSharp-firstpass">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Assembly-CSharp-firstpass.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Assembly-CSharp-firstpass.dll</HintPath>
     </Reference>
     <Reference Include="Il2CppFishNet.Runtime">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2CppFishNet.Runtime.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Il2CppFishNet.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="Il2CppInterop.Runtime">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\net6\Il2CppInterop.Runtime.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\net6\Il2CppInterop.Runtime.dll</HintPath>
+    </Reference>
+    <Reference Include="Il2CppScheduleOne.Core">
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Il2CppScheduleOne.Core.dll</HintPath>
     </Reference>
     <Reference Include="Il2Cppmscorlib">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Il2Cppmscorlib.dll</HintPath>
     </Reference>
     <Reference Include="Il2CppNewtonsoft.Json">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2CppNewtonsoft.Json.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Il2CppNewtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="Il2CppSystem">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2CppSystem.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Il2CppSystem.dll</HintPath>
     </Reference>
     <Reference Include="Il2CppSystem.Configuration">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2CppSystem.Configuration.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Il2CppSystem.Configuration.dll</HintPath>
     </Reference>
     <Reference Include="Il2CppSystem.Core">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2CppSystem.Core.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Il2CppSystem.Core.dll</HintPath>
     </Reference>
     <Reference Include="Il2CppSystem.Data">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Il2CppSystem.Data.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Il2CppSystem.Data.dll</HintPath>
     </Reference>
     <Reference Include="MelonLoader">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\net6\MelonLoader.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\net6\MelonLoader.dll</HintPath>
     </Reference>
     <Reference Include="MonoMod">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\net6\MonoMod.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\net6\MonoMod.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\net6\Newtonsoft.Json.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\net6\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="Unity.Collections.LowLevel.ILSupport">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\Unity.Collections.LowLevel.ILSupport.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\Unity.Collections.LowLevel.ILSupport.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\UnityEngine.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\UnityEngine.CoreModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.InputLegacyModule">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModule.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.InputModule">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.InputModule.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\UnityEngine.InputModule.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine.JSONSerializeModule">
-      <HintPath>..\..\SteamLibrary\steamapps\common\Schedule I\MelonLoader\Il2CppAssemblies\UnityEngine.JSONSerializeModule.dll</HintPath>
+      <HintPath>$(ScheduleIDir)\MelonLoader\Il2CppAssemblies\UnityEngine.JSONSerializeModule.dll</HintPath>
     </Reference>
   </ItemGroup>
+
+  <Target Name="DeployToMods" AfterTargets="Build" Condition="Exists('$(TargetPath)')">
+    <Message Text="Deploying $(TargetFileName) to $(ModsDir)" Importance="High" />
+    <MakeDir Directories="$(ModsDir)" />
+    <Copy SourceFiles="$(TargetPath)"
+          DestinationFiles="$(ModsDir)\$(TargetFileName)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="ValidateGameReferences">
+    <Error Condition="!Exists('$(ScheduleIDir)')"
+           Text="Schedule I install not found at '$(ScheduleIDir)'. Set SCHEDULE_I_DIR to your Schedule I install root before building." />
+    <Error Condition="!Exists('$(ScheduleIDir)\MelonLoader\Il2CppAssemblies')"
+           Text="Missing '$(ScheduleIDir)\MelonLoader\Il2CppAssemblies'. Launch Schedule I once with MelonLoader to generate the IL2CPP assemblies, then rerun the build. You can override the game root with SCHEDULE_I_DIR." />
+    <Error Condition="!Exists('%(RequiredGameAssembly.Identity)')"
+           Text="Missing required game assembly '%(RequiredGameAssembly.Identity)'. Launch Schedule I once with MelonLoader to regenerate Il2CppAssemblies, then rerun the build." />
+  </Target>
 
 </Project> 

@@ -348,7 +348,7 @@ namespace PaxDrops.Configs
             {
                 var currentTier = GetCurrentPlayerTier();
                 var dailyLimit = GetDailyOrderLimit(currentTier);
-                var ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
+                var ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
                 
                 return ordersToday < dailyLimit;
             }
@@ -368,7 +368,7 @@ namespace PaxDrops.Configs
             {
                 var currentTier = GetCurrentPlayerTier();
                 var dailyLimit = GetDailyOrderLimit(currentTier);
-                var ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
+                var ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
                 
                 return Math.Max(0, dailyLimit - ordersToday);
             }

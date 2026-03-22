@@ -8,7 +8,7 @@ using PaxDrops.Configs;
 namespace PaxDrops.MrStacks
 {
     /// <summary>
-    /// Shared order processing system for both Mrs. Stacks and DevCommand orders.
+    /// Shared order processing system for both Mr. Stacks and DevCommand orders.
     /// Handles the complete flow: validation → confirmation → delay → spawn → notification
     /// Uses new TierDropSystem with ERank integration
     /// </summary>
@@ -17,7 +17,7 @@ namespace PaxDrops.MrStacks
         /// <summary>
         /// Process an order with specified organization and optional parameters
         /// </summary>
-        /// <param name="organization">Organization name (e.g., "Mrs. Stacks", "DevCommand")</param>
+        /// <param name="organization">Organization name (e.g., "Mr. Stacks", "DevCommand")</param>
         /// <param name="orderType">Type of order (e.g., "console_order", "standard", "premium", "random")</param>
         /// <param name="customDay">Override day (null = use current day)</param>
         /// <param name="customItems">Custom items (null = generate based on order type)</param>
@@ -42,19 +42,19 @@ namespace PaxDrops.MrStacks
                 var currentRank = DropConfig.GetCurrentPlayerRank();
                 var maxTier = tier ?? DropConfig.GetCurrentMaxUnlockedTier();
 
-                // Check tier access for Mrs. Stacks (DevCommand can bypass)
-                if (organization == "Mrs. Stacks" && tier.HasValue && !TierDropSystem.CanPlayerAccessTier(tier.Value))
+                // Check tier access for Mr. Stacks (DevCommand can bypass)
+                if (organization == "Mr. Stacks" && tier.HasValue && !TierDropSystem.CanPlayerAccessTier(tier.Value))
                 {
                     Logger.Debug($"🚫 {organization} tier {TierConfig.GetTierName(tier.Value)} not unlocked", "OrderProcessor");
                     if (sendMessages) SendTierNotUnlockedMessage(organization, tier.Value);
                     return;
                 }
 
-                // Check daily limit for Mrs. Stacks (consider tier-based limits)
-                if (organization == "Mrs. Stacks")
+                // Check daily limit for Mr. Stacks (consider tier-based limits)
+                if (organization == "Mr. Stacks")
                 {
                     int dailyLimit = DropConfig.GetDailyOrderLimit(maxTier);
-                    int ordersToday = SaveFileJsonDataStore.GetMrsStacksOrdersToday(currentDay);
+                    int ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
                     
                     if (ordersToday >= dailyLimit)
                     {
@@ -64,7 +64,7 @@ namespace PaxDrops.MrStacks
                     }
 
                     // Mark order for today (this tracks ORDER DAY, not delivery day)
-                    SaveFileJsonDataStore.MarkMrsStacksOrderToday(currentDay);
+                    SaveFileJsonDataStore.MarkMrStacksOrderToday(currentDay);
                 }
 
                 // Calculate delivery day - always next game day
@@ -151,7 +151,7 @@ namespace PaxDrops.MrStacks
                 SaveFileJsonDataStore.SaveDropRecord(dropRecord);
 
                 // Send immediate preparation message with location assignment
-                if (sendMessages && organization == "Mrs. Stacks")
+                if (sendMessages && organization == "Mr. Stacks")
                 {
                     SendPreparationMessage(organization, deliveryDay, deliveryHour, tierInfo);
                 }
@@ -167,15 +167,15 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Send order confirmation message (only for Mrs. Stacks messaging)
+        /// Send order confirmation message (only for Mr. Stacks messaging)
         /// </summary>
         private static void SendConfirmationMessage(string organization, string orderType, int deliveryDay, int deliveryHour, int itemCount, int cashAmount, string tierInfo)
         {
-            if (organization != "Mrs. Stacks") return; // Only Mrs. Stacks sends messages
+            if (organization != "Mr. Stacks") return; // Only Mr. Stacks sends messages
             
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
                 string typeText = orderType.ToLower() switch
@@ -185,7 +185,7 @@ namespace PaxDrops.MrStacks
                     _ => "standard package"
                 };
 
-                MrsStacksMessaging.SendMessage(npc, 
+                MrStacksMessaging.SendMessage(npc, 
                     $"Copy that. Preparing {typeText} from {tierInfo} with {itemCount} items and ${cashAmount} cash. " +
                     $"Delivery tomorrow at {DropConfig.FormatGameTime(deliveryHour)}. I'll message when ready with location.");
 
@@ -198,22 +198,22 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Send daily limit message (only for Mrs. Stacks messaging)
+        /// Send daily limit message (only for Mr. Stacks messaging)
         /// </summary>
         private static void SendDailyLimitMessage(string organization, int dailyLimit)
         {
-            if (organization != "Mrs. Stacks") return; // Only Mrs. Stacks sends messages
+            if (organization != "Mr. Stacks") return; // Only Mr. Stacks sends messages
             
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
                 var nextTierInfo = TierDropSystem.GetNextTierRequirements();
                 string message = $"You've reached your daily order limit ({dailyLimit}). Come back tomorrow. " +
                                 $"Tip: {nextTierInfo}";
 
-                MrsStacksMessaging.SendMessage(npc, message);
+                MrStacksMessaging.SendMessage(npc, message);
                 Logger.Debug("📱 Daily limit message sent", "OrderProcessor");
             }
             catch (Exception ex)
@@ -227,18 +227,18 @@ namespace PaxDrops.MrStacks
         /// </summary>
         private static void SendTierNotUnlockedMessage(string organization, TierConfig.Tier tier)
         {
-            if (organization != "Mrs. Stacks") return;
+            if (organization != "Mr. Stacks") return;
             
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
                 var requirements = TierDropSystem.GetNextTierRequirements();
                 string message = $"Sorry, {TierConfig.GetTierName(tier)} tier isn't available to you yet. " +
                                 $"{requirements}";
 
-                MrsStacksMessaging.SendMessage(npc, message);
+                MrStacksMessaging.SendMessage(npc, message);
                 Logger.Debug("📱 Tier locked message sent", "OrderProcessor");
             }
             catch (Exception ex)
@@ -248,18 +248,18 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Send error message (only for Mrs. Stacks messaging)
+        /// Send error message (only for Mr. Stacks messaging)
         /// </summary>
         private static void SendErrorMessage(string organization, string errorText)
         {
-            if (organization != "Mrs. Stacks") return; // Only Mrs. Stacks sends messages
+            if (organization != "Mr. Stacks") return; // Only Mr. Stacks sends messages
             
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
-                MrsStacksMessaging.SendMessage(npc, errorText);
+                MrStacksMessaging.SendMessage(npc, errorText);
                 Logger.Debug("📱 Error message sent", "OrderProcessor");
             }
             catch (Exception ex)
@@ -269,18 +269,18 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Send preparation message with location assignment (only for Mrs. Stacks messaging)
+        /// Send preparation message with location assignment (only for Mr. Stacks messaging)
         /// </summary>
         private static void SendPreparationMessage(string organization, int deliveryDay, int deliveryHour, string tierInfo)
         {
-            if (organization != "Mrs. Stacks") return; // Only Mrs. Stacks sends messages
+            if (organization != "Mr. Stacks") return; // Only Mr. Stacks sends messages
             
             try
             {
-                var npc = MrsStacksMessaging.FindMrsStacksNPC();
+                var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
-                MrsStacksMessaging.SendMessage(npc, 
+                MrStacksMessaging.SendMessage(npc, 
                     $"Package prep underway. Scheduled for day {deliveryDay} at {DropConfig.FormatGameTime(deliveryHour)}. " +
                     $"I'll message you with the actual dead drop location when it's ready. Stay tuned!");
 

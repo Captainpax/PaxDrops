@@ -67,9 +67,9 @@ namespace PaxDrops
         
         // Data storage (same structure as old JsonDataStore but per-save)
         public static readonly Dictionary<int, List<DropRecord>> PendingDrops = new Dictionary<int, List<DropRecord>>();
-        public static readonly Dictionary<int, int> MrsStacksOrdersToday = new Dictionary<int, int>();
+        public static readonly Dictionary<int, int> MrStacksOrdersToday = new Dictionary<int, int>();
         
-        private static int _lastMrsStacksOrderDay = -1;
+        private static int _lastMrStacksOrderDay = -1;
 
         /// <summary>
         /// Initialize the save file-aware data store (called once at startup)
@@ -132,7 +132,7 @@ namespace PaxDrops
                 _isLoadedForSave = true;
                 
                 // Load conversation data for this save
-                PaxDrops.MrStacks.MrsStacksMessaging.LoadConversationForCurrentSave();
+                PaxDrops.MrStacks.MrStacksMessaging.LoadConversationForCurrentSave();
                 
                 Logger.Debug($"📂 Successfully loaded data for save: {saveName}", "SaveFileJsonDataStore");
                 Logger.Debug($"🆔 Final IDs - Steam: {saveMetadata.SteamId} | Save: {saveMetadata.SaveId}", "SaveFileJsonDataStore");
@@ -163,7 +163,7 @@ namespace PaxDrops
                 Logger.Debug($"📤 Unloading data for save: {_currentSaveName}", "SaveFileJsonDataStore");
                 
                 // Unload conversation data for this save
-                PaxDrops.MrStacks.MrsStacksMessaging.UnloadConversationForCurrentSave();
+                PaxDrops.MrStacks.MrStacksMessaging.UnloadConversationForCurrentSave();
                 
                 ClearCurrentData();
                 _currentSaveId = null;
@@ -224,7 +224,7 @@ namespace PaxDrops
                 SaveMetadataFile();
                 
                 // Also save conversation data when game saves
-                PaxDrops.MrStacks.MrsStacksMessaging.ForceSaveConversation();
+                PaxDrops.MrStacks.MrStacksMessaging.ForceSaveConversation();
                 
                 Logger.Debug($"💾 Saved PaxDrops data for: {saveName} (Steam: {_currentSteamId}, ID: {_currentSaveId})", "SaveFileJsonDataStore");
             }
@@ -940,7 +940,7 @@ namespace PaxDrops
                 // Load daily orders
                 LoadDailyOrdersFromFile(ordersFile);
                 
-                Logger.Debug($"✅ Loaded {PendingDrops.Values.Sum(list => list.Count)} drops and {MrsStacksOrdersToday.Count} order records", "SaveFileJsonDataStore");
+                Logger.Debug($"✅ Loaded {PendingDrops.Values.Sum(list => list.Count)} drops and {MrStacksOrdersToday.Count} order records", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
@@ -972,7 +972,7 @@ namespace PaxDrops
                 // Save daily orders
                 SaveDailyOrdersToFile(ordersFile);
                 
-                Logger.Debug($"✅ Saved {PendingDrops.Values.Sum(list => list.Count)} drops and {MrsStacksOrdersToday.Count} order records", "SaveFileJsonDataStore");
+                Logger.Debug($"✅ Saved {PendingDrops.Values.Sum(list => list.Count)} drops and {MrStacksOrdersToday.Count} order records", "SaveFileJsonDataStore");
             }
             catch (Exception ex)
             {
@@ -1048,26 +1048,26 @@ namespace PaxDrops
                 
                 if (data != null)
                 {
-                    // Load Mrs. Stacks orders
-                    if (data.ContainsKey("MrsStacksOrdersToday") && data["MrsStacksOrdersToday"] is Newtonsoft.Json.Linq.JObject ordersObj)
+                    // Load Mr. Stacks orders
+                    if (data.ContainsKey("MrStacksOrdersToday") && data["MrStacksOrdersToday"] is Newtonsoft.Json.Linq.JObject ordersObj)
                     {
-                        MrsStacksOrdersToday.Clear();
+                        MrStacksOrdersToday.Clear();
                         foreach (var kvp in ordersObj)
                         {
                             if (int.TryParse(kvp.Key, out int day) && kvp.Value is Newtonsoft.Json.Linq.JValue value && value.Value is long count)
                             {
-                                MrsStacksOrdersToday[day] = (int)count;
+                                MrStacksOrdersToday[day] = (int)count;
                             }
                         }
                     }
                     
                     // Load last order day
-                    if (data.ContainsKey("LastMrsStacksOrderDay") && data["LastMrsStacksOrderDay"] is Newtonsoft.Json.Linq.JValue lastOrderValue && lastOrderValue.Value is long lastDay)
+                    if (data.ContainsKey("LastMrStacksOrderDay") && data["LastMrStacksOrderDay"] is Newtonsoft.Json.Linq.JValue lastOrderValue && lastOrderValue.Value is long lastDay)
                     {
-                        _lastMrsStacksOrderDay = (int)lastDay;
+                        _lastMrStacksOrderDay = (int)lastDay;
                     }
                     
-                    Logger.Debug($"📂 Loaded {MrsStacksOrdersToday.Count} order records, last order day: {_lastMrsStacksOrderDay}", "SaveFileJsonDataStore");
+                    Logger.Debug($"📂 Loaded {MrStacksOrdersToday.Count} order records, last order day: {_lastMrStacksOrderDay}", "SaveFileJsonDataStore");
                 }
             }
             catch (Exception ex)
@@ -1085,8 +1085,8 @@ namespace PaxDrops
             {
                 var data = new Dictionary<string, object>
                 {
-                    ["MrsStacksOrdersToday"] = MrsStacksOrdersToday,
-                    ["LastMrsStacksOrderDay"] = _lastMrsStacksOrderDay
+                    ["MrStacksOrdersToday"] = MrStacksOrdersToday,
+                    ["LastMrStacksOrderDay"] = _lastMrStacksOrderDay
                 };
                 
                 string json = JsonConvert.SerializeObject(data, Formatting.Indented);
@@ -1105,8 +1105,8 @@ namespace PaxDrops
         private static void ClearCurrentData()
         {
             PendingDrops.Clear();
-            MrsStacksOrdersToday.Clear();
-            _lastMrsStacksOrderDay = -1;
+            MrStacksOrdersToday.Clear();
+            _lastMrStacksOrderDay = -1;
         }
 
         // Public API methods that delegate to current save data
@@ -1225,58 +1225,58 @@ namespace PaxDrops
             }
         }
 
-        // Mrs. Stacks order tracking methods
-        public static bool HasMrsStacksOrderToday(int day)
+        // Mr. Stacks order tracking methods
+        public static bool HasMrStacksOrderToday(int day)
         {
             if (!_isLoadedForSave) return false;
-            return MrsStacksOrdersToday.ContainsKey(day) && MrsStacksOrdersToday[day] > 0;
+            return MrStacksOrdersToday.ContainsKey(day) && MrStacksOrdersToday[day] > 0;
         }
 
-        public static int GetMrsStacksOrdersToday(int day)
+        public static int GetMrStacksOrdersToday(int day)
         {
             if (!_isLoadedForSave) return 0;
-            return MrsStacksOrdersToday.GetValueOrDefault(day, 0);
+            return MrStacksOrdersToday.GetValueOrDefault(day, 0);
         }
 
-        public static void MarkMrsStacksOrderToday(int day)
+        public static void MarkMrStacksOrderToday(int day)
         {
             if (!_isLoadedForSave) return;
 
-            if (!MrsStacksOrdersToday.ContainsKey(day))
+            if (!MrStacksOrdersToday.ContainsKey(day))
             {
-                MrsStacksOrdersToday[day] = 0;
+                MrStacksOrdersToday[day] = 0;
             }
-            MrsStacksOrdersToday[day]++;
-            _lastMrsStacksOrderDay = day;
-            Logger.Debug($"📋 Mrs. Stacks order marked for day {day} (total: {MrsStacksOrdersToday[day]})", "SaveFileJsonDataStore");
+            MrStacksOrdersToday[day]++;
+            _lastMrStacksOrderDay = day;
+            Logger.Debug($"📋 Mr. Stacks order marked for day {day} (total: {MrStacksOrdersToday[day]})", "SaveFileJsonDataStore");
         }
 
-        public static void ResetMrsStacksOrdersToday(int day)
+        public static void ResetMrStacksOrdersToday(int day)
         {
             if (!_isLoadedForSave) return;
 
-            if (MrsStacksOrdersToday.ContainsKey(day))
+            if (MrStacksOrdersToday.ContainsKey(day))
             {
-                MrsStacksOrdersToday[day] = 0;
-                Logger.Debug($"🔄 Reset Mrs. Stacks orders for day {day}", "SaveFileJsonDataStore");
+                MrStacksOrdersToday[day] = 0;
+                Logger.Debug($"🔄 Reset Mr. Stacks orders for day {day}", "SaveFileJsonDataStore");
             }
         }
 
-        public static Dictionary<int, int> GetMrsStacksOrderSummary()
+        public static Dictionary<int, int> GetMrStacksOrderSummary()
         {
             if (!_isLoadedForSave) return new Dictionary<int, int>();
-            return new Dictionary<int, int>(MrsStacksOrdersToday);
+            return new Dictionary<int, int>(MrStacksOrdersToday);
         }
 
-        public static int GetLastMrsStacksOrderDay()
+        public static int GetLastMrStacksOrderDay()
         {
-            return _lastMrsStacksOrderDay;
+            return _lastMrStacksOrderDay;
         }
 
-        public static int GetDaysSinceLastMrsStacksOrder(int currentDay)
+        public static int GetDaysSinceLastMrStacksOrder(int currentDay)
         {
-            if (_lastMrsStacksOrderDay == -1) return -1;
-            return currentDay - _lastMrsStacksOrderDay;
+            if (_lastMrStacksOrderDay == -1) return -1;
+            return currentDay - _lastMrStacksOrderDay;
         }
 
         /// <summary>

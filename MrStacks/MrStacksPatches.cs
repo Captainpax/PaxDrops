@@ -7,16 +7,16 @@ using Il2CppScheduleOne.Economy;
 namespace PaxDrops.MrStacks
 {
     /// <summary>
-    /// Harmony patches for Mrs. Stacks functionality.
+    /// Harmony patches for Mr. Stacks functionality.
     /// Handles supplier interaction interception (no more invasive save/load patches).
     /// </summary>
-    public static class MrsStacksPatches
+    public static class MrStacksPatches
     {
         private static HarmonyLib.Harmony? _harmony;
         private static bool _initialized = false;
 
         /// <summary>
-        /// Initialize Harmony patches for Mrs. Stacks
+        /// Initialize Harmony patches for Mr. Stacks
         /// </summary>
         public static void Init()
         {
@@ -25,39 +25,39 @@ namespace PaxDrops.MrStacks
 
             try
             {
-                _harmony = new HarmonyLib.Harmony("PaxDrops.MrsStacksPatches");
+                _harmony = new HarmonyLib.Harmony("PaxDrops.MrStacksPatches");
 
                 // Patch supplier dead drop requests
                 var supplierType = typeof(Supplier);
                 var deadDropMethod = supplierType.GetMethod("DeaddropRequested");
                 if (deadDropMethod != null)
                 {
-                    var prefix = typeof(MrsStacksPatches).GetMethod(nameof(DeaddropRequestedPrefix), 
+                    var prefix = typeof(MrStacksPatches).GetMethod(nameof(DeaddropRequestedPrefix), 
                         System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                     _harmony.Patch(deadDropMethod, prefix: new HarmonyMethod(prefix));
-                    Logger.Info("⚙️ DeaddropRequested patch applied", "MrsStacksPatches");
+                    Logger.Info("⚙️ DeaddropRequested patch applied", "MrStacksPatches");
                 }
 
                 // Patch conversation creation
                 var createConversationMethod = supplierType.GetMethod("CreateMessageConversation");
                 if (createConversationMethod != null)
                 {
-                    var conversationPatchMethod = typeof(MrsStacksPatches).GetMethod(nameof(CreateMessageConversationPostfix), 
+                    var conversationPatchMethod = typeof(MrStacksPatches).GetMethod(nameof(CreateMessageConversationPostfix), 
                         System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
                     _harmony.Patch(createConversationMethod, postfix: new HarmonyMethod(conversationPatchMethod));
-                    Logger.Info("⚙️ CreateMessageConversation patch applied", "MrsStacksPatches");
+                    Logger.Info("⚙️ CreateMessageConversation patch applied", "MrStacksPatches");
                 }
 
-                Logger.Info("✅ Essential patches initialized (save/load patches removed)", "MrsStacksPatches");
+                Logger.Info("✅ Essential patches initialized (save/load patches removed)", "MrStacksPatches");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Harmony patch setup failed: {ex.Message}", "MrsStacksPatches");
+                Logger.Error($"❌ Harmony patch setup failed: {ex.Message}", "MrStacksPatches");
             }
         }
 
         /// <summary>
-        /// Harmony prefix patch - intercepts Mrs. Stacks dead drop requests to bypass shop interface
+        /// Harmony prefix patch - intercepts Mr. Stacks dead drop requests to bypass shop interface
         /// </summary>
         [HarmonyPrefix]
         [HarmonyPatch(typeof(Supplier), "DeaddropRequested")]
@@ -65,22 +65,22 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                if (IsMrsStacks(__instance))
+                if (IsMrStacks(__instance))
                 {
-                    Logger.Debug("🛑 Intercepted Mrs. Stacks dead drop request - bypassing shop interface", "MrsStacksPatches");
+                    Logger.Debug("🛑 Intercepted Mr. Stacks dead drop request - bypassing shop interface", "MrStacksPatches");
                     
                     // Process order via DailyDropOrdering system (handles daily limits and tracking)
-                    DailyDropOrdering.ProcessMrsStacksOrder("deadrop_interaction", null, true);
+                    DailyDropOrdering.ProcessMrStacksOrder("deadrop_interaction", null, true);
 
                     // Inform the player that bypass worked
-                    Logger.Debug("✅ Mrs. Stacks dead drop order bypassed shop interface", "MrsStacksPatches");
+                    Logger.Debug("✅ Mr. Stacks dead drop order bypassed shop interface", "MrStacksPatches");
                     
                     return false; // Skip original method
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ DeaddropRequested patch error: {ex.Message}", "MrsStacksPatches");
+                Logger.Error($"❌ DeaddropRequested patch error: {ex.Message}", "MrStacksPatches");
             }
             
             return true; // Continue with original method for other suppliers
@@ -95,30 +95,30 @@ namespace PaxDrops.MrStacks
         {
             try
             {
-                // Only customize Mrs. Stacks conversations
-                if (IsMrsStacks(__instance))
+                // Only customize Mr. Stacks conversations
+                if (IsMrStacks(__instance))
                 {
-                    Logger.Debug("🎛️ Customizing Mrs. Stacks conversation options", "MrsStacksPatches");
-                    MelonCoroutines.Start(MrsStacksMessaging.CustomizeConversationAfterDelay(__instance));
+                    Logger.Debug("🎛️ Customizing Mr. Stacks conversation options", "MrStacksPatches");
+                    MelonCoroutines.Start(MrStacksMessaging.CustomizeConversationAfterDelay(__instance));
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ CreateMessageConversation patch error: {ex.Message}", "MrsStacksPatches");
+                Logger.Error($"❌ CreateMessageConversation patch error: {ex.Message}", "MrStacksPatches");
             }
         }
 
         /// <summary>
-        /// Check if a supplier is Mrs. Stacks
+        /// Check if a supplier is Mr. Stacks
         /// </summary>
-        private static bool IsMrsStacks(Supplier supplier)
+        private static bool IsMrStacks(Supplier supplier)
         {
-            return supplier.ID == "mrs_stacks_001" || 
-                   (supplier.FirstName == "Mrs." && supplier.LastName == "Stacks");
+            return supplier.ID == "mr_stacks_001" || 
+                   (supplier.FirstName == "Mr." && supplier.LastName == "Stacks");
         }
 
         /// <summary>
-        /// Shutdown the Mrs. Stacks patches
+        /// Shutdown the Mr. Stacks patches
         /// </summary>
         public static void Shutdown()
         {
@@ -128,7 +128,7 @@ namespace PaxDrops.MrStacks
             _harmony = null;
             _initialized = false;
             
-            Logger.Info("🔌 Mrs. Stacks patches shutdown", "MrsStacksPatches");
+            Logger.Info("🔌 Mr. Stacks patches shutdown", "MrStacksPatches");
         }
     }
 } 
