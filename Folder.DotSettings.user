@@ -18,4 +18,7 @@
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=A_003A_005CSteamLibrary_005Csteamapps_005Ccommon_005CSchedule_0020I_005CMelonLoader_005Cnet6_005CIl2CppInterop_002ERuntime_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=A_003A_005CSteamLibrary_005Csteamapps_005Ccommon_005CSchedule_0020I_005CMelonLoader_005Cnet6_005CMelonLoader_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=A_003A_005CSteamLibrary_005Csteamapps_005Ccommon_005CSchedule_0020I_005CMelonLoader_005Cnet6_005CMonoMod_002Edll/@EntryIndexedValue">True</s:Boolean>
-	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=A_003A_005CSteamLibrary_005Csteamapps_005Ccommon_005CSchedule_0020I_005CMelonLoader_005Cnet6_005CNewtonsoft_002EJson_002Edll/@EntryIndexedValue">True</s:Boolean></wpf:ResourceDictionary>
+	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=A_003A_005CSteamLibrary_005Csteamapps_005Ccommon_005CSchedule_0020I_005CMelonLoader_005Cnet6_005CNewtonsoft_002EJson_002Edll/@EntryIndexedValue">True</s:Boolean>
+	<s:String x:Key="/Default/Environment/AssemblyExplorer/XmlDocument/@EntryValue">&lt;AssemblyExplorer&gt;&#xD;
+  &lt;Assembly Path="C:\Users\nohea\IdeaProjects\PaxDrops\PaxDrops.dll" /&gt;&#xD;
+&lt;/AssemblyExplorer&gt;</s:String></wpf:ResourceDictionary>

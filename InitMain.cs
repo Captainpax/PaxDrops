@@ -7,7 +7,7 @@ using Il2CppScheduleOne.Levelling;
 using Il2CppScheduleOne.Persistence;
 
 [assembly: MelonInfo(typeof(PaxDrops.InitMain), "PaxDrops", "1.0.0", "CaptainPax")]
-[assembly: MelonGame("Cortez", "Schedule 1")]
+[assembly: MelonGame("TVGS", "Schedule 1")]
 
 namespace PaxDrops
 {

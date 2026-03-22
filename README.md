@@ -1,7 +1,7 @@
 <!--
 @file README.md
 @description Player-focused repository overview for the PaxDrops Schedule I mod, including install/build entry points and linked documentation.
-@editCount 1
+@editCount 2
 -->
 
 # PaxDrops
@@ -65,6 +65,9 @@ Windows helper script:
 ```powershell
 .\build_and_copy_dll.bat --build Debug
 ```
+
+Running `build_and_copy_dll.bat` without arguments now shows usage instead of starting a build immediately. When you
+launch it from Explorer, the script keeps the window open so you can read errors and success output before it closes.
 
 macOS/Linux helper script:
 
