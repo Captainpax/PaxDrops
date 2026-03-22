@@ -1,6 +1,7 @@
 using System;
 using Il2CppScheduleOne;
 using Il2CppScheduleOne.GameTime;
+using PaxDrops.Configs;
 using PaxDrops.MrStacks;
 
 namespace PaxDrops.Commands
@@ -17,7 +18,7 @@ namespace PaxDrops.Commands
         public const string Usage = "stacks [order|status|reset|help|history|save|clear]";
 
         /// <summary>
-        /// Executes the stacks command with the given arguments
+        /// Executes the stacks command with the given arguments.
         /// </summary>
         public static void Execute(Il2CppSystem.Collections.Generic.List<string> args)
         {
@@ -29,40 +30,40 @@ namespace PaxDrops.Commands
                     return;
                 }
 
-                string subCommand = args[1].ToLower();
+                string subCommand = args[1].ToLowerInvariant();
                 var timeManager = TimeManager.Instance;
                 int currentDay = timeManager?.ElapsedDays ?? 0;
-                
+
                 switch (subCommand)
                 {
                     case "order":
                         PlaceOrder(currentDay);
                         break;
-                        
+
                     case "status":
                         ShowStatus(currentDay);
                         break;
-                        
+
                     case "reset":
                         ResetDaily(currentDay);
                         break;
-                        
+
                     case "history":
                         ShowConversationHistory();
                         break;
-                        
+
                     case "save":
                         TestConversationSave();
                         break;
-                        
+
                     case "clear":
                         ClearConversationHistory();
                         break;
-                        
+
                     case "help":
                         ShowHelp();
                         break;
-                        
+
                     default:
                         Il2CppScheduleOne.Console.LogError($"[Stacks] Unknown command: {subCommand}. Use 'stacks help' for commands.");
                         break;
@@ -76,75 +77,94 @@ namespace PaxDrops.Commands
         }
 
         /// <summary>
-        /// Place an order with Mr. Stacks using OrderProcessor (once per day limit)
+        /// Place an order using the highest currently unlocked ordered tier.
         /// </summary>
         private static void PlaceOrder(int currentDay)
         {
             try
             {
-                // Check if already ordered today
-                if (SaveFileJsonDataStore.HasMrStacksOrderToday(currentDay))
+                var highestTier = OrderedDropConfig.GetHighestUnlockedTierForCurrentPlayer();
+                if (!highestTier.HasValue)
                 {
-                    Il2CppScheduleOne.Console.Log($"⚠️ You've already ordered from Mr. Stacks today (Day {currentDay})");
+                    Il2CppScheduleOne.Console.Log("[Stacks] No ordered Mr. Stacks tier is unlocked yet.");
                     return;
                 }
 
-                Il2CppScheduleOne.Console.Log("[Stacks] 📦 Placing order with Mr. Stacks...");
-                
-                // Use the unified order processor with messaging enabled
-                OrderProcessor.ProcessOrder("Mr. Stacks", "console_order", null, null, true);
-                
-                Il2CppScheduleOne.Console.Log("[Stacks] ✅ Order placed! Check your messages for confirmation.");
+                int dailyLimit = OrderedDropConfig.GetCurrentDailyOrderLimit();
+                int ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
+                if (ordersToday >= dailyLimit)
+                {
+                    Il2CppScheduleOne.Console.Log($"[Stacks] Daily limit reached ({ordersToday}/{dailyLimit}).");
+                    return;
+                }
+
+                string tierName = OrderedDropConfig.GetTierName(highestTier.Value);
+                Il2CppScheduleOne.Console.Log($"[Stacks] Placing {tierName} order with Mr. Stacks...");
+
+                bool orderSucceeded = DailyDropOrdering.ProcessHighestUnlockedMrStacksOrder(true);
+                if (orderSucceeded)
+                {
+                    Il2CppScheduleOne.Console.Log("[Stacks] Order placed. Check your messages for confirmation.");
+                }
+                else
+                {
+                    Il2CppScheduleOne.Console.Log("[Stacks] Order failed. Check your messages or logs for details.");
+                }
             }
             catch (Exception ex)
             {
-                Il2CppScheduleOne.Console.Log($"❌ Order command failed: {ex.Message}");
+                Il2CppScheduleOne.Console.Log($"[Stacks] Order command failed: {ex.Message}");
                 Logger.Exception(ex);
             }
         }
 
         /// <summary>
-        /// Show order status for Mr. Stacks
+        /// Show order status for Mr. Stacks.
         /// </summary>
         private static void ShowStatus(int currentDay)
         {
             try
             {
-                bool orderedToday = SaveFileJsonDataStore.HasMrStacksOrderToday(currentDay);
-                string status = orderedToday ? "✅ Ordered today" : "⏳ Available to order";
-                
+                int ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
+                int dailyLimit = OrderedDropConfig.GetCurrentDailyOrderLimit();
+                int remaining = DailyDropOrdering.GetRemainingOrdersToday();
+                var highestTier = OrderedDropConfig.GetHighestUnlockedTierForCurrentPlayer();
+                string tierName = highestTier.HasValue ? OrderedDropConfig.GetTierName(highestTier.Value) : "None";
+                string status = remaining > 0 ? "Available to order" : "Daily limit reached";
+
                 Il2CppScheduleOne.Console.Log("=== Mr. Stacks Status ===");
                 Il2CppScheduleOne.Console.Log($"Today (Day {currentDay}): {status}");
-                Il2CppScheduleOne.Console.Log("Orders: Once per day limit");
-                Il2CppScheduleOne.Console.Log("Quality: Premium surprise packages");
+                Il2CppScheduleOne.Console.Log($"Orders: {ordersToday}/{dailyLimit} used ({remaining} remaining)");
+                Il2CppScheduleOne.Console.Log($"Top ordered tier: {tierName}");
+                Il2CppScheduleOne.Console.Log("Selection: 3 groups x 3 subtiers in the message menu");
                 Il2CppScheduleOne.Console.Log("Contact: Via messaging system");
             }
             catch (Exception ex)
             {
-                Il2CppScheduleOne.Console.Log($"❌ Status command failed: {ex.Message}");
+                Il2CppScheduleOne.Console.Log($"[Stacks] Status command failed: {ex.Message}");
                 Logger.Exception(ex);
             }
         }
 
         /// <summary>
-        /// Reset the daily order limit for Mr. Stacks
+        /// Reset the daily order limit for Mr. Stacks.
         /// </summary>
         private static void ResetDaily(int currentDay)
         {
             try
             {
                 SaveFileJsonDataStore.MrStacksOrdersToday.Remove(currentDay);
-                Il2CppScheduleOne.Console.Log($"🔄 Reset Mr. Stacks orders for Day {currentDay}");
+                Il2CppScheduleOne.Console.Log($"[Stacks] Reset Mr. Stacks orders for Day {currentDay}");
             }
             catch (Exception ex)
             {
-                Il2CppScheduleOne.Console.Log($"❌ Reset command failed: {ex.Message}");
+                Il2CppScheduleOne.Console.Log($"[Stacks] Reset command failed: {ex.Message}");
                 Logger.Exception(ex);
             }
         }
 
         /// <summary>
-        /// Show Mr. Stacks conversation history (JSON-based)
+        /// Show Mr. Stacks conversation history.
         /// </summary>
         private static void ShowConversationHistory()
         {
@@ -161,7 +181,7 @@ namespace PaxDrops.Commands
         }
 
         /// <summary>
-        /// Test conversation save functionality (JSON-based)
+        /// Test conversation save functionality.
         /// </summary>
         private static void TestConversationSave()
         {
@@ -178,7 +198,7 @@ namespace PaxDrops.Commands
         }
 
         /// <summary>
-        /// Clear conversation history (for testing)
+        /// Clear conversation history for testing.
         /// </summary>
         private static void ClearConversationHistory()
         {
@@ -195,19 +215,19 @@ namespace PaxDrops.Commands
         }
 
         /// <summary>
-        /// Show help for the stacks command
+        /// Show help for the stacks command.
         /// </summary>
         private static void ShowHelp()
         {
             Il2CppScheduleOne.Console.Log("=== Mr. Stacks Commands ===");
-            Il2CppScheduleOne.Console.Log("  stacks order   - Place an order (once per day)");
+            Il2CppScheduleOne.Console.Log("  stacks order   - Order your highest unlocked Mr. Stacks tier");
             Il2CppScheduleOne.Console.Log("  stacks status  - Show order status");
             Il2CppScheduleOne.Console.Log("  stacks reset   - Reset daily limit");
-            Il2CppScheduleOne.Console.Log("  stacks history - Show conversation history (JSON)");
+            Il2CppScheduleOne.Console.Log("  stacks history - Show conversation history (SQLite)");
             Il2CppScheduleOne.Console.Log("  stacks save    - Test conversation persistence");
             Il2CppScheduleOne.Console.Log("  stacks clear   - Clear conversation history");
             Il2CppScheduleOne.Console.Log("  stacks help    - Show this help");
-            Il2CppScheduleOne.Console.Log("  Note: Uses JSON-based conversation persistence!");
+            Il2CppScheduleOne.Console.Log("  Note: The in-game message menu lets you pick a specific ordered tier.");
         }
     }
-} 
+}

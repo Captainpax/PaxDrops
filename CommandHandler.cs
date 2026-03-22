@@ -98,10 +98,15 @@ namespace PaxDrops
             
             // Daily Order Status
             var ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
-            var dailyLimit = DropConfig.GetDailyOrderLimit(currentTier);
-            var remaining = DropConfig.GetRemainingOrdersToday(currentDay);
+            var highestOrderedTier = OrderedDropConfig.GetHighestUnlockedTierForCurrentPlayer();
+            var dailyLimit = OrderedDropConfig.GetCurrentDailyOrderLimit();
+            var remaining = DailyDropOrdering.GetRemainingOrdersToday();
             
             Logger.Debug($"Orders Today: {ordersToday}/{dailyLimit} (Remaining: {remaining})", "CommandHandler");
+            if (highestOrderedTier.HasValue)
+            {
+                Logger.Debug($"Top Ordered Tier: {OrderedDropConfig.GetTierName(highestOrderedTier.Value)}", "CommandHandler");
+            }
             
             // Active Drops
             var pendingDrops = SaveFileJsonDataStore.GetAllDrops();

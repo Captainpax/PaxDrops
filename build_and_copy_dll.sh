@@ -68,12 +68,13 @@ build_project() {
     print_info "Building ${PROJECT_FILE} (${config})..."
     dotnet clean "${PROJECT_FILE}" -c "${config}"
     dotnet build "${PROJECT_FILE}" -c "${config}"
-    print_success "Build completed. MSBuild deployed PaxDrops.dll to ${MODS_DIR}."
+    print_success "Build completed. MSBuild deployed PaxDrops runtime files to ${MODS_DIR}."
 }
 
 copy_dll() {
     local config="$1"
-    local output_dll="bin/${config}/net6.0/PaxDrops.dll"
+    local output_dir="bin/${config}/net6.0"
+    local output_dll="${output_dir}/PaxDrops.dll"
 
     if [[ ! -d "${SCHEDULE_I_DIR}" ]]; then
         print_error "Schedule I install not found at ${SCHEDULE_I_DIR}."
@@ -88,7 +89,18 @@ copy_dll() {
 
     mkdir -p "${MODS_DIR}"
     cp "${output_dll}" "${MODS_DIR}/PaxDrops.dll"
-    print_success "Copied PaxDrops.dll to ${MODS_DIR}."
+    [[ -f "${output_dir}/PaxDrops.deps.json" ]] && cp "${output_dir}/PaxDrops.deps.json" "${MODS_DIR}/PaxDrops.deps.json"
+    [[ -f "${output_dir}/Microsoft.Data.Sqlite.dll" ]] && cp "${output_dir}/Microsoft.Data.Sqlite.dll" "${MODS_DIR}/Microsoft.Data.Sqlite.dll"
+    [[ -f "${output_dir}/SQLitePCLRaw.batteries_v2.dll" ]] && cp "${output_dir}/SQLitePCLRaw.batteries_v2.dll" "${MODS_DIR}/SQLitePCLRaw.batteries_v2.dll"
+    [[ -f "${output_dir}/SQLitePCLRaw.core.dll" ]] && cp "${output_dir}/SQLitePCLRaw.core.dll" "${MODS_DIR}/SQLitePCLRaw.core.dll"
+    [[ -f "${output_dir}/SQLitePCLRaw.provider.e_sqlite3.dll" ]] && cp "${output_dir}/SQLitePCLRaw.provider.e_sqlite3.dll" "${MODS_DIR}/SQLitePCLRaw.provider.e_sqlite3.dll"
+
+    if [[ -d "${output_dir}/runtimes" ]]; then
+        mkdir -p "${MODS_DIR}/runtimes"
+        cp -R "${output_dir}/runtimes/." "${MODS_DIR}/runtimes/"
+    fi
+
+    print_success "Copied PaxDrops.dll and SQLite runtime files to ${MODS_DIR}."
 }
 
 usage() {
@@ -99,7 +111,7 @@ Options:
   -h, --help           Show this help message
   -c, --clean          Remove local bin and obj folders
   -b, --build CONFIG   Clean and build, then let MSBuild deploy to Mods
-  -d, --dll CONFIG     Copy bin/CONFIG/net6.0/PaxDrops.dll to Mods
+  -d, --dll CONFIG     Copy PaxDrops.dll and SQLite runtime files to Mods
   -a, --all            Same as --build Debug
   -config CONFIG       Alias for --build CONFIG
 

@@ -69,8 +69,9 @@ namespace PaxDrops.MrStacks
                 {
                     Logger.Debug("🛑 Intercepted Mr. Stacks dead drop request - bypassing shop interface", "MrStacksPatches");
                     
-                    // Process order via DailyDropOrdering system (handles daily limits and tracking)
-                    DailyDropOrdering.ProcessMrStacksOrder("deadrop_interaction", null, true);
+                    // Open or refresh the native tier picker instead of auto-ordering.
+                    MrStacksMessaging.ShowHomeMenu(__instance);
+                    Logger.Debug("Mr. Stacks tier picker refreshed", "MrStacksPatches");
 
                     // Inform the player that bypass worked
                     Logger.Debug("✅ Mr. Stacks dead drop order bypassed shop interface", "MrStacksPatches");

@@ -9,17 +9,19 @@ using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.Economy;
 using Il2CppScheduleOne.GameTime;
 using System.Linq;
+using PaxDrops.Configs;
+using ResponseList = Il2CppSystem.Collections.Generic.List<Il2CppScheduleOne.Messaging.Response>;
 
 namespace PaxDrops.MrStacks
 {
     /// <summary>
     /// Handles messaging functionality for Mr. Stacks NPC.
-    /// Now includes save-file-aware conversation persistence using SaveFileJsonDataStore system.
+    /// Conversation history is stored per-save through the SQLite-backed SaveFileJsonDataStore facade.
     /// </summary>
     public static class MrStacksMessaging
     {
         /// <summary>
-        /// Conversation message record for JSON storage
+        /// Conversation message record for persistence.
         /// </summary>
         [Serializable]
         public class MessageRecord
@@ -48,6 +50,24 @@ namespace PaxDrops.MrStacks
         private static ConversationHistory _conversationHistory = new ConversationHistory();
         private static bool _isConversationLoaded = false;
 
+        private static MSGConversation? GetConversation(NPC npc)
+        {
+            return MessagingManager.Instance?.GetConversation(npc);
+        }
+
+        private static Response CreateMenuResponse(string label, global::System.Action callback)
+        {
+            Il2CppSystem.Action il2CppCallback = callback;
+            return new Response(label, label, il2CppCallback, true);
+        }
+
+        private static void ShowMenuResponses(MSGConversation conversation, ResponseList responses)
+        {
+            conversation.EnsureUIExists();
+            conversation.ClearResponses(false);
+            conversation.ShowResponses(responses, 0f, false);
+        }
+
         /// <summary>
         /// Load conversation history for the current save file
         /// </summary>
@@ -70,6 +90,7 @@ namespace PaxDrops.MrStacks
                         _conversationHistory = new ConversationHistory();
                         Logger.Warn("⚠️ No save loaded - using default conversation", "MrStacksMessaging");
                     }
+
                 }
             }
             catch (Exception ex)
@@ -104,26 +125,30 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Get the conversation file path for a specific save ID
+        /// Get the SQLite storage path for a specific save ID.
         /// </summary>
         private static string GetConversationFilePath(string saveId)
         {
             try
             {
-                var (currentSaveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
-                if (!isLoaded || string.IsNullOrEmpty(steamId) || string.IsNullOrEmpty(currentSaveId))
+                string? databasePath = SaveFileJsonDataStore.GetCurrentDatabasePathForDebug();
+                if (!string.IsNullOrEmpty(databasePath))
                 {
-                    // Fallback to legacy location if save system not available
-                    string legacyBaseDir = "Mods/PaxDrops/SaveFiles";
-                    return Path.Combine(legacyBaseDir, "unknown", saveId, "conversation.json");
+                    Logger.Debug($"Conversation storage DB: {databasePath}", "MrStacksMessaging");
+                    return databasePath;
                 }
+
+                return Path.Combine("Mods/PaxDrops/SaveFiles", "unknown", saveId, SaveFileSqliteBackend.GetDatabaseFileName());
 
                 // Use enhanced save structure: SaveFiles/SteamID/SaveID/conversation.json
                 // IMPORTANT: Use currentSaveId (not the parameter saveId) because we want to use the 
                 // save ID that's currently active in the SaveFileJsonDataStore system
-                string baseDataDir = "Mods/PaxDrops/SaveFiles";
-                string steamUserDir = Path.Combine(baseDataDir, steamId);
-                string saveDir = Path.Combine(steamUserDir, currentSaveId);  // Use currentSaveId for consistency
+                string steamId = string.Empty;
+                string currentSaveId = saveId;
+                string saveDir = Path.GetDirectoryName(databasePath) ?? databasePath;
+
+                Logger.Debug($"Conversation storage DB: {databasePath}", "MrStacksMessaging");
+                return databasePath;
                 
                 Logger.Debug($"📁 Conversation file path: {Path.Combine(saveDir, "conversation.json")}", "MrStacksMessaging");
                 Logger.Debug($"📁 Using Steam ID: {steamId}, Save ID: {currentSaveId}", "MrStacksMessaging");
@@ -133,7 +158,7 @@ namespace PaxDrops.MrStacks
             catch (Exception ex)
             {
                 Logger.Error($"❌ Failed to get conversation file path: {ex.Message}", "MrStacksMessaging");
-                return Path.Combine("Mods/PaxDrops/SaveFiles", "fallback", saveId, "conversation.json");
+                return Path.Combine("Mods/PaxDrops/SaveFiles", "fallback", saveId, SaveFileSqliteBackend.GetDatabaseFileName());
             }
         }
 
@@ -181,7 +206,7 @@ namespace PaxDrops.MrStacks
                 var message = new Message(messageText, Message.ESenderType.Other, true);
                 conversation.SendMessage(message, true, true);
                 
-                // Save to our save-aware JSON storage
+                // Queue this message for the next save snapshot.
                 SaveMessageToHistory(messageText, false);
                 
                 Logger.Info($"📱 Message sent and saved: {messageText}", "MrStacksMessaging");
@@ -216,6 +241,7 @@ namespace PaxDrops.MrStacks
                     
                     // Restore previous messages to the conversation
                     RestoreConversationHistory(conversation);
+                    ShowHomeMenu(npc);
                     
                     Logger.Info($"📱 ✅ Conversation setup complete - restored {_conversationHistory.Messages.Count} messages", "MrStacksMessaging");
                     Logger.Info($"📱 Note: Welcome/reminder messages are handled by MrStacksNPC.SendDelayedWelcomeMessage() and OnNewDay()", "MrStacksMessaging");
@@ -229,6 +255,89 @@ namespace PaxDrops.MrStacks
             {
                 Logger.Error($"❌ Conversation setup failed: {ex.Message}", "MrStacksMessaging");
                 Logger.Exception(ex, "MrStacksMessaging");
+            }
+        }
+
+        /// <summary>
+        /// Show the root response menu with the three ordered-drop groups.
+        /// </summary>
+        public static void ShowHomeMenu(NPC npc)
+        {
+            try
+            {
+                var conversation = GetConversation(npc);
+                if (conversation == null)
+                {
+                    Logger.Warn("No conversation available for Mr. Stacks home menu", "MrStacksMessaging");
+                    return;
+                }
+
+                var responses = new ResponseList();
+                foreach (var group in OrderedDropConfig.GroupOrder)
+                {
+                    var selectedGroup = group;
+                    string groupName = OrderedDropConfig.GetGroupName(selectedGroup);
+                    responses.Add(CreateMenuResponse(groupName, () => ShowGroupMenu(npc, selectedGroup)));
+                }
+
+                ShowMenuResponses(conversation, responses);
+                Logger.Debug("Displayed Mr. Stacks home menu", "MrStacksMessaging");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to show Mr. Stacks home menu: {ex.Message}", "MrStacksMessaging");
+            }
+        }
+
+        private static void ShowGroupMenu(NPC npc, OrderedDropConfig.OrderedGroup group)
+        {
+            try
+            {
+                var conversation = GetConversation(npc);
+                if (conversation == null)
+                {
+                    Logger.Warn("No conversation available for Mr. Stacks group menu", "MrStacksMessaging");
+                    return;
+                }
+
+                var responses = new ResponseList();
+
+                foreach (var tier in OrderedDropConfig.GetTiersForGroup(group))
+                {
+                    var selectedTier = tier;
+                    string label = $"{OrderedDropConfig.GetTierName(selectedTier)} (${OrderedDropConfig.GetPrice(selectedTier)})";
+
+                    responses.Add(CreateMenuResponse(label, () =>
+                    {
+                        int currentDay = DropConfig.GetCurrentGameDay();
+                        var currentRank = DropConfig.GetCurrentPlayerRank();
+
+                        if (!OrderedDropConfig.IsUnlocked(selectedTier, currentRank, currentDay))
+                        {
+                            SendMessage(npc, OrderedDropConfig.GetLockedReason(selectedTier, currentRank, currentDay));
+                            ShowGroupMenu(npc, group);
+                            return;
+                        }
+
+                        bool orderSucceeded = DailyDropOrdering.ProcessMrStacksOrder(selectedTier, true);
+                        if (orderSucceeded)
+                        {
+                            ShowHomeMenu(npc);
+                        }
+                        else
+                        {
+                            ShowGroupMenu(npc, group);
+                        }
+                    }));
+                }
+
+                responses.Add(CreateMenuResponse("Home", () => ShowHomeMenu(npc)));
+                ShowMenuResponses(conversation, responses);
+                Logger.Debug($"Displayed Mr. Stacks submenu for {OrderedDropConfig.GetGroupName(group)}", "MrStacksMessaging");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to show Mr. Stacks group menu: {ex.Message}", "MrStacksMessaging");
             }
         }
 
@@ -273,7 +382,7 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Load conversation history from JSON file for specific save ID
+        /// Load conversation history from the current save's SQLite database.
         /// </summary>
         private static void LoadConversationHistory(string saveId)
         {
@@ -281,7 +390,51 @@ namespace PaxDrops.MrStacks
             {
                 Logger.Debug($"🔍 Loading conversation history for save ID: {saveId}", "MrStacksMessaging");
                 
+                var loadedMessages = SaveFileJsonDataStore.LoadConversationMessagesForCurrentSave();
+                _conversationHistory = new ConversationHistory
+                {
+                    SaveId = saveId,
+                    ContactName = "Mr. Stacks",
+                    Messages = loadedMessages,
+                    LastSaved = loadedMessages.Count > 0 ? loadedMessages[^1].Timestamp : ""
+                };
+                Logger.Info($"Loaded {_conversationHistory.Messages.Count} messages from SQLite storage (Save ID: {saveId})", "MrStacksMessaging");
+                return;
+
+                SaveFileJsonDataStore.SaveConversationMessagesForCurrentSave(GetConversationMessagesSnapshot());
+                Logger.Debug($"Conversation history save shortcut reached for {saveId}", "MrStacksMessaging");
+                return;
+
+                List<MessageRecord> snapshot = GetConversationMessagesSnapshot();
+                SaveFileJsonDataStore.SaveConversationMessagesForCurrentSave(snapshot);
+                _conversationHistory.SaveId = saveId;
+                _conversationHistory.LastSaved = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                Logger.Debug($"Conversation history saved to SQLite ({snapshot.Count} messages)", "MrStacksMessaging");
+                return;
+
                 string conversationFile = GetConversationFilePath(saveId);
+                _conversationHistory = new ConversationHistory
+                {
+                    SaveId = saveId,
+                    ContactName = "Mr. Stacks",
+                    Messages = loadedMessages,
+                    LastSaved = loadedMessages.Count > 0 ? loadedMessages[^1].Timestamp : ""
+                };
+
+                Logger.Info($"Loaded {_conversationHistory.Messages.Count} messages from SQLite storage (Save ID: {saveId})", "MrStacksMessaging");
+                return;
+
+                string unusedConversationFile = GetConversationFilePath(saveId);
+                _conversationHistory = new ConversationHistory
+                {
+                    SaveId = saveId,
+                    ContactName = "Mr. Stacks",
+                    Messages = loadedMessages,
+                    LastSaved = loadedMessages.Count > 0 ? loadedMessages[^1].Timestamp : ""
+                };
+
+                Logger.Info($"Loaded {_conversationHistory.Messages.Count} messages from SQLite storage (Save ID: {saveId})", "MrStacksMessaging");
+                return;
                 
                 Logger.Debug($"📄 Looking for conversation file: {conversationFile}", "MrStacksMessaging");
                 Logger.Debug($"📄 File exists: {File.Exists(conversationFile)}", "MrStacksMessaging");
@@ -323,7 +476,7 @@ namespace PaxDrops.MrStacks
         }
 
         /// <summary>
-        /// Save conversation history to JSON file for current save
+        /// Save conversation history to the current save's SQLite database.
         /// </summary>
         private static void SaveConversationHistory()
         {
@@ -359,6 +512,21 @@ namespace PaxDrops.MrStacks
         /// <summary>
         /// Restore conversation history to the game conversation
         /// </summary>
+        internal static List<MessageRecord> GetConversationMessagesSnapshot()
+        {
+            return _conversationHistory.Messages
+                .Select(message => new MessageRecord
+                {
+                    Text = message.Text,
+                    Timestamp = message.Timestamp,
+                    GameDay = message.GameDay,
+                    GameTime = message.GameTime,
+                    IsFromPlayer = message.IsFromPlayer,
+                    MessageId = message.MessageId
+                })
+                .ToList();
+        }
+
         private static void RestoreConversationHistory(MSGConversation conversation)
         {
             try
@@ -402,12 +570,12 @@ namespace PaxDrops.MrStacks
             {
                 var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
                 
-                Logger.Debug($"📊 Conversation History (Save-Aware JSON Storage):", "MrStacksMessaging");
+                Logger.Debug($"📊 Conversation History (SQLite Storage):", "MrStacksMessaging");
                 Logger.Debug($"💾 Current Save: {saveName} (ID: {saveId}, Steam: {steamId})", "MrStacksMessaging");
                 Logger.Debug($"📝 Contact: {_conversationHistory.ContactName}", "MrStacksMessaging");
                 Logger.Debug($"🔢 Messages: {_conversationHistory.Messages.Count}", "MrStacksMessaging");
                 Logger.Debug($"💾 Last Saved: {_conversationHistory.LastSaved}", "MrStacksMessaging");
-                Logger.Debug($"📄 File: {(isLoaded ? GetConversationFilePath(saveId ?? "") : "No save loaded")}", "MrStacksMessaging");
+                Logger.Debug($"📄 Storage: {(isLoaded ? GetConversationFilePath(saveId ?? "") : "No save loaded")}", "MrStacksMessaging");
                 Logger.Debug($"📁 Loaded: {_isConversationLoaded}", "MrStacksMessaging");
 
                 if (_conversationHistory.Messages.Count > 0)

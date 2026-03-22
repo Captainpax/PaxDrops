@@ -157,8 +157,9 @@ namespace PaxDrops.Commands
                 Il2CppScheduleOne.Console.Log($"📊 PaxDrops Status (Day {currentDay}, Time {currentTime}):");
                 Il2CppScheduleOne.Console.Log($"Pending drops: {SaveFileJsonDataStore.PendingDrops.Count}");
                 
-                bool mrStacksReady = SaveFileJsonDataStore.HasMrStacksOrderToday(currentDay);
-                Il2CppScheduleOne.Console.Log($"Mr. Stacks ready: {mrStacksReady}");
+                int mrStacksOrdersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
+                int mrStacksDailyLimit = PaxDrops.Configs.OrderedDropConfig.GetCurrentDailyOrderLimit();
+                Il2CppScheduleOne.Console.Log($"Mr. Stacks orders: {mrStacksOrdersToday}/{mrStacksDailyLimit}");
                 
                 // Show player detection status
                 Il2CppScheduleOne.Console.Log($"Player Status: {PaxDrops.Configs.DropConfig.GetPlayerDetectionStatus()}");

@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
     <OutputType>Library</OutputType>
     <PlatformTarget>x64</PlatformTarget>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AssemblyName>PaxDrops</AssemblyName>
     <RootNamespace>PaxDrops</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -44,7 +45,9 @@
   <ItemGroup>
     <!-- NuGet Packages -->
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.6" />
   </ItemGroup>
 
   <ItemGroup>
@@ -121,10 +124,22 @@
   </ItemGroup>
 
   <Target Name="DeployToMods" AfterTargets="Build" Condition="Exists('$(TargetPath)')">
-    <Message Text="Deploying $(TargetFileName) to $(ModsDir)" Importance="High" />
+    <ItemGroup>
+      <DeployRootArtifacts Include="$(TargetDir)PaxDrops.dll" />
+      <DeployRootArtifacts Include="$(TargetDir)PaxDrops.deps.json" Condition="Exists('$(TargetDir)PaxDrops.deps.json')" />
+      <DeployRootArtifacts Include="$(TargetDir)Microsoft.Data.Sqlite.dll" Condition="Exists('$(TargetDir)Microsoft.Data.Sqlite.dll')" />
+      <DeployRootArtifacts Include="$(TargetDir)SQLitePCLRaw*.dll" />
+      <DeployRuntimeArtifacts Include="$(TargetDir)runtimes\**\*" />
+    </ItemGroup>
+    <Message Text="Deploying PaxDrops runtime files to $(ModsDir)" Importance="High" />
     <MakeDir Directories="$(ModsDir)" />
-    <Copy SourceFiles="$(TargetPath)"
-          DestinationFiles="$(ModsDir)\$(TargetFileName)"
+    <MakeDir Directories="$(ModsDir)\runtimes" />
+    <MakeDir Directories="@(DeployRuntimeArtifacts->'$(ModsDir)\runtimes\%(RecursiveDir)')" />
+    <Copy SourceFiles="@(DeployRootArtifacts)"
+          DestinationFiles="@(DeployRootArtifacts->'$(ModsDir)\%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(DeployRuntimeArtifacts)"
+          DestinationFiles="@(DeployRuntimeArtifacts->'$(ModsDir)\runtimes\%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
   </Target>
 

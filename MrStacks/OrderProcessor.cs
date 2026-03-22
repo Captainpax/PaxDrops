@@ -1,295 +1,491 @@
 using System;
 using System.Collections.Generic;
-using UnityEngine;
-using MelonLoader;
 using Il2CppScheduleOne.GameTime;
+using Il2CppScheduleOne.Levelling;
+using Il2CppScheduleOne.Money;
 using PaxDrops.Configs;
 
 namespace PaxDrops.MrStacks
 {
     /// <summary>
-    /// Shared order processing system for both Mr. Stacks and DevCommand orders.
-    /// Handles the complete flow: validation → confirmation → delay → spawn → notification
-    /// Uses new TierDropSystem with ERank integration
+    /// Shared drop scheduling code for Mr. Stacks and debug orders.
+    /// Ordered Mr. Stacks menu orders use the dedicated 3x3 typed flow below.
     /// </summary>
     public static class OrderProcessor
     {
+        private const int DeliveryHour = 730;
+
         /// <summary>
-        /// Process an order with specified organization and optional parameters
+        /// Legacy/shared order scheduling path for random/system/debug orders.
         /// </summary>
-        /// <param name="organization">Organization name (e.g., "Mr. Stacks", "DevCommand")</param>
-        /// <param name="orderType">Type of order (e.g., "console_order", "standard", "premium", "random")</param>
-        /// <param name="customDay">Override day (null = use current day)</param>
-        /// <param name="customItems">Custom items (null = generate based on order type)</param>
-        /// <param name="sendMessages">Whether to send messaging notifications</param>
-        /// <param name="tier">Specific tier to use (null = use player's max tier)</param>
-        public static void ProcessOrder(string organization, string orderType = "standard", 
-            int? customDay = null, List<string>? customItems = null, bool sendMessages = false, TierConfig.Tier? tier = null)
+        public static void ProcessOrder(
+            string organization,
+            string orderType = "standard",
+            int? customDay = null,
+            List<string>? customItems = null,
+            bool sendMessages = false,
+            TierConfig.Tier? tier = null)
         {
             try
             {
-                Logger.Debug($"📦 Processing {organization} order: {orderType}", "OrderProcessor");
+                Logger.Debug($"Processing {organization} order: {orderType}", "OrderProcessor");
 
                 var timeManager = TimeManager.Instance;
                 if (timeManager == null)
                 {
-                    Logger.Error("❌ TimeManager unavailable", "OrderProcessor");
+                    Logger.Error("TimeManager unavailable", "OrderProcessor");
                     if (sendMessages) SendErrorMessage(organization, "Service temporarily unavailable. Try again later.");
                     return;
                 }
 
                 int currentDay = customDay ?? timeManager.ElapsedDays;
-                var currentRank = DropConfig.GetCurrentPlayerRank();
                 var maxTier = tier ?? DropConfig.GetCurrentMaxUnlockedTier();
 
-                // Check tier access for Mr. Stacks (DevCommand can bypass)
                 if (organization == "Mr. Stacks" && tier.HasValue && !TierDropSystem.CanPlayerAccessTier(tier.Value))
                 {
-                    Logger.Debug($"🚫 {organization} tier {TierConfig.GetTierName(tier.Value)} not unlocked", "OrderProcessor");
-                    if (sendMessages) SendTierNotUnlockedMessage(organization, tier.Value);
+                    Logger.Debug($"{organization} tier {TierConfig.GetTierName(tier.Value)} not unlocked", "OrderProcessor");
+                    if (sendMessages) SendLegacyTierNotUnlockedMessage(tier.Value);
                     return;
                 }
 
-                // Check daily limit for Mr. Stacks (consider tier-based limits)
                 if (organization == "Mr. Stacks")
                 {
                     int dailyLimit = DropConfig.GetDailyOrderLimit(maxTier);
                     int ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
-                    
+
                     if (ordersToday >= dailyLimit)
                     {
-                        Logger.Debug($"🚫 {organization} daily order limit reached ({ordersToday}/{dailyLimit})", "OrderProcessor");
-                        if (sendMessages) SendDailyLimitMessage(organization, dailyLimit);
+                        Logger.Debug($"{organization} daily order limit reached ({ordersToday}/{dailyLimit})", "OrderProcessor");
+                        if (sendMessages) SendLegacyDailyLimitMessage(dailyLimit);
                         return;
                     }
-
-                    // Mark order for today (this tracks ORDER DAY, not delivery day)
-                    SaveFileJsonDataStore.MarkMrStacksOrderToday(currentDay);
                 }
 
-                // Calculate delivery day - always next game day
                 int deliveryDay = currentDay + 1;
-                int deliveryHour = 730; // 7:30 AM game time
-                
-                // Calculate expiry - day after delivery at same time
                 int expiryDay = deliveryDay + 1;
-                int expiryHour = deliveryHour;
 
-                Logger.Debug($"📅 Order placed on game day {currentDay}, delivery on game day {deliveryDay} at {deliveryHour}", "OrderProcessor");
-
-                // Generate package based on order type
                 List<string> items;
                 int cashAmount;
                 string tierInfo;
-                
+
                 if (customItems != null)
                 {
-                    items = customItems;
+                    items = new List<string>(customItems);
                     cashAmount = 0;
                     tierInfo = "Custom";
-                    
-                    // Extract cash from custom items if specified
+
                     for (int i = items.Count - 1; i >= 0; i--)
                     {
-                        if (items[i].StartsWith("cash:"))
+                        if (!items[i].StartsWith("cash:", StringComparison.OrdinalIgnoreCase))
                         {
-                            if (int.TryParse(items[i].Substring(5), out int cash))
-                            {
-                                cashAmount += cash;
-                            }
-                            items.RemoveAt(i);
+                            continue;
                         }
+
+                        if (int.TryParse(items[i].Substring(5), out int parsedCash))
+                        {
+                            cashAmount += parsedCash;
+                        }
+
+                        items.RemoveAt(i);
+                    }
+
+                    if (cashAmount > 0)
+                    {
+                        items.Insert(0, $"cash:{cashAmount}");
                     }
                 }
                 else
                 {
-                    // Generate package using new TierDropSystem
-                    TierDropSystem.DropPackage package;
-                    
-                    switch (orderType.ToLower())
+                    TierDropSystem.DropPackage package = orderType.ToLowerInvariant() switch
                     {
-                        case "premium":
-                            package = tier.HasValue ? TierDropSystem.GeneratePremiumDropPackage(tier.Value) : TierDropSystem.GeneratePremiumDropPackage();
-                            break;
-                        case "random":
-                            package = TierDropSystem.GenerateRandomDropPackage();
-                            break;
-                        default: // "standard" and others
-                            package = tier.HasValue ? TierDropSystem.GenerateDropPackage(tier.Value) : TierDropSystem.GenerateDropPackage();
-                            break;
-                    }
-                    
+                        "premium" => tier.HasValue ? TierDropSystem.GeneratePremiumDropPackage(tier.Value) : TierDropSystem.GeneratePremiumDropPackage(),
+                        "random" => TierDropSystem.GenerateRandomDropPackage(),
+                        _ => tier.HasValue ? TierDropSystem.GenerateDropPackage(tier.Value) : TierDropSystem.GenerateDropPackage()
+                    };
+
                     items = package.ToFlatList();
                     cashAmount = package.CashAmount;
                     tierInfo = $"{TierConfig.GetTierName(package.Tier)} ({TierConfig.GetOrganizationName(TierConfig.GetOrganization(package.Tier))})";
                 }
 
-                // Send confirmation message if messaging enabled
+                int nonCashItemCount = CountNonCashItems(items);
+
                 if (sendMessages)
                 {
-                    SendConfirmationMessage(organization, orderType, deliveryDay, deliveryHour, items.Count, cashAmount, tierInfo);
+                    SendLegacyConfirmationMessage(orderType, deliveryDay, DeliveryHour, nonCashItemCount, cashAmount, tierInfo);
                 }
 
-                // Create drop record
                 var dropRecord = new SaveFileJsonDataStore.DropRecord
                 {
-                    Day = deliveryDay,           // When drop becomes available (next game day)
+                    Day = deliveryDay,
                     Items = items,
-                    DropHour = deliveryHour,
-                    DropTime = DropConfig.FormatGameTime(deliveryHour),
-                    Org = $"{organization} ({tierInfo})",
-                    CreatedTime = DateTime.Now.ToString("s"), // Real time when order was created
+                    DropHour = DeliveryHour,
+                    DropTime = DropConfig.FormatGameTime(DeliveryHour),
+                    Org = organization == "Mr. Stacks" ? $"{organization} ({tierInfo})" : organization,
+                    CreatedTime = DateTime.Now.ToString("s"),
                     Type = orderType,
                     Location = "",
-                    ExpiryTime = $"{expiryDay}:{expiryHour}", // Store as game day:hour format
-                    OrderDay = currentDay,       // When order was placed (current game day)
+                    ExpiryTime = $"{expiryDay}:{DeliveryHour}",
+                    OrderDay = currentDay,
                     IsCollected = false,
-                    InitialItemCount = items.Count + (cashAmount > 0 ? 1 : 0) // Include cash as item
+                    InitialItemCount = items.Count
                 };
 
-                // Schedule the drop for delivery
-                SaveFileJsonDataStore.SaveDropRecord(dropRecord);
-
-                // Send immediate preparation message with location assignment
-                if (sendMessages && organization == "Mr. Stacks")
+                bool saveSucceeded = SaveFileJsonDataStore.SaveDropRecord(dropRecord);
+                if (!saveSucceeded)
                 {
-                    SendPreparationMessage(organization, deliveryDay, deliveryHour, tierInfo);
+                    Logger.Error("Failed to queue drop record", "OrderProcessor");
+                    if (sendMessages) SendErrorMessage(organization, "Order failed to save. Please try again.");
+                    return;
                 }
 
-                Logger.Debug($"✅ {organization} {orderType} order scheduled for game day {deliveryDay} at {DropConfig.FormatGameTime(deliveryHour)} - {items.Count} items, ${cashAmount}, {tierInfo}", "OrderProcessor");
-                Logger.Debug($"📋 Order tracking: OrderDay={currentDay}, DeliveryDay={deliveryDay}, ExpiryDay={expiryDay}", "OrderProcessor");
+                if (organization == "Mr. Stacks")
+                {
+                    SaveFileJsonDataStore.MarkMrStacksOrderToday(currentDay);
+
+                    if (sendMessages)
+                    {
+                        SendPreparationMessage(deliveryDay, DeliveryHour, tierInfo);
+                    }
+                }
+
+                Logger.Debug($"{organization} {orderType} order scheduled for day {deliveryDay} at {DropConfig.FormatGameTime(DeliveryHour)}", "OrderProcessor");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ {organization} order processing failed: {ex.Message}", "OrderProcessor");
+                Logger.Error($"{organization} order processing failed: {ex.Message}", "OrderProcessor");
                 if (sendMessages) SendErrorMessage(organization, "Order failed. Please try again.");
             }
         }
 
         /// <summary>
-        /// Send order confirmation message (only for Mr. Stacks messaging)
+        /// Typed ordered-flow entrypoint used by the Mr. Stacks conversation menu.
         /// </summary>
-        private static void SendConfirmationMessage(string organization, string orderType, int deliveryDay, int deliveryHour, int itemCount, int cashAmount, string tierInfo)
+        public static bool ProcessMrStacksTierOrder(OrderedDropConfig.OrderedTier selectedTier, bool sendMessages = true)
         {
-            if (organization != "Mr. Stacks") return; // Only Mr. Stacks sends messages
-            
+            MoneyManager? moneyManager = null;
+            bool charged = false;
+            int chargedAmount = 0;
+            string chargedTierName = OrderedDropConfig.GetTierName(selectedTier);
+
+            try
+            {
+                var timeManager = TimeManager.Instance;
+                if (timeManager == null)
+                {
+                    Logger.Error("TimeManager unavailable", "OrderProcessor");
+                    if (sendMessages) SendErrorMessage("Mr. Stacks", "Service temporarily unavailable. Try again later.");
+                    return false;
+                }
+
+                int currentDay = timeManager.ElapsedDays;
+                int currentTime = timeManager.CurrentTime;
+                ERank currentRank = DropConfig.GetCurrentPlayerRank();
+
+                if (!OrderedDropConfig.IsUnlocked(selectedTier, currentRank, currentDay))
+                {
+                    Logger.Debug($"Ordered tier {chargedTierName} is locked", "OrderProcessor");
+                    if (sendMessages) SendLockedTierMessage(selectedTier, currentRank, currentDay);
+                    return false;
+                }
+
+                var highestUnlockedTier = OrderedDropConfig.GetHighestUnlockedTier(currentRank, currentDay);
+                if (!highestUnlockedTier.HasValue)
+                {
+                    Logger.Debug("No ordered tiers are unlocked for the player", "OrderProcessor");
+                    if (sendMessages) SendErrorMessage("Mr. Stacks", "You do not have any order tiers unlocked yet.");
+                    return false;
+                }
+
+                int dailyLimit = OrderedDropConfig.GetDailyOrderLimit(highestUnlockedTier.Value);
+                int ordersToday = SaveFileJsonDataStore.GetMrStacksOrdersToday(currentDay);
+                if (ordersToday >= dailyLimit)
+                {
+                    Logger.Debug($"Mr. Stacks daily order limit reached ({ordersToday}/{dailyLimit})", "OrderProcessor");
+                    if (sendMessages) SendDailyLimitMessage(dailyLimit, highestUnlockedTier.Value);
+                    return false;
+                }
+
+                moneyManager = MoneyManager.Instance;
+                if (moneyManager == null)
+                {
+                    Logger.Error("MoneyManager unavailable", "OrderProcessor");
+                    if (sendMessages) SendErrorMessage("Mr. Stacks", "Banking services are unavailable right now. Try again in a bit.");
+                    return false;
+                }
+
+                int price = OrderedDropConfig.GetPrice(selectedTier);
+                float onlineBalance = moneyManager.onlineBalance;
+                if (onlineBalance < price)
+                {
+                    Logger.Debug($"Insufficient online balance for {chargedTierName}: ${onlineBalance} < ${price}", "OrderProcessor");
+                    if (sendMessages) SendInsufficientFundsMessage(selectedTier, price, onlineBalance);
+                    return false;
+                }
+
+                int deliveryDay = currentDay + 1;
+                int expiryDay = deliveryDay + 1;
+                int hoursUntilDelivery = OrderedDropConfig.CalculateHoursUntilDelivery(currentDay, currentTime, deliveryDay, DeliveryHour);
+                string groupName = OrderedDropConfig.GetGroupName(OrderedDropConfig.GetGroup(selectedTier));
+                var package = OrderedDropSystem.GenerateDropPackage(selectedTier);
+                var items = package.ToFlatList();
+
+                moneyManager.CreateOnlineTransaction("Mr. Stacks Package", -price, 1f, $"{chargedTierName} package");
+                charged = true;
+                chargedAmount = price;
+
+                var dropRecord = new SaveFileJsonDataStore.DropRecord
+                {
+                    Day = deliveryDay,
+                    Items = items,
+                    DropHour = DeliveryHour,
+                    DropTime = DropConfig.FormatGameTime(DeliveryHour),
+                    Org = $"Mr. Stacks ({chargedTierName})",
+                    CreatedTime = DateTime.Now.ToString("s"),
+                    Type = "ordered",
+                    Location = "",
+                    ExpiryTime = $"{expiryDay}:{DeliveryHour}",
+                    OrderDay = currentDay,
+                    IsCollected = false,
+                    InitialItemCount = items.Count,
+                    OrderedTierId = OrderedDropConfig.GetTierId(selectedTier),
+                    OrderedTierName = chargedTierName,
+                    PricePaid = price
+                };
+
+                bool saveSucceeded = SaveFileJsonDataStore.SaveDropRecord(dropRecord);
+                if (!saveSucceeded)
+                {
+                    RefundOnlineOrder(moneyManager, chargedAmount, chargedTierName);
+                    charged = false;
+
+                    if (sendMessages)
+                    {
+                        SendErrorMessage("Mr. Stacks", "Order storage failed, so I sent your money back. Try again.");
+                    }
+
+                    return false;
+                }
+
+                SaveFileJsonDataStore.MarkMrStacksOrderToday(currentDay);
+
+                if (sendMessages)
+                {
+                    SendOrderedConfirmationMessage(selectedTier, groupName, price, deliveryDay, DeliveryHour, hoursUntilDelivery, package.Items.Count, package.CashAmount);
+                    SendPreparationMessage(deliveryDay, DeliveryHour, chargedTierName);
+                }
+
+                Logger.Debug($"Ordered Mr. Stacks tier {chargedTierName} for ${price}; delivery day {deliveryDay} at {DropConfig.FormatGameTime(DeliveryHour)}", "OrderProcessor");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (charged && moneyManager != null && chargedAmount > 0)
+                {
+                    RefundOnlineOrder(moneyManager, chargedAmount, chargedTierName);
+                }
+
+                Logger.Error($"Ordered Mr. Stacks tier processing failed: {ex.Message}", "OrderProcessor");
+                if (sendMessages) SendErrorMessage("Mr. Stacks", "Order failed. If anything charged incorrectly, it has been refunded.");
+                return false;
+            }
+        }
+
+        private static int CountNonCashItems(List<string> items)
+        {
+            int count = 0;
+
+            foreach (var item in items)
+            {
+                if (!item.StartsWith("cash:", StringComparison.OrdinalIgnoreCase))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static void RefundOnlineOrder(MoneyManager moneyManager, int amount, string tierName)
+        {
+            try
+            {
+                moneyManager.CreateOnlineTransaction("Mr. Stacks Refund", amount, 1f, $"{tierName} package refund");
+                Logger.Warn($"Refunded ${amount} for failed {tierName} order", "OrderProcessor");
+            }
+            catch (Exception refundEx)
+            {
+                Logger.Error($"Failed to refund ${amount} for {tierName}: {refundEx.Message}", "OrderProcessor");
+            }
+        }
+
+        private static void SendLegacyConfirmationMessage(string orderType, int deliveryDay, int deliveryHour, int itemCount, int cashAmount, string tierInfo)
+        {
             try
             {
                 var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
-                string typeText = orderType.ToLower() switch
+                string typeText = orderType.ToLowerInvariant() switch
                 {
                     "premium" => "premium package",
                     "random" => "surprise package",
                     _ => "standard package"
                 };
 
-                MrStacksMessaging.SendMessage(npc, 
-                    $"Copy that. Preparing {typeText} from {tierInfo} with {itemCount} items and ${cashAmount} cash. " +
-                    $"Delivery tomorrow at {DropConfig.FormatGameTime(deliveryHour)}. I'll message when ready with location.");
-
-                Logger.Debug("📱 Confirmation sent", "OrderProcessor");
+                MrStacksMessaging.SendMessage(
+                    npc,
+                    $"Copy that. Preparing {typeText} from {tierInfo} with {itemCount} items and ${cashAmount} cash. Delivery tomorrow at {DropConfig.FormatGameTime(deliveryHour)}.");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Confirmation failed: {ex.Message}", "OrderProcessor");
+                Logger.Error($"Legacy confirmation failed: {ex.Message}", "OrderProcessor");
             }
         }
 
-        /// <summary>
-        /// Send daily limit message (only for Mr. Stacks messaging)
-        /// </summary>
-        private static void SendDailyLimitMessage(string organization, int dailyLimit)
+        private static void SendOrderedConfirmationMessage(
+            OrderedDropConfig.OrderedTier selectedTier,
+            string groupName,
+            int price,
+            int deliveryDay,
+            int deliveryHour,
+            int hoursUntilDelivery,
+            int itemCount,
+            int cashAmount)
         {
-            if (organization != "Mr. Stacks") return; // Only Mr. Stacks sends messages
-            
             try
             {
                 var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
-                var nextTierInfo = TierDropSystem.GetNextTierRequirements();
-                string message = $"You've reached your daily order limit ({dailyLimit}). Come back tomorrow. " +
-                                $"Tip: {nextTierInfo}";
-
-                MrStacksMessaging.SendMessage(npc, message);
-                Logger.Debug("📱 Daily limit message sent", "OrderProcessor");
+                string tierName = OrderedDropConfig.GetTierName(selectedTier);
+                MrStacksMessaging.SendMessage(
+                    npc,
+                    $"All right. {tierName} from {groupName} is locked in for ${price}. Expect the drop tomorrow at {DropConfig.FormatGameTime(deliveryHour)} in about {hoursUntilDelivery} in-game hour(s). Package is tagged with {itemCount} item stack(s) and a cash bundle.");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Daily limit message failed: {ex.Message}", "OrderProcessor");
+                Logger.Error($"Ordered confirmation failed: {ex.Message}", "OrderProcessor");
             }
         }
 
-        /// <summary>
-        /// Send tier not unlocked message
-        /// </summary>
-        private static void SendTierNotUnlockedMessage(string organization, TierConfig.Tier tier)
+        private static void SendDailyLimitMessage(int dailyLimit, OrderedDropConfig.OrderedTier highestUnlockedTier)
         {
-            if (organization != "Mr. Stacks") return;
-            
             try
             {
                 var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
-                var requirements = TierDropSystem.GetNextTierRequirements();
-                string message = $"Sorry, {TierConfig.GetTierName(tier)} tier isn't available to you yet. " +
-                                $"{requirements}";
-
-                MrStacksMessaging.SendMessage(npc, message);
-                Logger.Debug("📱 Tier locked message sent", "OrderProcessor");
+                string tierName = OrderedDropConfig.GetTierName(highestUnlockedTier);
+                MrStacksMessaging.SendMessage(
+                    npc,
+                    $"You've already used all {dailyLimit} order slot(s) for today. Your current access still tops out at {tierName}. Come back tomorrow.");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Tier locked message failed: {ex.Message}", "OrderProcessor");
+                Logger.Error($"Daily limit message failed: {ex.Message}", "OrderProcessor");
             }
         }
 
-        /// <summary>
-        /// Send error message (only for Mr. Stacks messaging)
-        /// </summary>
+        private static void SendLegacyDailyLimitMessage(int dailyLimit)
+        {
+            try
+            {
+                var npc = MrStacksMessaging.FindMrStacksNPC();
+                if (npc == null) return;
+
+                MrStacksMessaging.SendMessage(
+                    npc,
+                    $"You've reached your daily order limit of {dailyLimit}. Come back tomorrow for more business.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Legacy daily limit message failed: {ex.Message}", "OrderProcessor");
+            }
+        }
+
+        private static void SendLockedTierMessage(OrderedDropConfig.OrderedTier selectedTier, ERank currentRank, int currentDay)
+        {
+            try
+            {
+                var npc = MrStacksMessaging.FindMrStacksNPC();
+                if (npc == null) return;
+
+                MrStacksMessaging.SendMessage(npc, OrderedDropConfig.GetLockedReason(selectedTier, currentRank, currentDay));
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Locked tier message failed: {ex.Message}", "OrderProcessor");
+            }
+        }
+
+        private static void SendLegacyTierNotUnlockedMessage(TierConfig.Tier tier)
+        {
+            try
+            {
+                var npc = MrStacksMessaging.FindMrStacksNPC();
+                if (npc == null) return;
+
+                string requirements = TierDropSystem.GetNextTierRequirements();
+                string message = $"Sorry, {TierConfig.GetTierName(tier)} tier isn't available to you yet. {requirements}";
+                MrStacksMessaging.SendMessage(npc, message);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Legacy tier locked message failed: {ex.Message}", "OrderProcessor");
+            }
+        }
+
+        private static void SendInsufficientFundsMessage(OrderedDropConfig.OrderedTier tier, int price, float onlineBalance)
+        {
+            try
+            {
+                var npc = MrStacksMessaging.FindMrStacksNPC();
+                if (npc == null) return;
+
+                string tierName = OrderedDropConfig.GetTierName(tier);
+                MrStacksMessaging.SendMessage(
+                    npc,
+                    $"{tierName} costs ${price}, but your online balance is only ${MathF.Floor(onlineBalance)}. Move more into the bank and try again.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Insufficient funds message failed: {ex.Message}", "OrderProcessor");
+            }
+        }
+
         private static void SendErrorMessage(string organization, string errorText)
         {
-            if (organization != "Mr. Stacks") return; // Only Mr. Stacks sends messages
-            
+            if (organization != "Mr. Stacks") return;
+
             try
             {
                 var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
                 MrStacksMessaging.SendMessage(npc, errorText);
-                Logger.Debug("📱 Error message sent", "OrderProcessor");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Error message failed: {ex.Message}", "OrderProcessor");
+                Logger.Error($"Error message failed: {ex.Message}", "OrderProcessor");
             }
         }
 
-        /// <summary>
-        /// Send preparation message with location assignment (only for Mr. Stacks messaging)
-        /// </summary>
-        private static void SendPreparationMessage(string organization, int deliveryDay, int deliveryHour, string tierInfo)
+        private static void SendPreparationMessage(int deliveryDay, int deliveryHour, string tierInfo)
         {
-            if (organization != "Mr. Stacks") return; // Only Mr. Stacks sends messages
-            
             try
             {
                 var npc = MrStacksMessaging.FindMrStacksNPC();
                 if (npc == null) return;
 
-                MrStacksMessaging.SendMessage(npc, 
-                    $"Package prep underway. Scheduled for day {deliveryDay} at {DropConfig.FormatGameTime(deliveryHour)}. " +
-                    $"I'll message you with the actual dead drop location when it's ready. Stay tuned!");
-
-                Logger.Debug("📱 Preparation message sent (no preliminary location to avoid confusion)", "OrderProcessor");
+                MrStacksMessaging.SendMessage(
+                    npc,
+                    $"Prep is underway for your {tierInfo} package. It's scheduled for day {deliveryDay} at {DropConfig.FormatGameTime(deliveryHour)}. I'll message the dead drop location when it's placed.");
             }
             catch (Exception ex)
             {
-                Logger.Error($"❌ Preparation message failed: {ex.Message}", "OrderProcessor");
+                Logger.Error($"Preparation message failed: {ex.Message}", "OrderProcessor");
             }
         }
     }
-} 
+}
