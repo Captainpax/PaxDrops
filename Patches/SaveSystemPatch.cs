@@ -1,3 +1,9 @@
+/*
+@file SaveSystemPatch.cs
+@description Harmony integration with Schedule I save events, including save deduplication and active-save path capture for PaxDrops.
+@editCount 2
+*/
+
 using System;
 using System.IO;
 using HarmonyLib;
@@ -202,13 +208,14 @@ namespace PaxDrops.Patches
                 if (ShouldSkipSave(savePath, saveName, "Save()"))
                     return;
                 
-                // Normalize path for consistent save ID generation
+                // Normalize path only for logging/deduplication; pass the raw path through so the datastore
+                // can repair itself when the game finally exposes the concrete save folder.
                 string normalizedPath = NormalizePath(savePath);
-                Logger.Debug($"💾 Processing Save() - Normalized Path: {normalizedPath}, Name: {saveName}", "SaveSystemPatch");
+                Logger.Debug($"💾 Processing Save() - Normalized Path: {normalizedPath}, Raw Path: {savePath}, Name: {saveName}", "SaveSystemPatch");
                 
                 // Update tracking and trigger save
                 UpdateLastSave(savePath, saveName);
-                SaveFileJsonDataStore.SaveForCurrentSaveFile(normalizedPath, saveName);
+                SaveFileJsonDataStore.SaveForCurrentSaveFile(savePath, saveName);
             }
             catch (Exception ex)
             {
@@ -246,13 +253,14 @@ namespace PaxDrops.Patches
                 if (ShouldSkipSave(saveFolderPath, saveName ?? "manual", "Save(string)"))
                     return;
                 
-                // Normalize path for consistent save ID generation
+                // Normalize path only for logging/deduplication; pass the raw path through so the datastore
+                // can repair itself when the concrete save folder is available.
                 string normalizedPath = NormalizePath(saveFolderPath);
-                Logger.Debug($"💾 Processing Save(string) - Normalized FolderPath: {normalizedPath}, Name: {saveName ?? "manual"}", "SaveSystemPatch");
+                Logger.Debug($"💾 Processing Save(string) - Normalized FolderPath: {normalizedPath}, Raw FolderPath: {saveFolderPath}, Name: {saveName ?? "manual"}", "SaveSystemPatch");
                 
                 // Update tracking and trigger save
                 UpdateLastSave(saveFolderPath, saveName ?? "manual");
-                SaveFileJsonDataStore.SaveForCurrentSaveFile(normalizedPath, saveName ?? "manual");
+                SaveFileJsonDataStore.SaveForCurrentSaveFile(saveFolderPath, saveName ?? "manual");
             }
             catch (Exception ex)
             {

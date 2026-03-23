@@ -1,3 +1,9 @@
+/*
+@file MrStacksMessaging.cs
+@description Mr. Stacks phone conversation UI and persistence helpers, including SQLite-backed history restore and ordered-tier menu rendering.
+@editCount 2
+*/
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -86,9 +92,8 @@ namespace PaxDrops.MrStacks
                     }
                     else
                     {
-                        // Fallback to default conversation if no save loaded
                         _conversationHistory = new ConversationHistory();
-                        Logger.Warn("⚠️ No save loaded - using default conversation", "MrStacksMessaging");
+                        Logger.Debug("Conversation load skipped because no save is ready yet", "MrStacksMessaging");
                     }
 
                 }
@@ -289,8 +294,85 @@ namespace PaxDrops.MrStacks
             }
         }
 
+        public static void SendTransientMessage(NPC npc, string messageText)
+        {
+            try
+            {
+                var conversation = MessagingManager.Instance?.GetConversation(npc);
+                if (conversation == null)
+                {
+                    Logger.Error("No conversation found for transient message", "MrStacksMessaging");
+                    return;
+                }
+
+                var message = new Message(messageText, Message.ESenderType.Other, true);
+                conversation.SendMessage(message, true, true);
+                Logger.Info($"Transient message sent: {messageText}", "MrStacksMessaging");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Transient message send failed: {ex.Message}", "MrStacksMessaging");
+            }
+        }
+
         private static void ShowGroupMenu(NPC npc, OrderedDropConfig.OrderedGroup group)
         {
+            try
+            {
+                var conversation = GetConversation(npc);
+                if (conversation == null)
+                {
+                    Logger.Warn("No conversation available for Mr. Stacks group menu", "MrStacksMessaging");
+                    return;
+                }
+
+                int currentDay = DropConfig.GetCurrentGameDay();
+                var currentRank = DropConfig.GetCurrentPlayerRank();
+                List<OrderedDropConfig.OrderedTier> unlockedTiers = OrderedDropConfig
+                    .GetTiersForGroup(group)
+                    .Where(tier => OrderedDropConfig.IsUnlocked(tier, currentRank, currentDay))
+                    .ToList();
+
+                var responses = new ResponseList();
+                foreach (var tier in unlockedTiers)
+                {
+                    var selectedTier = tier;
+                    string label = $"{OrderedDropConfig.GetTierName(selectedTier)} (${OrderedDropConfig.GetPrice(selectedTier)})";
+                    responses.Add(CreateMenuResponse(label, () =>
+                    {
+                        bool orderSucceeded = DailyDropOrdering.ProcessMrStacksOrder(selectedTier, true);
+                        if (orderSucceeded)
+                        {
+                            ShowHomeMenu(npc);
+                        }
+                        else
+                        {
+                            ShowGroupMenu(npc, group);
+                        }
+                    }));
+                }
+
+                if (unlockedTiers.Count == 0)
+                {
+                    string unlockStatus = GetNextUnlockStatusMessage(group, currentRank, currentDay);
+                    responses.Add(CreateMenuResponse("Next Unlock", () =>
+                    {
+                        SendTransientMessage(npc, unlockStatus);
+                        ShowGroupMenu(npc, group);
+                    }));
+                }
+
+                responses.Add(CreateMenuResponse("Home", () => ShowHomeMenu(npc)));
+                ShowMenuResponses(conversation, responses);
+                Logger.Debug($"Displayed Mr. Stacks submenu for {OrderedDropConfig.GetGroupName(group)}", "MrStacksMessaging");
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to show Mr. Stacks group menu: {ex.Message}", "MrStacksMessaging");
+                return;
+            }
+
             try
             {
                 var conversation = GetConversation(npc);
@@ -341,6 +423,21 @@ namespace PaxDrops.MrStacks
             }
         }
 
+        private static string GetNextUnlockStatusMessage(OrderedDropConfig.OrderedGroup group, Il2CppScheduleOne.Levelling.ERank currentRank, int currentDay)
+        {
+            List<OrderedDropConfig.OrderedTier> lockedTiers = OrderedDropConfig
+                .GetTiersForGroup(group)
+                .Where(tier => !OrderedDropConfig.IsUnlocked(tier, currentRank, currentDay))
+                .ToList();
+
+            if (lockedTiers.Count == 0)
+            {
+                return $"{OrderedDropConfig.GetGroupName(group)} is open for business.";
+            }
+
+            return OrderedDropConfig.GetLockedReason(lockedTiers[0], currentRank, currentDay);
+        }
+
         /// <summary>
         /// Save a message to conversation history (queued for next game save)
         /// </summary>
@@ -386,6 +483,30 @@ namespace PaxDrops.MrStacks
         /// </summary>
         private static void LoadConversationHistory(string saveId)
         {
+            try
+            {
+                Logger.Debug($"Loading conversation history for save ID: {saveId}", "MrStacksMessaging");
+
+                var loadedMessages = SaveFileJsonDataStore.LoadConversationMessagesForCurrentSave();
+                _conversationHistory = new ConversationHistory
+                {
+                    SaveId = saveId,
+                    ContactName = "Mr. Stacks",
+                    Messages = loadedMessages,
+                    LastSaved = loadedMessages.Count > 0 ? loadedMessages[^1].Timestamp : ""
+                };
+
+                Logger.Info($"Loaded {_conversationHistory.Messages.Count} messages from SQLite storage (Save ID: {saveId})", "MrStacksMessaging");
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to load conversation history for save ID {saveId}: {ex.Message}", "MrStacksMessaging");
+                Logger.Exception(ex, "MrStacksMessaging");
+                _conversationHistory = new ConversationHistory { SaveId = saveId };
+                return;
+            }
+
             try
             {
                 Logger.Debug($"🔍 Loading conversation history for save ID: {saveId}", "MrStacksMessaging");
@@ -480,6 +601,29 @@ namespace PaxDrops.MrStacks
         /// </summary>
         private static void SaveConversationHistory()
         {
+            try
+            {
+                var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();
+                if (!isLoaded || string.IsNullOrEmpty(saveId))
+                {
+                    Logger.Warn("No save loaded - cannot save conversation", "MrStacksMessaging");
+                    return;
+                }
+
+                List<MessageRecord> snapshot = GetConversationMessagesSnapshot();
+                SaveFileJsonDataStore.SaveConversationMessagesForCurrentSave(snapshot);
+                _conversationHistory.SaveId = saveId;
+                _conversationHistory.LastSaved = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                Logger.Debug($"Conversation history saved to SQLite ({snapshot.Count} messages, Save: {saveName}, Steam: {steamId})", "MrStacksMessaging");
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to save conversation history: {ex.Message}", "MrStacksMessaging");
+                Logger.Exception(ex, "MrStacksMessaging");
+                return;
+            }
+
             try
             {
                 var (saveId, saveName, steamId, isLoaded) = SaveFileJsonDataStore.GetCurrentSaveInfo();

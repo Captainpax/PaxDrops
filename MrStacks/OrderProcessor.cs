@@ -1,3 +1,9 @@
+/*
+@file OrderProcessor.cs
+@description Shared PaxDrops order scheduling logic for random drops and Mr. Stacks ordered tiers, including persistence-aware charge handling.
+@editCount 2
+*/
+
 using System;
 using System.Collections.Generic;
 using Il2CppScheduleOne.GameTime;
@@ -175,6 +181,14 @@ namespace PaxDrops.MrStacks
                 {
                     Logger.Error("TimeManager unavailable", "OrderProcessor");
                     if (sendMessages) SendErrorMessage("Mr. Stacks", "Service temporarily unavailable. Try again later.");
+                    return false;
+                }
+
+                var saveLoadResult = SaveFileJsonDataStore.EnsureCurrentSaveLoadedFromGame("Mr. Stacks order");
+                if (!saveLoadResult.IsLoaded)
+                {
+                    Logger.Warn($"Blocking Mr. Stacks order because save data is unavailable: {saveLoadResult.Message}", "OrderProcessor");
+                    if (sendMessages) SendSaveUnavailableMessage();
                     return false;
                 }
 
@@ -416,6 +430,23 @@ namespace PaxDrops.MrStacks
             catch (Exception ex)
             {
                 Logger.Error($"Locked tier message failed: {ex.Message}", "OrderProcessor");
+            }
+        }
+
+        private static void SendSaveUnavailableMessage()
+        {
+            try
+            {
+                var npc = MrStacksMessaging.FindMrStacksNPC();
+                if (npc == null) return;
+
+                MrStacksMessaging.SendTransientMessage(
+                    npc,
+                    "I can't pin your save file right now. No charge was placed. Save once and try again.");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Save unavailable message failed: {ex.Message}", "OrderProcessor");
             }
         }
 

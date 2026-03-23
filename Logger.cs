@@ -1,3 +1,9 @@
+/*
+@file Logger.cs
+@description Shared PaxDrops logging helper that writes MelonLoader output and file logs with level-aware exception reporting.
+@editCount 1
+*/
+
 using System;
 using System.IO;
 using MelonLoader;
@@ -120,10 +126,30 @@ namespace PaxDrops
 
         public static void Exception(Exception ex, string category = "GENERAL LOG")
         {
-            if (MinLogLevel == LogLevel.Debug) return;
-            MelonLogger.Error($"{GetLogPrefix(LogLevel.Error, category)} {ex.Message}");
-            WriteToFile($"[ERROR] {ex.Message}");
-            WriteToFile($"[ERROR] {ex.StackTrace}");
+            if (MinLogLevel > LogLevel.Error) return;
+
+            string exceptionType = ex.GetType().Name;
+            string message = $"{exceptionType}: {ex.Message}";
+            MelonLogger.Error($"{GetLogPrefix(LogLevel.Error, category)} {message}");
+            WriteToFile($"[ERROR] {message}");
+
+            if (!string.IsNullOrWhiteSpace(ex.StackTrace))
+            {
+                WriteToFile($"[ERROR] {ex.StackTrace}");
+            }
+
+            if (ex.InnerException != null)
+            {
+                string innerType = ex.InnerException.GetType().Name;
+                string innerMessage = $"Inner {innerType}: {ex.InnerException.Message}";
+                MelonLogger.Error($"{GetLogPrefix(LogLevel.Error, category)} {innerMessage}");
+                WriteToFile($"[ERROR] {innerMessage}");
+
+                if (!string.IsNullOrWhiteSpace(ex.InnerException.StackTrace))
+                {
+                    WriteToFile($"[ERROR] {ex.InnerException.StackTrace}");
+                }
+            }
         }
 
         public static void Debug(string message, string category = "GENERAL LOG")

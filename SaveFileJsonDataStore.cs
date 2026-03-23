@@ -1,3 +1,9 @@
+/*
+@file SaveFileJsonDataStore.cs
+@description Save-aware PaxDrops persistence facade that manages active-save identity, legacy JSON import, and SQLite-backed runtime state.
+@editCount 2
+*/
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -68,6 +74,8 @@ namespace PaxDrops
         private static string? _currentSaveName;
         private static SaveMetadata? _currentSaveMetadata;
         private static bool _isLoadedForSave = false;
+        private static bool _storageReady = false;
+        private static string? _lastSaveAvailabilityMessage;
         
         // In-memory state for the currently loaded save; persisted as SQLite snapshots.
         public static readonly Dictionary<int, List<DropRecord>> PendingDrops = new Dictionary<int, List<DropRecord>>();
@@ -75,22 +83,36 @@ namespace PaxDrops
         
         private static int _lastMrStacksOrderDay = -1;
 
+        internal enum SaveLoadStatus
+        {
+            Loaded,
+            AlreadyLoaded,
+            Deferred,
+            Failed
+        }
+
+        internal readonly struct SaveLoadResult
+        {
+            public SaveLoadResult(SaveLoadStatus status, string message, SaveMetadata? metadata = null)
+            {
+                Status = status;
+                Message = message;
+                Metadata = metadata;
+            }
+
+            public SaveLoadStatus Status { get; }
+            public string Message { get; }
+            public SaveMetadata? Metadata { get; }
+
+            public bool IsLoaded => Status == SaveLoadStatus.Loaded || Status == SaveLoadStatus.AlreadyLoaded;
+        }
+
         /// <summary>
         /// Initialize the save file-aware data store (called once at startup)
         /// </summary>
-        public static void Init()
+        public static bool Init()
         {
-            try
-            {
-                SaveFileSqliteBackend.Initialize();
-                Directory.CreateDirectory(BaseDataDir);
-                Logger.Info("✅ Initialized enhanced save file-aware data store with Steam ID support", "SaveFileJsonDataStore");
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("❌ Failed to initialize save file data store.", "SaveFileJsonDataStore");
-                Logger.Exception(ex, "SaveFileJsonDataStore");
-            }
+            return EnsureStorageReady("startup");
         }
 
         /// <summary>
@@ -98,6 +120,9 @@ namespace PaxDrops
         /// </summary>
         public static void LoadForSaveFile(string savePath, string saveName)
         {
+            _ = EnsureCurrentSaveLoaded(savePath, saveName, "main scene entry");
+            return;
+
             try
             {
                 Logger.Debug($"📂 Loading data for save: {saveName}", "SaveFileJsonDataStore");
@@ -158,6 +183,28 @@ namespace PaxDrops
         {
             try
             {
+                if (!_isLoadedForSave && _currentSaveMetadata == null)
+                {
+                    Logger.Debug("No save data loaded to unload", "SaveFileJsonDataStore");
+                    return;
+                }
+
+                Logger.Debug($"Unloading data for save: {_currentSaveName ?? "unknown"}", "SaveFileJsonDataStore");
+                PaxDrops.MrStacks.MrStacksMessaging.UnloadConversationForCurrentSave();
+                ResetCurrentSaveState();
+                _lastSaveAvailabilityMessage = "No active save loaded.";
+                Logger.Debug("Save data and conversation unloaded", "SaveFileJsonDataStore");
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Failed to unload save data", "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
+                return;
+            }
+
+            try
+            {
                 if (!_isLoadedForSave)
                 {
                     Logger.Debug("ℹ️ No save data loaded to unload", "SaveFileJsonDataStore");
@@ -191,6 +238,31 @@ namespace PaxDrops
         /// </summary>
         public static void SaveForCurrentSaveFile(string savePath, string saveName)
         {
+            try
+            {
+                var loadResult = EnsureCurrentSaveLoaded(savePath, saveName, "game save");
+                if (!loadResult.IsLoaded || _currentSaveMetadata == null)
+                {
+                    Logger.Warn(
+                        $"Skipping PaxDrops save because the active save is unavailable: {loadResult.Message}",
+                        "SaveFileJsonDataStore");
+                    return;
+                }
+
+                _currentSaveMetadata.LastAccessed = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                SaveDataForCurrentSave(MrStacksMessaging.GetConversationMessagesSnapshot());
+                Logger.Debug(
+                    $"Saved PaxDrops data for: {_currentSaveMetadata.SaveName} (Steam: {_currentSaveMetadata.SteamId}, ID: {_currentSaveMetadata.SaveId})",
+                    "SaveFileJsonDataStore");
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Failed to save data for current save file", "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
+                return;
+            }
+
             try
             {
                 if (!_isLoadedForSave)
@@ -238,6 +310,506 @@ namespace PaxDrops
         /// <summary>
         /// Generate enhanced save metadata including Steam ID, organization name, and start date
         /// </summary>
+        internal static string GetLastSaveAvailabilityMessage()
+        {
+            return _lastSaveAvailabilityMessage ?? "PaxDrops save state is waiting for the active game save.";
+        }
+
+        internal static SaveLoadResult EnsureCurrentSaveLoadedFromGame(string context)
+        {
+            try
+            {
+                var saveManager = SaveManager.Instance;
+                string savePath = saveManager?.PlayersSavePath ?? _currentSavePath ?? "";
+                string saveName = saveManager?.SaveName ?? _currentSaveName ?? "";
+
+                if (string.IsNullOrWhiteSpace(savePath))
+                {
+                    savePath = Patches.SaveSystemPatch.GetLastCapturedSavePath() ?? "";
+                }
+
+                if (string.IsNullOrWhiteSpace(saveName))
+                {
+                    if (_isLoadedForSave && _currentSaveMetadata != null)
+                    {
+                        string readyMessage = $"Active save already loaded for {_currentSaveMetadata.SaveName}.";
+                        _lastSaveAvailabilityMessage = readyMessage;
+                        return new SaveLoadResult(SaveLoadStatus.AlreadyLoaded, readyMessage, _currentSaveMetadata);
+                    }
+
+                    string message = $"Waiting for the active save name before {context}.";
+                    _lastSaveAvailabilityMessage = message;
+                    Logger.Warn(message, "SaveFileJsonDataStore");
+                    return new SaveLoadResult(SaveLoadStatus.Deferred, message);
+                }
+
+                return EnsureCurrentSaveLoaded(savePath, saveName, context);
+            }
+            catch (Exception ex)
+            {
+                string message = $"Failed to inspect the active game save during {context}: {ex.Message}";
+                _lastSaveAvailabilityMessage = message;
+                Logger.Error(message, "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
+                return new SaveLoadResult(SaveLoadStatus.Failed, message);
+            }
+        }
+
+        internal static SaveLoadResult EnsureCurrentSaveLoaded(string savePath, string saveName, string context)
+        {
+            if (!EnsureStorageReady(context))
+            {
+                return new SaveLoadResult(
+                    SaveLoadStatus.Failed,
+                    _lastSaveAvailabilityMessage ?? $"PaxDrops storage is unavailable during {context}.");
+            }
+
+            if (string.IsNullOrWhiteSpace(saveName))
+            {
+                string message = $"Waiting for the active save name before {context}.";
+                _lastSaveAvailabilityMessage = message;
+                Logger.Warn(message, "SaveFileJsonDataStore");
+                return new SaveLoadResult(SaveLoadStatus.Deferred, message);
+            }
+
+            string resolvedSavePath = GetBestAvailableSavePath(savePath);
+            var saveMetadata = GenerateSaveMetadata(resolvedSavePath, saveName);
+
+            Logger.Debug($"Loading save for {context}: {saveName}", "SaveFileJsonDataStore");
+            Logger.Debug($"   Requested path: '{savePath}'", "SaveFileJsonDataStore");
+            Logger.Debug($"   Resolved path: '{resolvedSavePath}'", "SaveFileJsonDataStore");
+            Logger.Debug($"   Steam ID: '{saveMetadata.SteamId}'", "SaveFileJsonDataStore");
+            Logger.Debug($"   Save ID: '{saveMetadata.SaveId}'", "SaveFileJsonDataStore");
+
+            if (_isLoadedForSave &&
+                _currentSaveMetadata != null &&
+                _currentSaveId == saveMetadata.SaveId &&
+                _currentSteamId == saveMetadata.SteamId)
+            {
+                RefreshCurrentSaveContext(saveMetadata);
+                string alreadyLoadedMessage = $"Active save ready for {saveName}.";
+                _lastSaveAvailabilityMessage = alreadyLoadedMessage;
+                Logger.Debug(alreadyLoadedMessage, "SaveFileJsonDataStore");
+                return new SaveLoadResult(SaveLoadStatus.AlreadyLoaded, alreadyLoadedMessage, _currentSaveMetadata);
+            }
+
+            try
+            {
+                if (_isLoadedForSave)
+                {
+                    PaxDrops.MrStacks.MrStacksMessaging.UnloadConversationForCurrentSave();
+                }
+
+                ResetCurrentSaveState();
+
+                string saveDirectory = GetSaveDirectory(saveMetadata);
+                string databasePath = SaveFileSqliteBackend.GetDatabasePath(saveDirectory);
+
+                EnsureSnapshotAvailable(saveMetadata, saveDirectory, databasePath);
+                var snapshot = SaveFileSqliteBackend.LoadSnapshot(databasePath);
+                ApplyLoadedSnapshot(saveMetadata, snapshot, resolvedSavePath);
+
+                PaxDrops.MrStacks.MrStacksMessaging.LoadConversationForCurrentSave();
+
+                string successMessage = $"Active save ready for {saveName} (Steam: {saveMetadata.SteamId}, ID: {saveMetadata.SaveId}).";
+                _lastSaveAvailabilityMessage = successMessage;
+                Logger.Info(successMessage, "SaveFileJsonDataStore");
+                return new SaveLoadResult(SaveLoadStatus.Loaded, successMessage, _currentSaveMetadata);
+            }
+            catch (Exception ex)
+            {
+                string failureMessage = $"Failed to load PaxDrops data for {saveName} during {context}: {ex.Message}";
+
+                try
+                {
+                    PaxDrops.MrStacks.MrStacksMessaging.UnloadConversationForCurrentSave();
+                }
+                catch
+                {
+                    // Best-effort cleanup only.
+                }
+
+                ResetCurrentSaveState();
+                _lastSaveAvailabilityMessage = failureMessage;
+                Logger.Error(failureMessage, "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
+                return new SaveLoadResult(SaveLoadStatus.Failed, failureMessage);
+            }
+        }
+
+        private static bool EnsureStorageReady(string context)
+        {
+            if (_storageReady)
+            {
+                return true;
+            }
+
+            try
+            {
+                SaveFileSqliteBackend.Initialize();
+                Directory.CreateDirectory(BaseDataDir);
+                _storageReady = true;
+                _lastSaveAvailabilityMessage = "PaxDrops storage is ready.";
+                Logger.Info($"Initialized save storage for {context}", "SaveFileJsonDataStore");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _storageReady = false;
+                _lastSaveAvailabilityMessage = $"PaxDrops storage is unavailable during {context}: {ex.Message}";
+                Logger.Error(_lastSaveAvailabilityMessage, "SaveFileJsonDataStore");
+                Logger.Exception(ex, "SaveFileJsonDataStore");
+                return false;
+            }
+        }
+
+        private static void ResetCurrentSaveState()
+        {
+            ClearCurrentData();
+            _currentSaveId = null;
+            _currentSteamId = null;
+            _currentSavePath = null;
+            _currentSaveName = null;
+            _currentSaveMetadata = null;
+            _isLoadedForSave = false;
+        }
+
+        private static void RefreshCurrentSaveContext(SaveMetadata updatedMetadata)
+        {
+            _currentSaveName = updatedMetadata.SaveName;
+
+            if (ShouldUseCandidateSavePath(_currentSavePath, updatedMetadata.SavePath))
+            {
+                _currentSavePath = updatedMetadata.SavePath;
+            }
+
+            if (_currentSaveMetadata == null)
+            {
+                _currentSaveMetadata = CloneMetadata(updatedMetadata);
+            }
+            else
+            {
+                _currentSaveMetadata.SaveName = updatedMetadata.SaveName;
+                _currentSaveMetadata.LastAccessed = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                if (ShouldUseCandidateSavePath(_currentSaveMetadata.SavePath, updatedMetadata.SavePath))
+                {
+                    _currentSaveMetadata.SavePath = updatedMetadata.SavePath;
+                }
+
+                if (ShouldPreferLoadedMetadataValue(_currentSaveMetadata.OrganizationName) &&
+                    !string.IsNullOrWhiteSpace(updatedMetadata.OrganizationName))
+                {
+                    _currentSaveMetadata.OrganizationName = updatedMetadata.OrganizationName;
+                }
+
+                if (ShouldPreferLoadedMetadataValue(_currentSaveMetadata.StartDate) &&
+                    !string.IsNullOrWhiteSpace(updatedMetadata.StartDate))
+                {
+                    _currentSaveMetadata.StartDate = updatedMetadata.StartDate;
+                }
+            }
+        }
+
+        private static void ApplyLoadedSnapshot(SaveMetadata requestedMetadata, SaveFileSqliteBackend.Snapshot snapshot, string resolvedSavePath)
+        {
+            ClearCurrentData();
+
+            _currentSaveMetadata = CloneMetadata(requestedMetadata);
+            _currentSaveMetadata.SavePath = resolvedSavePath;
+            _currentSaveMetadata.LastAccessed = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+            _currentSaveId = _currentSaveMetadata.SaveId;
+            _currentSteamId = _currentSaveMetadata.SteamId;
+            _currentSavePath = _currentSaveMetadata.SavePath;
+            _currentSaveName = _currentSaveMetadata.SaveName;
+
+            MergeLoadedMetadata(snapshot.Metadata);
+
+            foreach (var kvp in snapshot.PendingDrops)
+            {
+                PendingDrops[kvp.Key] = kvp.Value;
+            }
+
+            foreach (var kvp in snapshot.MrStacksOrdersToday)
+            {
+                MrStacksOrdersToday[kvp.Key] = kvp.Value;
+            }
+
+            _lastMrStacksOrderDay = snapshot.LastMrStacksOrderDay;
+            _isLoadedForSave = true;
+
+            Logger.Debug(
+                $"Loaded {PendingDrops.Values.Sum(list => list.Count)} drops, {MrStacksOrdersToday.Count} order records, and {snapshot.ConversationMessages.Count} messages",
+                "SaveFileJsonDataStore");
+        }
+
+        private static void EnsureSnapshotAvailable(SaveMetadata saveMetadata, string saveDirectory, string databasePath)
+        {
+            Directory.CreateDirectory(saveDirectory);
+
+            if (SaveFileSqliteBackend.DatabaseExists(saveDirectory))
+            {
+                return;
+            }
+
+            if (!HasLegacyJsonFiles(saveDirectory))
+            {
+                SaveFileSqliteBackend.EnsureDatabase(databasePath);
+                return;
+            }
+
+            ImportLegacySnapshot(saveMetadata, saveDirectory, databasePath);
+        }
+
+        private static void ImportLegacySnapshot(SaveMetadata saveMetadata, string saveDirectory, string databasePath)
+        {
+            SaveMetadata? legacyMetadata = LoadLegacyMetadata(Path.Combine(saveDirectory, "metadata.json"));
+            Dictionary<int, List<DropRecord>> pendingDrops = LoadLegacyDrops(Path.Combine(saveDirectory, "drops.json"));
+            (Dictionary<int, int> ordersToday, int lastMrStacksOrderDay) = LoadLegacyOrders(Path.Combine(saveDirectory, "orders.json"));
+            List<MrStacksMessaging.MessageRecord> conversationMessages = LoadLegacyConversationMessages(Path.Combine(saveDirectory, "conversation.json"));
+            SaveMetadata importedMetadata = BuildImportedMetadata(saveMetadata, legacyMetadata);
+
+            SaveFileSqliteBackend.SaveSnapshot(
+                databasePath,
+                importedMetadata,
+                lastMrStacksOrderDay,
+                pendingDrops,
+                ordersToday,
+                conversationMessages);
+
+            Logger.Info(
+                $"Imported legacy JSON into SQLite for {saveMetadata.SaveName}: {pendingDrops.Values.Sum(list => list.Count)} drops, {ordersToday.Count} order days, {conversationMessages.Count} messages.",
+                "SaveFileJsonDataStore");
+        }
+
+        private static SaveMetadata? LoadLegacyMetadata(string metadataPath)
+        {
+            if (!File.Exists(metadataPath))
+            {
+                return null;
+            }
+
+            string json = File.ReadAllText(metadataPath);
+            return JsonConvert.DeserializeObject<SaveMetadata>(json);
+        }
+
+        private static Dictionary<int, List<DropRecord>> LoadLegacyDrops(string dropsPath)
+        {
+            if (!File.Exists(dropsPath))
+            {
+                return new Dictionary<int, List<DropRecord>>();
+            }
+
+            string json = File.ReadAllText(dropsPath);
+            return JsonConvert.DeserializeObject<Dictionary<int, List<DropRecord>>>(json)
+                   ?? new Dictionary<int, List<DropRecord>>();
+        }
+
+        private static (Dictionary<int, int> ordersToday, int lastMrStacksOrderDay) LoadLegacyOrders(string ordersPath)
+        {
+            var ordersToday = new Dictionary<int, int>();
+            int lastMrStacksOrderDay = -1;
+
+            if (!File.Exists(ordersPath))
+            {
+                return (ordersToday, lastMrStacksOrderDay);
+            }
+
+            string json = File.ReadAllText(ordersPath);
+            var root = JsonConvert.DeserializeObject<Newtonsoft.Json.Linq.JObject>(json);
+            if (root == null)
+            {
+                return (ordersToday, lastMrStacksOrderDay);
+            }
+
+            if (root.TryGetValue("MrStacksOrdersToday", StringComparison.OrdinalIgnoreCase, out Newtonsoft.Json.Linq.JToken? ordersToken) &&
+                ordersToken is Newtonsoft.Json.Linq.JObject ordersObject)
+            {
+                foreach (var property in ordersObject.Properties())
+                {
+                    if (int.TryParse(property.Name, out int day) &&
+                        int.TryParse(property.Value?.ToString(), out int count))
+                    {
+                        ordersToday[day] = count;
+                    }
+                }
+            }
+
+            if (root.TryGetValue("LastMrStacksOrderDay", StringComparison.OrdinalIgnoreCase, out Newtonsoft.Json.Linq.JToken? lastDayToken) &&
+                int.TryParse(lastDayToken?.ToString(), out int parsedDay))
+            {
+                lastMrStacksOrderDay = parsedDay;
+            }
+
+            return (ordersToday, lastMrStacksOrderDay);
+        }
+
+        private static List<MrStacksMessaging.MessageRecord> LoadLegacyConversationMessages(string conversationPath)
+        {
+            if (!File.Exists(conversationPath))
+            {
+                return new List<MrStacksMessaging.MessageRecord>();
+            }
+
+            string json = File.ReadAllText(conversationPath);
+            var history = JsonConvert.DeserializeObject<MrStacksMessaging.ConversationHistory>(json);
+            if (history?.Messages == null)
+            {
+                return new List<MrStacksMessaging.MessageRecord>();
+            }
+
+            return history.Messages
+                .Where(message => message != null)
+                .Select(message => new MrStacksMessaging.MessageRecord
+                {
+                    Text = message.Text,
+                    Timestamp = message.Timestamp,
+                    GameDay = message.GameDay,
+                    GameTime = message.GameTime,
+                    IsFromPlayer = message.IsFromPlayer,
+                    MessageId = message.MessageId
+                })
+                .ToList();
+        }
+
+        private static SaveMetadata BuildImportedMetadata(SaveMetadata currentMetadata, SaveMetadata? legacyMetadata)
+        {
+            SaveMetadata mergedMetadata = CloneMetadata(currentMetadata);
+
+            if (legacyMetadata == null)
+            {
+                return mergedMetadata;
+            }
+
+            if (ShouldPreferLoadedMetadataValue(mergedMetadata.OrganizationName) &&
+                !string.IsNullOrWhiteSpace(legacyMetadata.OrganizationName))
+            {
+                mergedMetadata.OrganizationName = legacyMetadata.OrganizationName;
+            }
+
+            if (ShouldPreferLoadedMetadataValue(mergedMetadata.StartDate) &&
+                !string.IsNullOrWhiteSpace(legacyMetadata.StartDate))
+            {
+                mergedMetadata.StartDate = legacyMetadata.StartDate;
+            }
+
+            if (!string.IsNullOrWhiteSpace(legacyMetadata.CreationTimestamp))
+            {
+                mergedMetadata.CreationTimestamp = legacyMetadata.CreationTimestamp;
+            }
+
+            if (ShouldUseCandidateSavePath(mergedMetadata.SavePath, legacyMetadata.SavePath))
+            {
+                mergedMetadata.SavePath = legacyMetadata.SavePath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(legacyMetadata.LastAccessed))
+            {
+                mergedMetadata.LastAccessed = legacyMetadata.LastAccessed;
+            }
+
+            return mergedMetadata;
+        }
+
+        private static SaveMetadata CloneMetadata(SaveMetadata metadata)
+        {
+            return new SaveMetadata
+            {
+                SaveId = metadata.SaveId,
+                SteamId = metadata.SteamId,
+                OrganizationName = metadata.OrganizationName,
+                SaveName = metadata.SaveName,
+                SavePath = metadata.SavePath,
+                StartDate = metadata.StartDate,
+                CreationTimestamp = metadata.CreationTimestamp,
+                LastAccessed = metadata.LastAccessed
+            };
+        }
+
+        private static bool HasLegacyJsonFiles(string saveDirectory)
+        {
+            return File.Exists(Path.Combine(saveDirectory, "drops.json")) ||
+                   File.Exists(Path.Combine(saveDirectory, "orders.json")) ||
+                   File.Exists(Path.Combine(saveDirectory, "conversation.json")) ||
+                   File.Exists(Path.Combine(saveDirectory, "metadata.json"));
+        }
+
+        private static string GetBestAvailableSavePath(string savePath)
+        {
+            string bestPath = savePath ?? "";
+
+            string? managerPath = SaveManager.Instance?.PlayersSavePath;
+            if (ShouldUseCandidateSavePath(bestPath, managerPath) && PathsShareSaveRoot(bestPath, managerPath))
+            {
+                bestPath = managerPath ?? bestPath;
+            }
+
+            string? capturedPath = Patches.SaveSystemPatch.GetLastCapturedSavePath();
+            if (ShouldUseCandidateSavePath(bestPath, capturedPath) && PathsShareSaveRoot(bestPath, capturedPath))
+            {
+                bestPath = capturedPath ?? bestPath;
+            }
+
+            if (string.IsNullOrWhiteSpace(bestPath))
+            {
+                bestPath = _currentSavePath ?? "";
+            }
+
+            return bestPath;
+        }
+
+        private static bool PathsShareSaveRoot(string currentPath, string? candidatePath)
+        {
+            if (string.IsNullOrWhiteSpace(currentPath) || string.IsNullOrWhiteSpace(candidatePath))
+            {
+                return true;
+            }
+
+            return string.Equals(
+                NormalizePath(currentPath),
+                NormalizePath(candidatePath),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool ShouldUseCandidateSavePath(string? currentPath, string? candidatePath)
+        {
+            if (string.IsNullOrWhiteSpace(candidatePath))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(currentPath))
+            {
+                return true;
+            }
+
+            return GetSavePathSpecificity(candidatePath) > GetSavePathSpecificity(currentPath);
+        }
+
+        private static int GetSavePathSpecificity(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return 0;
+            }
+
+            string normalized = path.Replace('\\', '/').Trim('/');
+            int score = normalized.Length == 0 ? 0 : normalized.Split('/').Length;
+            if (Regex.IsMatch(normalized, @"(^|/)\d{17}($|/)"))
+            {
+                score += 10;
+            }
+
+            return score;
+        }
+
+        private static string GetSaveDirectory(SaveMetadata metadata)
+        {
+            string steamUserDir = Path.Combine(BaseDataDir, metadata.SteamId);
+            return Path.Combine(steamUserDir, metadata.SaveId);
+        }
+
         private static SaveMetadata GenerateSaveMetadata(string? savePath, string? saveName)
         {
             if (savePath == null || saveName == null)
@@ -1232,8 +1804,12 @@ namespace PaxDrops
         {
             if (!_isLoadedForSave)
             {
-                Logger.Warn("⚠️ No save loaded - cannot save drop", "SaveFileJsonDataStore");
-                return;
+                var loadResult = EnsureCurrentSaveLoadedFromGame("drop queue");
+                if (!loadResult.IsLoaded)
+                {
+                    Logger.Warn($"No save loaded - cannot save drop: {loadResult.Message}", "SaveFileJsonDataStore");
+                    return;
+                }
             }
 
             var record = new DropRecord
@@ -1265,8 +1841,12 @@ namespace PaxDrops
         {
             if (!_isLoadedForSave)
             {
-                Logger.Warn("⚠️ No save loaded - cannot save drop record", "SaveFileJsonDataStore");
-                return false;
+                var loadResult = EnsureCurrentSaveLoadedFromGame("drop record queue");
+                if (!loadResult.IsLoaded)
+                {
+                    Logger.Warn($"No save loaded - cannot save drop record: {loadResult.Message}", "SaveFileJsonDataStore");
+                    return false;
+                }
             }
 
             if (!PendingDrops.ContainsKey(record.Day))

@@ -1,7 +1,7 @@
 <!--
 @file README_SAVE_SYSTEM.md
 @description Save persistence guide for PaxDrops covering the SQLite-backed per-save storage layout, schema, and lifecycle.
-@editCount 1
+@editCount 2
 -->
 
 # PaxDrops Save Persistence
@@ -27,7 +27,7 @@ Runtime behavior stays the same:
 - A full snapshot is written only when the game saves.
 - Data unloads when leaving the save.
 
-Legacy JSON files are not imported, read, modified, or deleted.
+If a save folder contains legacy `drops.json`, `orders.json`, `conversation.json`, or `metadata.json` and does not yet have `paxdrops.db`, PaxDrops performs a one-time import into SQLite on the first successful load. The legacy JSON files stay on disk for safety after import, but runtime reads and writes continue through SQLite only.
 
 ## Storage Model
 
@@ -66,8 +66,9 @@ Schema versioning uses `PRAGMA user_version`.
 ### On Save Load
 
 1. `SaveFileJsonDataStore.LoadForSaveFile(...)` resolves Steam/save identity.
-2. The per-save database is created if needed.
-3. The current snapshot is loaded into memory.
+2. If `paxdrops.db` does not exist yet, any legacy JSON snapshot in that save folder is imported once into SQLite.
+3. The per-save database is created if needed.
+4. The current snapshot is loaded into memory.
 
 ### On Game Save
 

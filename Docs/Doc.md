@@ -1,7 +1,7 @@
 <!--
 @file Docs/Doc.md
 @description Architecture and runtime flow note for PaxDrops, covering save-aware persistence, messaging, and the active storage path.
-@editCount 1
+@editCount 2
 -->
 
 # PaxDrops Architecture
@@ -22,7 +22,7 @@ PaxDrops adds scheduled dead drops and Mr. Stacks ordering to Schedule I.
 - Drops are scheduled and restored per save.
 - Mr. Stacks order counts persist per save.
 - Mr. Stacks conversation history persists per save.
-- Persistence is SQLite-backed, not JSON-backed.
+- Persistence is SQLite-backed, with one-time import support for legacy JSON save folders.
 
 ## Core Persistence Pieces
 
@@ -33,6 +33,7 @@ Public facade used by the rest of the mod.
 - Tracks the currently loaded save.
 - Keeps drops, order counts, and metadata in memory.
 - Loads state on save entry.
+- Imports legacy JSON into SQLite once when a save has not been migrated yet.
 - Writes one full snapshot when the game saves.
 - Exposes debug and analysis helpers used by console commands.
 
@@ -64,13 +65,14 @@ Hooks into the game's save flow so PaxDrops writes only when the game itself sav
 
 1. `InitMain` initializes core systems.
 2. `SaveFileJsonDataStore` resolves the current save identity.
-3. `SaveFileSqliteBackend` opens or creates `paxdrops.db`.
-4. Cached drops, orders, metadata, and conversation history are loaded.
+3. `SaveFileJsonDataStore` imports legacy JSON once if the save has not been migrated yet.
+4. `SaveFileSqliteBackend` opens or creates `paxdrops.db`.
+5. Cached drops, orders, metadata, and conversation history are loaded.
 
 ### During Play
 
 1. Gameplay systems mutate in-memory state only.
-2. No JSON gameplay files are written.
+2. No JSON gameplay files are written after import; runtime persistence stays on SQLite.
 3. Mr. Stacks messages are queued in memory until the next save.
 
 ### On Game Save

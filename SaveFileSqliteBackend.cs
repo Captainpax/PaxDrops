@@ -1,3 +1,9 @@
+/*
+@file SaveFileSqliteBackend.cs
+@description Internal SQLite backend for PaxDrops save snapshots, including schema setup, runtime validation, and save-folder inspection.
+@editCount 1
+*/
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -50,8 +56,21 @@ namespace PaxDrops
                 return;
             }
 
-            Batteries_V2.Init();
+            try
+            {
+                Batteries_V2.Init();
+            }
+            catch (Exception batteryEx)
+            {
+                Logger.Warn(
+                    $"SQLite batteries init failed: {batteryEx.Message}. Retrying with direct e_sqlite3 provider setup.",
+                    "SaveFileSqliteBackend");
+                raw.SetProvider(new SQLite3Provider_e_sqlite3());
+            }
+
+            VerifyRuntime();
             _initialized = true;
+            Logger.Debug("SQLite backend initialized and runtime probe succeeded", "SaveFileSqliteBackend");
         }
 
         internal static string GetDatabaseFileName()
@@ -62,6 +81,11 @@ namespace PaxDrops
         internal static string GetDatabasePath(string saveDirectoryPath)
         {
             return Path.Combine(saveDirectoryPath, DatabaseFileName);
+        }
+
+        internal static bool DatabaseExists(string saveDirectoryPath)
+        {
+            return File.Exists(GetDatabasePath(saveDirectoryPath));
         }
 
         internal static void EnsureDatabase(string dbPath)
@@ -228,6 +252,16 @@ namespace PaxDrops
             pragma.ExecuteNonQuery();
 
             return connection;
+        }
+
+        private static void VerifyRuntime()
+        {
+            using var connection = new SqliteConnection("Data Source=:memory:");
+            connection.Open();
+
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT sqlite_version();";
+            _ = command.ExecuteScalar();
         }
 
         private static void ApplySchema(SqliteConnection connection)

@@ -1,3 +1,9 @@
+/*
+@file InitMain.cs
+@description PaxDrops mod entry point that initializes scene systems, coordinates save detection, and reports lifecycle status.
+@editCount 2
+*/
+
 using UnityEngine;
 using MelonLoader;
 using PaxDrops.MrStacks;
@@ -202,7 +208,7 @@ namespace PaxDrops
             try
             {
                 // Core data systems (no player dependency)
-                SaveFileJsonDataStore.Init();  // 💾 Save-file-aware JSON persistence
+                bool storageReady = SaveFileJsonDataStore.Init();  // 💾 Save-file-aware JSON persistence
                 SaveSystemPatch.Init();        // 🎣 Save system integration
                 
                 // Core game systems (no player dependency)
@@ -213,6 +219,11 @@ namespace PaxDrops
                 // Console/debugging (disabled for now)
                 // CommandHandler.Init();     // 🎮 Console command system
                 
+                if (!storageReady)
+                {
+                    Logger.Warn(SaveFileJsonDataStore.GetLastSaveAvailabilityMessage(), "InitMain");
+                }
+
                 Logger.Info("✅ Core systems initialized successfully!", "InitMain");
             }
             catch (System.Exception ex)
@@ -396,6 +407,31 @@ namespace PaxDrops
         /// </summary>
         private static void TryLoadSaveFileData()
         {
+            try
+            {
+                var loadResult = SaveFileJsonDataStore.EnsureCurrentSaveLoadedFromGame("main scene entry");
+                if (loadResult.IsLoaded)
+                {
+                    Logger.Info(loadResult.Message, "InitMain");
+                }
+                else if (loadResult.Status == SaveFileJsonDataStore.SaveLoadStatus.Deferred)
+                {
+                    Logger.Warn(loadResult.Message, "InitMain");
+                }
+                else
+                {
+                    Logger.Error(loadResult.Message, "InitMain");
+                }
+
+                return;
+            }
+            catch (System.Exception ex)
+            {
+                Logger.Error($"Failed to load save file data: {ex.Message}", "InitMain");
+                Logger.Exception(ex, "InitMain");
+                return;
+            }
+
             try
             {
                 // Get the save manager to identify which save we're in
